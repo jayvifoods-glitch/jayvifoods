@@ -1,497 +1,950 @@
+<!-- ========================= -->
+<!-- FILE: index.html -->
+<!-- ========================= -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Jayvi Foods</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Jayvi Foods</title>
 
-  <link rel="icon" href="logo.svg">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css"/>
 
-  <style>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  /* ============================
-   🔧 CONFIGURATION PANEL
-  ============================ */
-  :root {
-    --gold: #FFD700;
-    --red-dark: #7a0c0c;
-    --black: #000;
-    --card-bg: #111;
-    --text-white: #fff;
-
-    --section-padding: 40px;
-    --card-padding: 15px;
-    --card-radius: 12px;
-    --btn-padding: 10px 20px;
-
-    --hero-img-size: 420px;
-    --product-img-radius: 10px;
-    --animation-speed: 0.6s;
-    --hover-scale: 1.05;
-  }
-
-  /* ============================
-   BASE
-  ============================ */
-  body {
-    margin:0;
-    font-family: Arial;
-    background: var(--black);
-    color: var(--text-white);
-  }
-
-  /* ============================
-   NAVBAR
-  ============================ */
-  .nav {
-    background: var(--gold);
-    display:flex;
-    align-items:center;
-    padding:10px 80px;
-    position:sticky;
-    top:0;
-    z-index:1000;
-  }
-
-  .logo { width:150px; }
-
-  .nav-center {
-    flex:1;
-    text-align:center;
-  }
-
-  .nav-center a {
-    margin:0 15px;
-    text-decoration:none;
-    color:black;
-    font-weight:bold;
-    font-size:18px;
-  }
-
-  /* ============================
-   HERO
-  ============================ */
-  .hero {
-    background: linear-gradient(var(--red-dark), var(--black));
-    color:white;
-    padding:40px 20px;
-    position:relative;
-  }
-
-  .hero-text {
-    text-align:center;
-    max-width:700px;
-    margin:auto;
-    animation:fadeUp var(--animation-speed);
-  }
-
-  .hero-img {
-    position:absolute;
-    right:0;
-    bottom:0;
-  }
-
-  .hero-img img {
-    width:var(--hero-img-size);
-    max-width:40vw;
-    filter: drop-shadow(0 0 20px rgba(255,215,0,0.4));
-    animation:fadeIn var(--animation-speed);
-  }
-
-  /* ============================
-   BUTTON
-  ============================ */
-  .btn {
-    background: var(--gold);
-    color:black;
-    padding: var(--btn-padding);
-    border-radius:8px;
-    text-decoration:none;
-    font-weight:bold;
-    display:inline-block;
-    margin-top:10px;
-    transition:var(--animation-speed);
-  }
-
-  .btn:hover {
-    transform:scale(var(--hover-scale));
-  }
-
-  /* ============================
-   SECTION
-  ============================ */
-  .section {
-    padding: var(--section-padding) 20px;
-    text-align:center;
-    background: var(--black);
-  }
-
-  h2 {
-    color:var(--gold);
-  }
-
-  /* ============================
-   PRODUCTS
-  ============================ */
-  .products {
-    display:flex;
-    flex-wrap:wrap;
-    justify-content:center;
-    overflow:hidden;
-    white-space: nowrap;
-    position:relative;
-  }
-
-  .products-track {
-    display:flex;
-    animation:scroll 20s linear infinite;
-  }
-
-  .products-track:hover {
-    animation-play-state: paused;
-  }
-
-  .card {
-    min-width:250px;
-    margin:0 15px;
-    padding: 15px;
-    background: var(--card-bg);
-    border-radius: var(--card-radius);
-    box-shadow: 0 4px 12px rgba(255,215,0,0.1);
-    transition: var(--animation-speed);
-  }
-
-  .card:hover {
-    transform: translateY(-8px) scale(var(--hover-scale));
-  }
-
-  .card img {
-    width:100%;
-    border-radius: var(--product-img-radius);
-  }
-
-  .card h3 {
-    color: var(--gold);
-  }
-
-  /* ============================
-   PACKAGING
-  ============================ */
-  .packaging {
-    display:flex;
-    flex-wrap:wrap;
-    justify-content:center;
-    gap:25px;
-    margin-top:20px;
-  }
-
-  .packaging img {
-    width:240px;
-    border-radius:10px;
-    transition: var(--animation-speed);
-  }
-
-  .packaging img:hover {
-    transform: scale(var(--hover-scale));
-  }
-
-  /* ============================
-   ANIMATIONS
-  ============================ */
-  @keyframes fadeUp {
-    from { opacity:0; transform: translateY(30px); }
-    to { opacity:1; transform: translateY(0); }
-  }
-
-  @keyframes fadeIn {
-    from { opacity:0; }
-    to { opacity:1; }
-  }
-
-  @keyframes scroll {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-50%); }
-  }
-
-  /* ============================
-   FLOATING WHATSAPP
-  ============================ */
-  .whatsapp-float {
-    position:fixed;
-    bottom:20px;
-    right:20px;
-    background:#25D366;
-    color:white;
-    padding:14px;
-    border-radius:50%;
-    font-size:22px;
-    text-decoration:none;
-    box-shadow:0 4px 12px rgba(0,0,0,0.3);
-  }
-
-  /* ============================
-   MOBILE
-  ============================ */
-  @media(max-width:768px){
-
-    .hero-img {
-      position:static;
-      text-align:center;
-      margin-top:20px;
-    }
-
-    .hero-img img {
-      width:220px;
-    }
-
-    .nav-center a {
-      display:inline-block;
-      margin:5px;
-      font-size:16px;
-    }
-
-  }
-
-  </style>
+    <!-- Font Awesome -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
 </head>
-
 <body>
 
-<!-- NAV -->
-<div class="nav">
-  <img src="logo.svg" class="logo">
+<!-- ========================= -->
+<!-- NAVBAR -->
+<!-- ========================= -->
 
-  <div class="nav-center">
-    <a href="#home">HOME</a>
-    <a href="#products">PRODUCTS</a>
-    <a href="#story">OUR STORY</a>
-    <a href="#contact">CONTACT</a>
-  </div>
-</div>
+<header class="navbar" id="home">
 
-<!-- HERO -->
-<div class="hero" id="home">
+    <div class="container nav-container">
 
-  <div class="hero-text">
-    <h1 style="font-size:5vw;">Jayvi's</h1>
-    <h2>🌿 Authentic Homemade Foods 🌿</h2>
-    <p>Traditional Taste • No Preservatives • Pure Ingredients</p>
+        <!-- LOGO -->
+        <div class="logo-section">
 
-    <a class="btn" href="https://wa.me/918861981003">
-      Order on WhatsApp
-    </a>
-  </div>
+            <img src="images/logo.svg"
+                 alt="Jayvi Foods"
+                 class="logo">
 
-  <div class="hero-img">
-    <img src="Veeragase image.svg">
-  </div>
+        </div>
 
-</div>
+        <!-- NAVIGATION -->
+        <nav class="nav-links">
 
-<!-- PRODUCTS -->
-<div class="section" id="products">
-  <h2>Our Products</h2>
+            <a href="#home" class="active">Home</a>
+            <a href="#products">Products</a>
+            <a href="#story">Our Story</a>
+            <a href="#process">Process</a>
+            <a href="#reviews">Testimonials</a>
+            <a href="#contact">Contact</a>
 
-  <div class="products">
-    <div class="products-track">
-      <div class="card">
-        <img src="peanut.svg">
-        <h3>Peanut Chutney</h3>
-        <p>Spicy, rich and traditional taste</p>
-        <a class="btn" href="https://wa.me/918861981003">Order</a>
-      </div>
+        </nav>
 
-      <div class="card">
-        <img src="flaxseed.svg">
-        <h3>Flaxseed Chutney</h3>
-        <p>Healthy & nutritious</p>
-        <a class="btn" href="https://wa.me/918861981003">Order</a>
-      </div>
+        <!-- CTA -->
+        <a href="https://wa.me/918861981003"
+           target="_blank"
+           class="whatsapp-btn">
 
-      <div class="card">
-        <img src="sambar.svg">
-        <h3>Sambar Premix</h3>
-        <p>Instant homemade mix</p>
-        <a class="btn" href="https://wa.me/918861981003">Order</a>
-      </div>
+            <i class="fa-brands fa-whatsapp"></i>
+            Order on WhatsApp
 
-      <div class="card">
-        <img src="chutney-premix.svg">
-        <h3>Chutney Premix</h3>
-        <p>Quick & delicious</p>
-        <a class="btn" href="https://wa.me/918861981003">Order</a>
-      </div>
+        </a>
 
-      <!-- Duplicate for smooth scrolling -->
-      <div class="card">
-        <img src="peanut.svg">
-        <h3>Peanut Chutney</h3>
-        <p>Spicy, rich and traditional taste</p>
-        <a class="btn" href="https://wa.me/918861981003">Order</a>
-      </div>
-
-      <div class="card">
-        <img src="flaxseed.svg">
-        <h3>Flaxseed Chutney</h3>
-        <p>Healthy & nutritious</p>
-        <a class="btn" href="https://wa.me/918861981003">Order</a>
-      </div>
-
-      <div class="card">
-        <img src="sambar.svg">
-        <h3>Sambar Premix</h3>
-        <p>Instant homemade mix</p>
-        <a class="btn" href="https://wa.me/918861981003">Order</a>
-      </div>
-
-      <div class="card">
-        <img src="chutney-premix.svg">
-        <h3>Chutney Premix</h3>
-        <p>Quick & delicious</p>
-        <a class="btn" href="https://wa.me/918861981003">Order</a>
-      </div>
     </div>
-  </div>
-</div>
 
-<!-- PACKAGING -->
-<div class="section">
-  <h2>Our Packaging</h2>
+</header>
 
-  <div class="packaging">
-    <img src="Peanut front sticker.png">
-    <img src="Peanut back sticker.png">
-    <img src="Flaxseed front sticker.png">
-  </div>
-</div>
+<!-- ========================= -->
+<!-- HERO SECTION -->
+<!-- ========================= -->
 
+<section class="hero-section">
+
+    <div class="container hero-grid">
+
+        <!-- LEFT -->
+        <div class="hero-left">
+
+            <p class="top-tagline">
+                PURELY TRADITIONAL • SIMPLY DELICIOUS
+            </p>
+
+            <h1 class="hero-title">
+                Authentic Taste,<br>
+                <span>Made with Love</span>
+            </h1>
+
+            <p class="hero-description">
+
+                From our home to yours — traditional recipes,
+                premium ingredients and hygienic preparation
+                for your everyday delicious moments.
+
+            </p>
+
+            <div class="hero-buttons">
+
+                <a href="https://wa.me/918861981003"
+                   target="_blank"
+                   class="primary-btn">
+
+                    <i class="fa-brands fa-whatsapp"></i>
+                    Order Now on WhatsApp
+
+                </a>
+
+                <a href="https://instagram.com/jayvifoods"
+                   target="_blank"
+                   class="secondary-btn">
+
+                    <i class="fa-brands fa-instagram"></i>
+                    Follow on Instagram
+
+                </a>
+
+            </div>
+
+        </div>
+
+        <!-- RIGHT -->
+        <div class="hero-right">
+
+            <img src="images/hero-products-8k.png"
+                 alt="Jayvi Foods Products"
+                 class="hero-product-image">
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- ========================= -->
 <!-- FEATURES -->
-<div class="section">
-  <div class="features">
+<!-- ========================= -->
 
-    <div class="feature">
-      <div class="icon">🏡</div>
-      <p><b>100% Homemade</b></p>
+<section class="features-section" id="story">
+
+    <div class="container">
+
+        <div class="features-grid">
+
+            <!-- ITEM -->
+
+            <div class="feature-item">
+
+                <i class="fa-brands fa-pagelines"></i>
+
+                <div>
+
+                    <h4>100% Natural</h4>
+
+                    <p>
+                        No preservatives,<br>
+                        No artificial colours
+                    </p>
+
+                </div>
+
+            </div>
+
+            <!-- ITEM -->
+
+            <div class="feature-item">
+
+                <i class="fa-solid fa-mortar-pestle"></i>
+
+                <div>
+
+                    <h4>Traditional Recipes</h4>
+
+                    <p>
+                        Authentic taste<br>
+                        in every bite
+                    </p>
+
+                </div>
+
+            </div>
+
+            <!-- ITEM -->
+
+            <div class="feature-item">
+
+                <i class="fa-solid fa-hand-holding-heart"></i>
+
+                <div>
+
+                    <h4>Handmade with Care</h4>
+
+                    <p>
+                        Small batches crafted<br>
+                        with love
+                    </p>
+
+                </div>
+
+            </div>
+
+            <!-- ITEM -->
+
+            <div class="feature-item">
+
+                <i class="fa-solid fa-shield-halved"></i>
+
+                <div>
+
+                    <h4>Hygienic & Safe</h4>
+
+                    <p>
+                        Prepared in clean<br>
+                        and safe environment
+                    </p>
+
+                </div>
+
+            </div>
+
+            <!-- ITEM -->
+
+            <div class="feature-item">
+
+                <i class="fa-solid fa-users"></i>
+
+                <div>
+
+                    <h4>Loved by Families</h4>
+
+                    <p>
+                        Homemade taste enjoyed<br>
+                        across every generation
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
     </div>
 
-    <div class="feature">
-      <div class="icon">🚫</div>
-      <p><b>No Chemicals</b></p>
+</section>
+
+<!-- ========================= -->
+<!-- PROCESS SECTION -->
+<!-- ========================= -->
+
+<section class="process-section" id="process">
+
+    <div class="container">
+
+        <h2 class="section-title process-title">
+            Our Traditional Process – Made the Right Way
+        </h2>
+
+        <div class="process-wrapper">
+
+            <!-- STEP -->
+
+            <div class="process-item">
+
+                <div class="process-image-box">
+                    <img src="images/Premium-Peanuts.png"
+                         alt="Premium Peanuts">
+                </div>
+
+                <div class="process-bottom">
+
+                    <span class="step-number">1</span>
+
+                    <div>
+                        <h4>Premium Peanuts</h4>
+                        <p>Carefully selected</p>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="process-arrow">›</div>
+
+            <!-- STEP -->
+
+            <div class="process-item">
+
+                <div class="process-image-box">
+                    <img src="images/Slow-Roasted.png"
+                         alt="Slow Roasted">
+                </div>
+
+                <div class="process-bottom">
+
+                    <span class="step-number">2</span>
+
+                    <div>
+                        <h4>Slow Roasted</h4>
+                        <p>For rich aroma</p>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="process-arrow">›</div>
+
+            <!-- STEP -->
+
+            <div class="process-item">
+
+                <div class="process-image-box">
+                    <img src="images/Authentic-Spices.png"
+                         alt="Authentic Spices">
+                </div>
+
+                <div class="process-bottom">
+
+                    <span class="step-number">3</span>
+
+                    <div>
+                        <h4>Authentic Spices</h4>
+                        <p>Traditional blend</p>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="process-arrow">›</div>
+
+            <!-- STEP -->
+
+            <div class="process-item">
+
+                <div class="process-image-box">
+                    <img src="images/Stone-Ground.png"
+                         alt="Stone Ground">
+                </div>
+
+                <div class="process-bottom">
+
+                    <span class="step-number">4</span>
+
+                    <div>
+                        <h4>Stone Ground</h4>
+                        <p>Perfect texture</p>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="process-arrow">›</div>
+
+            <!-- STEP -->
+
+            <div class="process-item">
+
+                <div class="process-image-box">
+                    <img src="images/Peanut-Chutney-Powder.png"
+                         alt="Freshly Packed">
+                </div>
+
+                <div class="process-bottom">
+
+                    <span class="step-number">5</span>
+
+                    <div>
+                        <h4>Freshly Packed</h4>
+                        <p>Maintains freshness</p>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="process-arrow">›</div>
+
+            <!-- STEP -->
+
+            <div class="process-item">
+
+                <div class="process-image-box">
+                    <img src="images/Ready-To-Serve.png"
+                         alt="Ready To Serve">
+                </div>
+
+                <div class="process-bottom">
+
+                    <span class="step-number">6</span>
+
+                    <div>
+                        <h4>Ready To Serve</h4>
+                        <p>Traditional deliciousness</p>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- SIDE TEXT -->
+
+            <div class="process-side-text">
+
+                <h4>
+                    From Our Kitchen<br>
+                    To Your Home
+                </h4>
+
+                <p>
+                    Every pack carries our promise
+                    of purity, taste & trust.
+                </p>
+
+            </div>
+
+        </div>
+
     </div>
 
-    <div class="feature">
-      <div class="icon">🧼</div>
-      <p><b>Hygienic Preparation</b></p>
+</section>
+
+<!-- ========================= -->
+<!-- PERFECT WITH EVERY MEAL -->
+<!-- ========================= -->
+
+<section class="meal-section" id="products">
+
+    <div class="container">
+
+        <h2 class="section-title">
+            Perfect With Every Meal
+        </h2>
+
+        <div class="meal-grid">
+
+            <!-- CARD -->
+
+            <div class="meal-card">
+
+                <div class="meal-image-wrapper">
+
+                    <img src="images/With-Soft-Idlis.png"
+                         alt="With Soft Idlis"
+                         class="meal-image">
+
+                </div>
+
+                <h4>With Soft Idlis</h4>
+
+            </div>
+
+            <!-- CARD -->
+
+            <div class="meal-card">
+
+                <div class="meal-image-wrapper">
+
+                    <img src="images/With-Crispy-Dosas.png"
+                         alt="With Crispy Dosas"
+                         class="meal-image">
+
+                </div>
+
+                <h4>With Crispy Dosas</h4>
+
+            </div>
+
+            <!-- CARD -->
+
+            <div class="meal-card">
+
+                <div class="meal-image-wrapper">
+
+                    <img src="images/With-Hot-Rice-&-Ghee.png"
+                         alt="With Hot Rice & Ghee"
+                         class="meal-image">
+
+                </div>
+
+                <h4>With Hot Rice & Ghee</h4>
+
+            </div>
+
+            <!-- CARD -->
+
+            <div class="meal-card">
+
+                <div class="meal-image-wrapper">
+
+                    <img src="images/As-Samber-premix.png"
+                         alt="As Sambar / Dip"
+                         class="meal-image">
+
+                </div>
+
+                <h4>As Sambar / Dip</h4>
+
+            </div>
+
+            <!-- CARD -->
+
+            <div class="meal-card">
+
+                <div class="meal-image-wrapper">
+
+                    <img src="images/Loved-by-Kids.png"
+                         alt="Loved by Kids"
+                         class="meal-image">
+
+                </div>
+
+                <h4>Loved by Kids</h4>
+
+            </div>
+
+            <!-- CARD -->
+
+            <div class="meal-card">
+
+                <div class="meal-image-wrapper">
+
+                    <img src="images/Perfect-for-Families.png"
+                         alt="Perfect for Families"
+                         class="meal-image">
+
+                </div>
+
+                <h4>Perfect for Families</h4>
+
+            </div>
+<div class="meal-card">
+
+    <div class="meal-image-wrapper">
+
+        <img src="images/Taste-You-Can-Trust.png"
+             alt="Taste You Can Trust"
+             class="meal-image">
+
     </div>
 
-    <div class="feature">
-      <div class="icon">🌿</div>
-      <p><b>Authentic Taste</b></p>
+    <h4>Taste You Can Trust</h4>
+
+</div>
+        </div>
+
     </div>
 
-  </div>
+</section>
+
+<!-- ========================= -->
+<!-- REVIEWS -->
+<!-- ========================= -->
+
+<section class="reviews-section" id="reviews">
+
+    <div class="container">
+
+        <h2 class="section-title">
+            Loved By Our Customers
+        </h2>
+
+        <p class="reviews-subtitle">
+            Real reviews from happy families enjoying Jayvi Foods.
+        </p>
+
+        <div class="reviews-slider-wrapper">
+
+            <!-- LEFT -->
+
+            <button class="review-nav prev-review">
+
+                <i class="fa-solid fa-chevron-left"></i>
+
+            </button>
+
+            <!-- SLIDER -->
+
+            <div class="reviews-slider" id="reviewsSlider">
+
+                <!-- REVIEW -->
+
+                <div class="review-card">
+
+                    <div class="stars">★★★★★</div>
+
+                    <p class="review-text">
+                        “It was nice, perfect & tasty.”
+                    </p>
+
+                    <h4>— Prateeksha</h4>
+
+                </div>
+
+                <!-- REVIEW -->
+
+                <div class="review-card">
+
+                    <div class="stars">★★★★★</div>
+
+                    <p class="review-text">
+
+                        “Best Authentic Taste! This combo pack is a lifesaver for busy mornings!
+                        The Peanut chutney is rich and nutty, while the Flaxseed is savory and spicy.
+                        These powders go perfectly with idli, dosa, rotis and sandwiches.”
+
+                    </p>
+
+                    <button class="read-more-btn">
+                        Read More
+                    </button>
+
+                    <h4>— Praveen Yandigeri</h4>
+
+                </div>
+
+                <!-- REVIEW -->
+
+                <div class="review-card">
+
+                    <div class="stars">★★★★★</div>
+
+                    <p class="review-text">
+
+                        “We tried both the chutney pudis you gave and wanted to share our feedback.
+                        The peanut chutney pudi was genuinely very good. We had it with chapati,
+                        curd, hot rice and ghee, and everyone at home loved it.
+
+                        The flavour is very comforting with the perfect balance of spiciness,
+                        tanginess and masala.
+
+                        We also tried the flaxseed chutney pudi.
+                        Overall both chutney pudis are very tasty, homely and comforting 😊”
+
+                    </p>
+
+                    <button class="read-more-btn">
+                        Read More
+                    </button>
+
+                    <h4>— Bhoomika</h4>
+
+                </div>
+
+                <!-- REVIEW -->
+
+                <div class="review-card">
+
+                    <div class="stars">★★★★★</div>
+
+                    <p class="review-text">
+
+                        “Absolutely loved the taste! Feels very homemade and authentic.
+                        The peanut chutney is very tasty and the flaxseed one is healthy
+                        and unique. Highly recommend 👌.”
+
+                    </p>
+
+                    <button class="read-more-btn">
+                        Read More
+                    </button>
+
+                    <h4>— Varada Rajesh</h4>
+
+                </div>
+
+                <!-- REVIEW -->
+
+                <div class="review-card">
+
+                    <div class="stars">★★★★★</div>
+
+                    <p class="review-text">
+
+                        “The chutney was very delicious and full of rich flavour.
+                        The aroma was fresh and fragrant.”
+
+                    </p>
+
+                    <h4>— Shridevi Mittalkod</h4>
+
+                </div>
+<div class="review-card">
+
+    <div class="stars">★★★★★</div>
+
+    <p class="review-text">
+
+        “It's purely homely taste.”
+
+    </p>
+
+    <h4>— Balakrisha Ganji</h4>
+
 </div>
 
-<!-- STORY -->
-<div class="section" id="story">
-  <h2>Our Story</h2>
+<div class="review-card">
 
-  <p>
-    Jayvi Foods was born from a simple mission — to bring the authentic taste of homemade foods back into everyday life.
-  </p>
+    <div class="stars">★★★★★</div>
 
-  <p>
-    Our journey started in a home kitchen, inspired by age-old Karnataka recipes passed down through generations.
-    Every blend we create carries the essence of those traditions — carefully roasted, perfectly balanced, and made with patience.
-  </p>
+    <p class="review-text">
 
-  <p>
-    At Jayvi Foods, we believe food should be pure, honest, and full of real flavor.
-    That’s why we use only high-quality ingredients, with absolutely no preservatives, chemicals, or artificial additives.
-  </p>
+        “Very authentic homemade flavour and premium quality.
+        Loved it with hot rice and ghee.”
 
-  <p>
-    Hygiene and quality are at the heart of everything we do.
-    From sourcing ingredients to preparation and packaging, every step is handled with care to ensure you get a product that feels truly homemade.
-  </p>
+    </p>
 
-  <p>
-    Our food items are not just products — they are an experience.
-    A spoonful can remind you of home, tradition, and the comforting taste of meals made with love.
-  </p>
-
-  <p>
-    Whether it’s breakfast with idli and dosa or a quick meal, our products are designed to bring convenience without compromising authenticity.
-  </p>
-
-  <p>
-    We are committed to preserving traditional recipes while making them accessible for modern lifestyles.
-    Each pack reflects our dedication to taste, health, and trust.
-  </p>
-
-  <p>
-    As we grow, our mission remains the same — to deliver real, homemade flavors to every household.
-    Jayvi Foods is not just a brand; it is a promise of quality, tradition, and genuine taste.
-  </p>
-
-  <p>
-    Thank you for being part of our journey and supporting authentic homemade food.
-  </p>
+    <h4>— Tejashwini Muttu</h4>
 
 </div>
 
-<!-- CONTACT -->
-<div class="section" id="contact">
-  <h2>Order Now</h2>
+<div class="review-card">
 
-  <a class="btn" href="https://wa.me/918861981003">
-    Order on WhatsApp
-  </a>
+    <div class="stars">★★★★★</div>
 
-  <br><br>
+    <p class="review-text">
 
-  <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://wa.me/918861981003">
+        “Traditional taste with excellent freshness.
+        Perfect combination for everyday meals.”
 
-  <p>📞 +91 8861981003</p>
+    </p>
 
-  <a href="https://www.instagram.com/jayvifoods?igsh=M3YxMDY2amc2ZWRy" target="_blank">
-    Instagram
-  </a>
+    <h4>— Mahalingappa Yandigeri</h4>
 
 </div>
 
-<div class="section">
-  <h2>Customer Love ❤️</h2>
+            </div>
 
-  <div class="products">
+            <!-- RIGHT -->
 
-    <div class="card">
-      <p>"Amazing taste! Reminds me of home."</p>
-      <small>- Customer</small>
+            <button class="review-nav next-review">
+
+                <i class="fa-solid fa-chevron-right"></i>
+
+            </button>
+
+        </div>
+
+        <!-- DOTS -->
+
+        <!-- BUTTON -->
+
+        <a href="https://g.page/r/CV0qbh-IqbKZEBM/review"
+           target="_blank"
+           class="google-review-btn">
+
+            View All Reviews On Google
+
+        </a>
+
     </div>
 
-    <div class="card">
-      <p>"Very fresh and flavorful."</p>
-      <small>- Customer</small>
+</section>
+
+<!-- ========================= -->
+<!-- FOOTER -->
+<!-- ========================= -->
+
+<footer class="footer" id="contact">
+
+    <div class="footer-container">
+
+        <!-- BRAND -->
+
+        <div class="footer-brand">
+
+            <img src="images/logo.svg"
+                 alt="Jayvi Foods"
+                 class="footer-logo">
+
+            <p>
+                Bringing authentic homemade flavours
+                to every kitchen with tradition,
+                purity and love.
+            </p>
+
+            <div class="footer-socials">
+
+                <a href="https://instagram.com/jayvifoods" target="_blank">
+                    <i class="fab fa-instagram"></i>
+                </a>
+
+                <a href="https://wa.me/918861981003" target="_blank">
+                    <i class="fab fa-whatsapp"></i>
+                </a>
+
+                <a href="https://g.page/r/CV0qbh-IqbKZEBM/review" target="_blank">
+                    <i class="fab fa-google"></i>
+                </a>
+
+            </div>
+
+        </div>
+
+        <!-- LINKS -->
+
+        <div class="footer-links">
+
+            <h3>Quick Links</h3>
+
+            <a href="#home">Home</a>
+            <a href="#products">Products</a>
+            <a href="#story">Our Story</a>
+            <a href="#process">Process</a>
+            <a href="#reviews">Testimonials</a>
+
+        </div>
+
+        <!-- CONTACT -->
+
+        <div class="footer-contact">
+
+            <h3>Contact</h3>
+
+            <p>
+                <i class="fas fa-phone-alt"></i>
+                +91 88619 81003
+            </p>
+
+            <p>
+                <i class="fab fa-instagram"></i>
+                @jayvifoods
+            </p>
+
+            <p>
+                <i class="fas fa-map-marker-alt"></i>
+                Karnataka, India
+            </p>
+
+        </div>
+
     </div>
 
-    <div class="card">
-      <p>"Perfect with dosa and idli! "</p>
-      <small>- Customer</small>
+    <div class="footer-bottom">
+        © 2026 Jayvi Foods. All Rights Reserved.
     </div>
-   <div class="card">
-      <p>"Best chutney powder I tried "</p>
-      <small>- Customer</small>
-    </div
 
-  </div>
+</footer>
 
-  <a class="btn" href="https://wa.me/918861981003">
-    Share Your Review on WhatsApp
-  </a>
-</div>
+<!-- =========================
+     JAVASCRIPT
+========================= -->
 
-<!-- FLOATING CTA -->
-<a href="https://wa.me/918861981003" class="whatsapp-float">💬</a>
+<script>
+
+/* =========================
+   REVIEWS SLIDER
+========================= */
+
+const slider =
+document.getElementById("reviewsSlider");
+
+const nextBtn =
+document.querySelector(".next-review");
+
+const prevBtn =
+document.querySelector(".prev-review");
+
+function getCardWidth(){
+
+    const card =
+    document.querySelector(".review-card");
+
+    return card.offsetWidth + 24;
+}
+
+nextBtn.addEventListener("click", () => {
+
+    slider.scrollBy({
+
+        left:getCardWidth(),
+        behavior:"smooth"
+
+    });
+
+});
+
+prevBtn.addEventListener("click", () => {
+
+    slider.scrollBy({
+
+        left:-getCardWidth(),
+        behavior:"smooth"
+
+    });
+
+});
+
+/* =========================
+   READ MORE
+========================= */
+
+document
+.querySelectorAll(".read-more-btn")
+.forEach(button => {
+
+    button.addEventListener("click", () => {
+
+        const card =
+        button.closest(".review-card");
+
+        const text =
+        card.querySelector(".review-text");
+
+        text.classList.toggle("expanded");
+
+        if(text.classList.contains("expanded")){
+
+            button.innerText =
+            "Show Less";
+
+        } else {
+
+            button.innerText =
+            "Read More";
+        }
+
+    });
+
+});
+
+/* HIDE BUTTON FOR SHORT REVIEWS */
+
+document
+.querySelectorAll(".review-card")
+.forEach(card => {
+
+    const text =
+    card.querySelector(".review-text");
+
+    const btn =
+    card.querySelector(".read-more-btn");
+
+    if(!btn) return;
+
+    setTimeout(() => {
+
+        if(
+            text.scrollHeight <=
+            text.clientHeight + 5
+        ){
+
+            btn.style.display = "none";
+
+        }
+
+    },100);
+
+});
+
+</script>
 
 </body>
 </html>
