@@ -820,6 +820,156 @@ border-top:1px solid #f1ebe2;
 }
 
 /* =========================
+   OUR STORY
+========================= */
+
+.our-story-section{
+
+    padding:100px 0;
+
+    background:
+    linear-gradient(
+    135deg,
+    #fffaf3 0%,
+    #f5ede2 100%);
+}
+
+.story-grid{
+
+    display:grid;
+
+    grid-template-columns:1fr 1fr;
+
+    gap:70px;
+
+    align-items:center;
+}
+
+/* IMAGE */
+
+.story-image-box{
+
+    position:relative;
+
+    overflow:hidden;
+
+    border-radius:36px;
+
+    background:
+    linear-gradient(
+    180deg,
+    rgba(255,248,240,0.15),
+    rgba(245,235,222,0.35)
+    );
+}
+
+.story-image-box::after{
+
+    content:"";
+
+    position:absolute;
+
+    inset:0;
+
+    background:
+    linear-gradient(
+    to top,
+    rgba(245,235,222,0.12),
+    rgba(255,255,255,0.02)
+    );
+
+    pointer-events:none;
+}
+.story-image{
+
+    width:100%;
+
+    height:640px;
+
+    object-fit:cover;
+
+    object-position:center top;
+
+    border-radius:36px;
+
+    opacity:0.94;
+
+    filter:
+    saturate(96%)
+    brightness(99%);
+
+    transition:.4s ease;
+
+    box-shadow:
+    0 20px 45px rgba(0,0,0,0.08);
+}
+/* CONTENT */
+
+.story-tagline{
+
+    color:#b48a42;
+
+    letter-spacing:2px;
+
+    font-size:14px;
+
+    margin-bottom:20px;
+
+    font-weight:600;
+}
+
+.story-title{
+
+    text-align:left;
+
+    margin-bottom:28px;
+}
+
+.story-description{
+
+    font-size:18px;
+
+    line-height:1.9;
+
+    color:#555;
+
+    margin-bottom:22px;
+}
+
+/* HIGHLIGHTS */
+
+.story-highlights{
+
+    display:flex;
+
+    flex-wrap:wrap;
+
+    gap:14px;
+
+    margin-top:35px;
+}
+
+.story-highlight{
+
+    padding:12px 18px;
+
+    background:#fff;
+
+    border-radius:40px;
+
+    border:1px solid #eadfce;
+
+    font-size:15px;
+
+    font-weight:600;
+
+    color:#6b4a22;
+
+    box-shadow:
+    0 4px 10px rgba(0,0,0,0.04);
+}
+
+/* =========================
    REVIEWS SECTION
 ========================= */
 
@@ -1402,6 +1552,53 @@ overflow: hidden;
     .hero-product-image{
         max-width:100%;
     }
+/* STORY */
+
+.story-grid{
+
+    grid-template-columns:1fr;
+
+    gap:40px;
+}
+
+.story-title{
+
+    text-align:center;
+}
+
+.story-content{
+
+    text-align:center;
+}
+
+.story-description{
+
+    font-size:16px;
+
+    line-height:1.8;
+}
+
+.story-highlights{
+
+    justify-content:center;
+}
+/* STORY IMAGE MOBILE */
+
+.story-image{
+
+    height:340px;
+
+    object-fit:contain;
+
+    object-position:center top;
+}
+
+.story-image-box{
+
+    max-width:260px;
+
+    margin:0 auto;
+}
 
     /* FEATURES */
 
