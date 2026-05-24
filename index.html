@@ -31,7 +31,7 @@ content="Karnataka food brand, idli podi, dosa podi, peanut chutney powder, flax
     <link rel="stylesheet" href="style.css"/>
 
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600;1,700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Font Awesome -->
     <link rel="stylesheet"
@@ -64,37 +64,47 @@ content="Karnataka food brand, idli podi, dosa podi, peanut chutney powder, flax
     <div class="container nav-container">
 
         <!-- LOGO -->
-        <div class="logo-section" id="logoSection">
-
-            <img src="images/logo.svg"
-                 alt="Jayvi Foods"
-                 class="logo">
-
+        <div class="logo-section">
+            <img src="images/logo.svg" alt="Jayvi Foods" class="logo">
         </div>
 
-        <!-- NAVIGATION -->
+        <!-- DESKTOP NAVIGATION -->
         <nav class="nav-links">
-
             <a href="#home" class="active">Home</a>
             <a href="#products">Products</a>
             <a href="#story">Our Story</a>
             <a href="#process">Process</a>
             <a href="#reviews">Testimonials</a>
             <a href="#contact">Contact</a>
-
         </nav>
 
-        <!-- CTA -->
-        <a href="https://wa.me/918861981003"
-           target="_blank"
-           class="whatsapp-btn">
-
+        <!-- DESKTOP CTA -->
+        <a href="https://wa.me/918861981003" target="_blank" class="whatsapp-btn">
             <i class="fa-brands fa-whatsapp"></i>
             Order on WhatsApp
-
         </a>
 
+        <!-- MOBILE HAMBURGER -->
+        <button class="nav-hamburger" id="navHamburger" aria-label="Open menu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
     </div>
+
+    <!-- MOBILE DRAWER -->
+    <nav class="mobile-nav" id="mobileNav">
+        <a href="#home"      onclick="closeMobileNav()">Home</a>
+        <a href="#products"  onclick="closeMobileNav()">Products</a>
+        <a href="#story"     onclick="closeMobileNav()">Our Story</a>
+        <a href="#process"   onclick="closeMobileNav()">Process</a>
+        <a href="#reviews"   onclick="closeMobileNav()">Testimonials</a>
+        <a href="#contact"   onclick="closeMobileNav()">Contact</a>
+        <a href="https://wa.me/918861981003" target="_blank" class="mobile-wa-btn">
+            <i class="fa-brands fa-whatsapp"></i> &nbsp;Order on WhatsApp
+        </a>
+    </nav>
 
 </header>
 
@@ -992,129 +1002,73 @@ content="Karnataka food brand, idli podi, dosa podi, peanut chutney powder, flax
 <script>
 
 /* =========================
+   MOBILE HAMBURGER NAV
+========================= */
+
+const hamburger  = document.getElementById('navHamburger');
+const mobileNav  = document.getElementById('mobileNav');
+
+hamburger.addEventListener('click', () => {
+    mobileNav.classList.toggle('open');
+});
+
+function closeMobileNav() {
+    mobileNav.classList.remove('open');
+}
+
+/* Close drawer when clicking outside */
+document.addEventListener('click', (e) => {
+    if (!hamburger.contains(e.target) && !mobileNav.contains(e.target)) {
+        mobileNav.classList.remove('open');
+    }
+});
+
+/* =========================
    REVIEWS SLIDER
 ========================= */
 
-const slider =
-document.getElementById("reviewsSlider");
-
-const nextBtn =
-document.querySelector(".next-review");
-
-const prevBtn =
-document.querySelector(".prev-review");
+const slider  = document.getElementById("reviewsSlider");
+const nextBtn = document.querySelector(".next-review");
+const prevBtn = document.querySelector(".prev-review");
 
 function getCardWidth(){
-
-    const card =
-    document.querySelector(".review-card");
-
-    return card.offsetWidth + 24;
+    const card = document.querySelector(".review-card");
+    return card.offsetWidth + 22;
 }
 
 nextBtn.addEventListener("click", () => {
-
-    slider.scrollBy({
-
-        left:getCardWidth(),
-        behavior:"smooth"
-
-    });
-
+    slider.scrollBy({ left: getCardWidth(), behavior: "smooth" });
 });
 
 prevBtn.addEventListener("click", () => {
-
-    slider.scrollBy({
-
-        left:-getCardWidth(),
-        behavior:"smooth"
-
-    });
-
+    slider.scrollBy({ left: -getCardWidth(), behavior: "smooth" });
 });
 
 /* =========================
    READ MORE
 ========================= */
 
-document
-.querySelectorAll(".read-more-btn")
-.forEach(button => {
-
+document.querySelectorAll(".read-more-btn").forEach(button => {
     button.addEventListener("click", () => {
-
-        const card =
-        button.closest(".review-card");
-
-        const text =
-        card.querySelector(".review-text");
-
+        const card = button.closest(".review-card");
+        const text = card.querySelector(".review-text");
         text.classList.toggle("expanded");
-
-        if(text.classList.contains("expanded")){
-
-            button.innerText =
-            "Show Less";
-
-        } else {
-
-            button.innerText =
-            "Read More";
-        }
-
+        button.innerText = text.classList.contains("expanded") ? "Show Less" : "Read More";
     });
-
 });
 
 /* HIDE BUTTON FOR SHORT REVIEWS */
-
-document
-.querySelectorAll(".review-card")
-.forEach(card => {
-
-    const text =
-    card.querySelector(".review-text");
-
-    const btn =
-    card.querySelector(".read-more-btn");
-
-    if(!btn) return;
-
+document.querySelectorAll(".review-card").forEach(card => {
+    const text = card.querySelector(".review-text");
+    const btn  = card.querySelector(".read-more-btn");
+    if (!btn) return;
     setTimeout(() => {
-
-        if(
-            text.scrollHeight <=
-            text.clientHeight + 5
-        ){
-
+        if (text.scrollHeight <= text.clientHeight + 5) {
             btn.style.display = "none";
-
         }
-
-    },100);
-
+    }, 100);
 });
 
-/* =========================
-   NAVBAR SCROLL EFFECT
-========================= */
-
-const navbar =
-document.querySelector(".navbar");
-
-window.addEventListener("scroll", () => {
-
-    if(window.scrollY > 50){
-
-        navbar.classList.add("scrolled");
-
-    } else {
-
-        navbar.classList.remove("scrolled");
-    }
-
-});
 </script>
 
 </body>
