@@ -1,5 +1,6 @@
 <!-- ========================= -->
-<!-- FILE: index.html -->
+<!-- FILE: index.html          -->
+<!-- Jayvi Foods — v3 Premium  -->
 <!-- ========================= -->
 <!DOCTYPE html>
 <html lang="en">
@@ -7,42 +8,25 @@
 <meta name="google-site-verification" content="mPBL_VXiQH1NSvYWZtfm3HS6pNLobYyNKebxY7l-X40" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Jayvi’s – A Traditional Karnataka Food Brand</title>
-<meta name="description"
-content="Jayvi’s brings authentic Karnataka flavours to modern families with traditional podis, chutney powders and homemade foods crafted with purity, taste and tradition.">
-<meta property="og:title"
-content="Jayvi’s – Traditional Karnataka Food Brand">
-
-<meta property="og:description"
-content="Authentic Karnataka podis, chutney powders and traditional homemade flavours for every family meal.">
-
-<meta property="og:image"
-content="https://jayvifoods.com/images/social-preview.webp">
-
-<meta property="og:url"
-content="https://jayvifoods.com">
-
-<meta property="og:type"
-content="website">
-
-<meta name="keywords"
-content="Karnataka food brand, idli podi, dosa podi, peanut chutney powder, flaxseed chutney, homemade snacks, traditional Karnataka foods, Jayvi Foods">
+    <title>Jayvi's – A Traditional Karnataka Food Brand</title>
+    <meta name="description" content="Jayvi's brings authentic Karnataka flavours to modern families with traditional podis, chutney powders and homemade foods crafted with purity, taste and tradition.">
+    <meta property="og:title" content="Jayvi's – Traditional Karnataka Food Brand">
+    <meta property="og:description" content="Authentic Karnataka podis, chutney powders and traditional homemade flavours for every family meal.">
+    <meta property="og:image" content="https://jayvifoods.com/images/social-preview.webp">
+    <meta property="og:url" content="https://jayvifoods.com">
+    <meta property="og:type" content="website">
+    <meta name="keywords" content="Karnataka food brand, idli podi, dosa podi, peanut chutney powder, flaxseed chutney, homemade snacks, traditional Karnataka foods, Jayvi Foods">
 
     <link rel="stylesheet" href="style.css"/>
-
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600;1,700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
 
-    <!-- Font Awesome -->
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
-<!-- Google tag (gtag.js) -->
+<!-- Google tag -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-TJRKVRYGP6"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
-
   gtag('config', 'G-TJRKVRYGP6');
 </script>
 <script type="text/javascript">
@@ -52,13 +36,21 @@ content="Karnataka food brand, idli podi, dosa podi, peanut chutney powder, flax
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
     })(window, document, "clarity", "script", "wpd4lum9y1");
 </script>
-<link rel="icon" type="image/png" sizes="192x192" href="images/favicon.png"></head>
+<link rel="icon" type="image/png" sizes="192x192" href="images/favicon.png">
+</head>
 <body>
 
 <!-- ========================= -->
-<!-- NAVBAR -->
+<!-- ANNOUNCEMENT BAR          -->
 <!-- ========================= -->
+<div class="announcement-bar" id="announcementBar">
+    <span>🌿 Free delivery on orders above ₹499 &nbsp;·&nbsp; 100% Natural &amp; Preservative Free &nbsp;·&nbsp; Handcrafted in Karnataka</span>
+    <button class="announcement-close" onclick="document.getElementById('announcementBar').style.display='none'" aria-label="Close">×</button>
+</div>
 
+<!-- ========================= -->
+<!-- NAVBAR                    -->
+<!-- ========================= -->
 <header class="navbar" id="home">
 
     <div class="container nav-container">
@@ -66,6 +58,11 @@ content="Karnataka food brand, idli podi, dosa podi, peanut chutney powder, flax
         <!-- LOGO -->
         <div class="logo-section">
             <img src="images/logo.svg" alt="Jayvi Foods" class="logo">
+        </div>
+
+        <!-- MOBILE TAGLINE (fills the gap between logo & hamburger) -->
+        <div class="nav-mobile-tagline">
+            <span>Pure • Traditional • Homemade</span>
         </div>
 
         <!-- DESKTOP NAVIGATION -->
@@ -95,979 +92,736 @@ content="Karnataka food brand, idli podi, dosa podi, peanut chutney powder, flax
 
     <!-- MOBILE DRAWER -->
     <nav class="mobile-nav" id="mobileNav">
-        <a href="#home"      onclick="closeMobileNav()">Home</a>
-        <a href="#products"  onclick="closeMobileNav()">Products</a>
-        <a href="#story"     onclick="closeMobileNav()">Our Story</a>
-        <a href="#process"   onclick="closeMobileNav()">Process</a>
-        <a href="#reviews"   onclick="closeMobileNav()">Testimonials</a>
-        <a href="#contact"   onclick="closeMobileNav()">Contact</a>
+        <a href="#home"     onclick="closeMobileNav()"><i class="fa-solid fa-house"></i> Home</a>
+        <a href="#products" onclick="closeMobileNav()"><i class="fa-solid fa-bowl-rice"></i> Products</a>
+        <a href="#story"    onclick="closeMobileNav()"><i class="fa-solid fa-book-open"></i> Our Story</a>
+        <a href="#process"  onclick="closeMobileNav()"><i class="fa-solid fa-list-check"></i> Process</a>
+        <a href="#reviews"  onclick="closeMobileNav()"><i class="fa-solid fa-star"></i> Testimonials</a>
+        <a href="#contact"  onclick="closeMobileNav()"><i class="fa-solid fa-phone"></i> Contact</a>
         <a href="https://wa.me/918861981003" target="_blank" class="mobile-wa-btn">
-            <i class="fa-brands fa-whatsapp"></i> &nbsp;Order on WhatsApp
+            <i class="fa-brands fa-whatsapp"></i> Order on WhatsApp
         </a>
     </nav>
 
 </header>
 
 <!-- ========================= -->
-<!-- HERO SECTION -->
+<!-- HERO SECTION              -->
 <!-- ========================= -->
-
 <section class="hero-section">
-
     <div class="container hero-grid">
 
         <!-- LEFT -->
         <div class="hero-left">
-
-            <p class="top-tagline">
-    PURELY TRADITIONAL • SIMPLY DELICIOUS
-</p>
-
-<p class="brand-category">
-    Jayvi’s – A Traditional Karnataka Food Brand
-</p>
-
+            <p class="top-tagline">PURELY TRADITIONAL • SIMPLY DELICIOUS</p>
+            <p class="brand-category">Jayvi's – A Traditional Karnataka Food Brand</p>
             <h1 class="hero-title">
                 Authentic Taste,<br>
                 <span>Made with Love</span>
             </h1>
-
             <p class="hero-description">
-
-    Authentic Karnataka food products crafted with
-    traditional recipes, premium ingredients and homemade care.
-    From chutney powders and podis to traditional snacks,
-    every product brings pure taste to your everyday meals.
-
-		</p>
-
+                Authentic Karnataka food products crafted with traditional recipes,
+                premium ingredients and homemade care. From chutney powders and podis
+                to traditional snacks, every product brings pure taste to your everyday meals.
+            </p>
+            <div class="hero-badges">
+                <span><i class="fa-solid fa-circle-check"></i> No Preservatives</span>
+                <span><i class="fa-solid fa-circle-check"></i> Homemade</span>
+                <span><i class="fa-solid fa-circle-check"></i> 100% Natural</span>
+            </div>
             <div class="hero-buttons">
-
-                <a href="https://wa.me/918861981003"
-                   target="_blank"
-                   class="primary-btn">
-
+                <a href="https://wa.me/918861981003" target="_blank" class="primary-btn">
                     <i class="fa-brands fa-whatsapp"></i>
                     Order Now on WhatsApp
-
                 </a>
-
-                <a href="https://instagram.com/jayvifoods"
-                   target="_blank"
-                   class="secondary-btn">
-
+                <a href="https://instagram.com/jayvifoods" target="_blank" class="secondary-btn">
                     <i class="fa-brands fa-instagram"></i>
                     Follow on Instagram
-
                 </a>
-
             </div>
-
         </div>
 
         <!-- RIGHT -->
         <div class="hero-right">
-
-            <img src="images/hero-products-8k.webp"
-                 alt="Jayvi Foods Products"
-                 class="hero-product-image">
-
+            <img src="images/hero-products-8k.webp" alt="Jayvi Foods Products" class="hero-product-image">
         </div>
 
     </div>
-
 </section>
 
+<!-- ========================= -->
+<!-- TRUST / STATS BAR         -->
+<!-- ========================= -->
+<section class="stats-bar">
+    <div class="container stats-grid">
+        <div class="stat-item">
+            <span class="stat-number">500+</span>
+            <span class="stat-label">Happy Families</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+            <span class="stat-number">100%</span>
+            <span class="stat-label">Natural Ingredients</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+            <span class="stat-number">6+</span>
+            <span class="stat-label">Authentic Products</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+            <span class="stat-number">★ 5.0</span>
+            <span class="stat-label">Google Rating</span>
+        </div>
+    </div>
+</section>
+
+<!-- ========================= -->
+<!-- WHAT WE MAKE              -->
+<!-- ========================= -->
 <section class="what-we-make-section">
-
     <div class="container">
-
-        <h2 class="section-title">
-            More Than Just Chutney
-        </h2>
-
+        <h2 class="section-title">More Than Just Chutney</h2>
         <p class="what-we-make-description">
-
-            Jayvi’s brings together authentic Karnataka flavours through
-            chutney powders, podis, traditional mixes and upcoming homemade snacks
-            crafted for modern families.
-
+            Jayvi's brings together authentic Karnataka flavours through chutney powders,
+            podis, traditional mixes and upcoming homemade snacks crafted for modern families.
         </p>
-
         <div class="what-we-make-grid">
-
             <div class="what-we-make-card">
+                <div class="wwm-icon"><i class="fa-solid fa-mortar-pestle"></i></div>
                 <h4>Traditional Chutney Powders</h4>
                 <p>Authentic peanut, flaxseed and regional flavours.</p>
             </div>
-
             <div class="what-we-make-card">
+                <div class="wwm-icon"><i class="fa-solid fa-bowl-food"></i></div>
                 <h4>Idli Dosa Podi</h4>
                 <p>Perfect everyday companions for breakfast and meals.</p>
             </div>
-
             <div class="what-we-make-card">
+                <div class="wwm-icon"><i class="fa-solid fa-star"></i></div>
                 <h4>Traditional Snacks</h4>
                 <p>Upcoming Karnataka-inspired crunchy snack innovations.</p>
             </div>
-
         </div>
-
     </div>
-
 </section>
 
 <!-- ========================= -->
-<!-- OUR STORY -->
+<!-- OUR STORY                 -->
 <!-- ========================= -->
-
 <section class="our-story-section" id="story">
-
     <div class="container story-grid">
 
         <!-- LEFT IMAGE -->
-
         <div class="story-image-box">
-
-            <img src="images/veeragase-story.svg"
-                 alt="Karnataka Tradition"
-                 class="story-image">
-
+            <img src="images/veeragase-story.svg" alt="Karnataka Tradition" class="story-image">
         </div>
 
         <!-- RIGHT CONTENT -->
-
         <div class="story-content">
-
-            <p class="story-tagline">
-                ROOTED IN KARNATAKA TRADITION
-            </p>
-
+            <p class="story-tagline">ROOTED IN KARNATAKA TRADITION</p>
             <h2 class="section-title story-title">
                 More Than Food —<br>
                 A Taste of Karnataka
             </h2>
-
             <p class="story-description">
-
-                At Jayvi’s, food is more than taste —
-                it is tradition, culture and family.
-
-                Inspired by Karnataka’s rich heritage and homemade cooking traditions,
+                At Jayvi's, food is more than taste — it is tradition, culture and family.
+                Inspired by Karnataka's rich heritage and homemade cooking traditions,
                 we create authentic products that bring the warmth of traditional meals
                 into modern homes.
-
             </p>
-
             <p class="story-description">
-
                 From chutney powders and podis to upcoming traditional snacks,
                 every recipe carries the flavours we grew up loving —
                 simple, pure and made with care.
-
             </p>
-
             <div class="story-highlights">
-
-                <div class="story-highlight">
-                    Traditional Karnataka Recipes
-                </div>
-
-                <div class="story-highlight">
-                    Homemade Preparation
-                </div>
-
-                <div class="story-highlight">
-                    Authentic Regional Flavours
-                </div>
-
+                <div class="story-highlight">Traditional Karnataka Recipes</div>
+                <div class="story-highlight">Homemade Preparation</div>
+                <div class="story-highlight">Authentic Regional Flavours</div>
             </div>
-
         </div>
 
     </div>
-
 </section>
 
 <!-- ========================= -->
-<!-- FEATURES -->
+<!-- FEATURES                  -->
 <!-- ========================= -->
-
 <section class="features-section">
-
     <div class="container">
-
         <div class="features-grid">
-
-            <!-- ITEM -->
-
             <div class="feature-item">
-
                 <i class="fa-brands fa-pagelines"></i>
-
                 <div>
-
                     <h4>100% Natural</h4>
-
-                    <p>
-                        No preservatives,<br>
-                        No artificial colours
-                    </p>
-
+                    <p>No preservatives,<br>No artificial colours</p>
                 </div>
-
             </div>
-
-            <!-- ITEM -->
-
             <div class="feature-item">
-
                 <i class="fa-solid fa-mortar-pestle"></i>
-
                 <div>
-
                     <h4>Traditional Recipes</h4>
-
-                    <p>
-                        Authentic taste<br>
-                        in every bite
-                    </p>
-
+                    <p>Authentic taste<br>in every bite</p>
                 </div>
-
             </div>
-
-            <!-- ITEM -->
-
             <div class="feature-item">
-
                 <i class="fa-solid fa-hand-holding-heart"></i>
-
                 <div>
-
                     <h4>Handmade with Care</h4>
-
-                    <p>
-                        Small batches crafted<br>
-                        with love
-                    </p>
-
+                    <p>Small batches crafted<br>with love</p>
                 </div>
-
             </div>
-
-            <!-- ITEM -->
-
             <div class="feature-item">
-
                 <i class="fa-solid fa-shield-halved"></i>
-
                 <div>
-
-                    <h4>Hygienic & Safe</h4>
-
-                    <p>
-                        Prepared in clean<br>
-                        and safe environment
-                    </p>
-
+                    <h4>Hygienic &amp; Safe</h4>
+                    <p>Prepared in clean<br>and safe environment</p>
                 </div>
-
             </div>
-
-            <!-- ITEM -->
-
             <div class="feature-item">
-
                 <i class="fa-solid fa-users"></i>
-
                 <div>
-
                     <h4>Loved by Families</h4>
-
-                    <p>
-                        Homemade taste enjoyed<br>
-                        across every generation
-                    </p>
-
+                    <p>Homemade taste enjoyed<br>across every generation</p>
                 </div>
-
             </div>
-
         </div>
-
     </div>
-
 </section>
 
 <!-- ========================= -->
-<!-- PROCESS SECTION -->
+<!-- PROCESS SECTION           -->
 <!-- ========================= -->
-
 <section class="process-section" id="process">
-
     <div class="container">
-
-        <h2 class="section-title process-title">
-            Our Traditional Process – Made the Right Way
-        </h2>
-
+        <h2 class="section-title process-title">Our Traditional Process – Made the Right Way</h2>
         <div class="process-wrapper">
 
-            <!-- STEP -->
-
             <div class="process-item">
-
                 <div class="process-image-box">
-                    <img src="images/Premium-Peanuts.webp"
-                         alt="Premium Peanuts">
+                    <img src="images/Premium-Peanuts.webp" alt="Premium Peanuts">
                 </div>
-
                 <div class="process-bottom">
-
                     <span class="step-number">1</span>
-
-                    <div>
-                        <h4>Premium Peanuts</h4>
-                        <p>Carefully selected</p>
-                    </div>
-
+                    <div><h4>Premium Peanuts</h4><p>Carefully selected</p></div>
                 </div>
-
             </div>
-
             <div class="process-arrow">›</div>
 
-            <!-- STEP -->
-
             <div class="process-item">
-
                 <div class="process-image-box">
-                    <img src="images/Slow-Roasted.webp"
-                         alt="Slow Roasted">
+                    <img src="images/Slow-Roasted.webp" alt="Slow Roasted">
                 </div>
-
                 <div class="process-bottom">
-
                     <span class="step-number">2</span>
-
-                    <div>
-                        <h4>Slow Roasted</h4>
-                        <p>For rich aroma</p>
-                    </div>
-
+                    <div><h4>Slow Roasted</h4><p>For rich aroma</p></div>
                 </div>
-
             </div>
-
             <div class="process-arrow">›</div>
 
-            <!-- STEP -->
-
             <div class="process-item">
-
                 <div class="process-image-box">
-                    <img src="images/Authentic-Spices.webp"
-                         alt="Authentic Spices">
+                    <img src="images/Authentic-Spices.webp" alt="Authentic Spices">
                 </div>
-
                 <div class="process-bottom">
-
                     <span class="step-number">3</span>
-
-                    <div>
-                        <h4>Authentic Spices</h4>
-                        <p>Traditional blend</p>
-                    </div>
-
+                    <div><h4>Authentic Spices</h4><p>Traditional blend</p></div>
                 </div>
-
             </div>
-
             <div class="process-arrow">›</div>
 
-            <!-- STEP -->
-
             <div class="process-item">
-
                 <div class="process-image-box">
-                    <img src="images/Stone-Ground.webp"
-                         alt="Stone Ground">
+                    <img src="images/Stone-Ground.webp" alt="Stone Ground">
                 </div>
-
                 <div class="process-bottom">
-
                     <span class="step-number">4</span>
-
-                    <div>
-                        <h4>Stone Ground</h4>
-                        <p>Perfect texture</p>
-                    </div>
-
+                    <div><h4>Stone Ground</h4><p>Perfect texture</p></div>
                 </div>
-
             </div>
-
             <div class="process-arrow">›</div>
 
-            <!-- STEP -->
-
             <div class="process-item">
-
                 <div class="process-image-box">
-                    <img src="images/Peanut-Chutney-Powder.webp"
-                         alt="Freshly Packed">
+                    <img src="images/Peanut-Chutney-Powder.webp" alt="Freshly Packed">
                 </div>
-
                 <div class="process-bottom">
-
                     <span class="step-number">5</span>
-
-                    <div>
-                        <h4>Freshly Packed</h4>
-                        <p>Maintains freshness</p>
-                    </div>
-
+                    <div><h4>Freshly Packed</h4><p>Maintains freshness</p></div>
                 </div>
-
             </div>
-
             <div class="process-arrow">›</div>
 
-            <!-- STEP -->
-
             <div class="process-item">
-
                 <div class="process-image-box">
-                    <img src="images/Ready-To-Serve.webp"
-                         alt="Ready To Serve">
+                    <img src="images/Ready-To-Serve.webp" alt="Ready To Serve">
                 </div>
-
                 <div class="process-bottom">
-
                     <span class="step-number">6</span>
-
-                    <div>
-                        <h4>Ready To Serve</h4>
-                        <p>Traditional deliciousness</p>
-                    </div>
-
+                    <div><h4>Ready To Serve</h4><p>Traditional deliciousness</p></div>
                 </div>
-
             </div>
-
-            <!-- SIDE TEXT -->
 
             <div class="process-side-text">
-
-                <h4>
-                    From Our Kitchen<br>
-                    To Your Home
-                </h4>
-
-                <p>
-                    Every pack carries our promise
-                    of purity, taste & trust.
-                </p>
-
+                <h4>From Our Kitchen<br>To Your Home</h4>
+                <p>Every pack carries our promise of purity, taste &amp; trust.</p>
             </div>
 
         </div>
-
     </div>
-
 </section>
 
 <!-- ========================= -->
-<!-- PERFECT WITH EVERY MEAL -->
+<!-- PRODUCTS / MEALS SECTION  -->
 <!-- ========================= -->
-
 <section class="meal-section" id="products">
-
     <div class="container">
-
-        <h2 class="section-title">
-            Authentic Karnataka Flavours for Every Meal
-        </h2>
-
+        <h2 class="section-title">Authentic Karnataka Flavours for Every Meal</h2>
         <div class="meal-grid">
-
-            <!-- CARD -->
-
             <div class="meal-card">
-
                 <div class="meal-image-wrapper">
-
-                    <img src="images/With-Soft-Idlis.webp"
-                         alt="With Soft Idlis"
-                         class="meal-image">
-
+                    <img src="images/With-Soft-Idlis.webp" alt="With Soft Idlis" class="meal-image">
                 </div>
-
                 <h4>Soft Idlis with Traditional Jayvi's Podi</h4>
-
             </div>
-
-            <!-- CARD -->
-
             <div class="meal-card">
-
                 <div class="meal-image-wrapper">
-
-                    <img src="images/With-Crispy-Dosas.webp"
-                         alt="With Crispy Dosas"
-                         class="meal-image">
-
+                    <img src="images/With-Crispy-Dosas.webp" alt="With Crispy Dosas" class="meal-image">
                 </div>
-
                 <h4>Crispy Dosas with Authentic Jayvi's Flavours</h4>
-
             </div>
-
-            <!-- CARD -->
-
             <div class="meal-card">
-
                 <div class="meal-image-wrapper">
-
-                    <img src="images/With-Hot-Rice-&-Ghee.webp"
-                         alt="With Hot Rice & Ghee"
-                         class="meal-image">
-
+                    <img src="images/With-Hot-Rice-&-Ghee.webp" alt="With Hot Rice & Ghee" class="meal-image">
                 </div>
-
                 <h4>Hot Rice + Ghee + Jayvi Peanut Chutney</h4>
-
             </div>
-
-            <!-- CARD -->
-
             <div class="meal-card">
-
                 <div class="meal-image-wrapper">
-
-                    <img src="images/As-Samber-premix.webp"
-                         alt="As Sambar / Dip"
-                         class="meal-image">
-
+                    <img src="images/As-Samber-premix.webp" alt="As Sambar / Dip" class="meal-image">
                 </div>
-
                 <h4>Jayvi's Instant Sambar Dip</h4>
-
             </div>
-
-            <!-- CARD -->
-
             <div class="meal-card">
-
                 <div class="meal-image-wrapper">
-
-                    <img src="images/Loved-by-Kids.webp"
-                         alt="Loved by Kids"
-                         class="meal-image">
-
+                    <img src="images/Loved-by-Kids.webp" alt="Loved by Kids" class="meal-image">
                 </div>
-
-                <h4>Loved by Kids & Families</h4>
-
+                <h4>Loved by Kids &amp; Families</h4>
             </div>
-
-            <!-- CARD -->
-
             <div class="meal-card">
-
                 <div class="meal-image-wrapper">
-
-                    <img src="images/Perfect-for-Families.webp"
-                         alt="Perfect for Families"
-                         class="meal-image">
-
+                    <img src="images/Perfect-for-Families.webp" alt="Perfect for Families" class="meal-image">
                 </div>
-
                 <h4>Made for Every Family Meal</h4>
-
             </div>
-<div class="meal-card">
-
-    <div class="meal-image-wrapper">
-
-        <img src="images/Taste-You-Can-Trust.webp"
-             alt="Taste You Can Trust"
-             class="meal-image">
-
-    </div>
-
-    <h4>A Taste You’ll Always Remember</h4>
-
-</div>
+            <div class="meal-card">
+                <div class="meal-image-wrapper">
+                    <img src="images/Taste-You-Can-Trust.webp" alt="Taste You Can Trust" class="meal-image">
+                </div>
+                <h4>A Taste You'll Always Remember</h4>
+            </div>
         </div>
-
     </div>
-
 </section>
 
 <!-- ========================= -->
-<!-- REVIEWS -->
+<!-- WHY CHOOSE US (NEW)       -->
 <!-- ========================= -->
-
-<section class="reviews-section" id="reviews">
-
+<section class="why-section">
     <div class="container">
+        <p class="why-eyebrow">WHY JAYVI'S</p>
+        <h2 class="section-title why-title">The Jayvi's Difference</h2>
+        <div class="why-grid">
+            <div class="why-card">
+                <div class="why-icon"><i class="fa-solid fa-leaf"></i></div>
+                <h3>Zero Compromise</h3>
+                <p>We never use artificial colours, synthetic flavours or chemical preservatives. What you taste is exactly what nature and tradition intended.</p>
+            </div>
+            <div class="why-card why-card--featured">
+                <div class="why-icon"><i class="fa-solid fa-heart"></i></div>
+                <h3>Made in Small Batches</h3>
+                <p>Every batch is prepared fresh in small quantities so flavour and freshness are never sacrificed for scale. You taste the difference immediately.</p>
+                <span class="why-badge">Our Promise</span>
+            </div>
+            <div class="why-card">
+                <div class="why-icon"><i class="fa-solid fa-seedling"></i></div>
+                <h3>Karnataka Heritage</h3>
+                <p>Our recipes are drawn directly from generations of Karnataka cooking — unchanged, uncompromised, and brought straight to your kitchen.</p>
+            </div>
+        </div>
+    </div>
+</section>
 
-        <h2 class="section-title">
-            Loved By Our Customers
-        </h2>
+<!-- ========================= -->
+<!-- HOW TO ORDER (NEW)        -->
+<!-- ========================= -->
+<section class="order-section">
+    <div class="container">
+        <p class="why-eyebrow">SIMPLE ORDERING</p>
+        <h2 class="section-title">Order in 3 Easy Steps</h2>
+        <div class="order-steps">
+            <div class="order-step">
+                <div class="order-step-number">01</div>
+                <div class="order-step-icon"><i class="fa-brands fa-whatsapp"></i></div>
+                <h4>Message Us on WhatsApp</h4>
+                <p>Send us a message on WhatsApp with your product choice and delivery address.</p>
+            </div>
+            <div class="order-connector">
+                <i class="fa-solid fa-arrow-right"></i>
+            </div>
+            <div class="order-step">
+                <div class="order-step-number">02</div>
+                <div class="order-step-icon"><i class="fa-solid fa-box"></i></div>
+                <h4>We Prepare Your Order</h4>
+                <p>Your products are freshly packed and prepared with care just for you.</p>
+            </div>
+            <div class="order-connector">
+                <i class="fa-solid fa-arrow-right"></i>
+            </div>
+            <div class="order-step">
+                <div class="order-step-number">03</div>
+                <div class="order-step-icon"><i class="fa-solid fa-truck"></i></div>
+                <h4>Delivered to Your Door</h4>
+                <p>Your order is delivered fresh to your home — ready to enjoy with your family.</p>
+            </div>
+        </div>
+        <a href="https://wa.me/918861981003" target="_blank" class="order-cta-btn">
+            <i class="fa-brands fa-whatsapp"></i>
+            Start Your Order Now
+        </a>
+    </div>
+</section>
 
-        <p class="reviews-subtitle">
-            Real reviews from happy families enjoying Jayvi Foods.
-        </p>
+<!-- ========================= -->
+<!-- REVIEWS                   -->
+<!-- ========================= -->
+<section class="reviews-section" id="reviews">
+    <div class="container">
+        <h2 class="section-title">Loved By Our Customers</h2>
+        <p class="reviews-subtitle">Real reviews from happy families enjoying Jayvi Foods.</p>
 
         <div class="reviews-slider-wrapper">
-
-            <!-- LEFT -->
-
-            <button class="review-nav prev-review">
-
-                <i class="fa-solid fa-chevron-left"></i>
-
-            </button>
-
-            <!-- SLIDER -->
-
+            <button class="review-nav prev-review"><i class="fa-solid fa-chevron-left"></i></button>
             <div class="reviews-slider" id="reviewsSlider">
 
-                <!-- REVIEW -->
-
                 <div class="review-card">
-
                     <div class="stars">★★★★★</div>
-
-                    <p class="review-text">
-                        “It was nice, perfect & tasty.”
-                    </p>
-
+                    <p class="review-text">"It was nice, perfect &amp; tasty."</p>
                     <h4>— Prateeksha</h4>
-
                 </div>
 
-                <!-- REVIEW -->
-
                 <div class="review-card">
-
                     <div class="stars">★★★★★</div>
-
                     <p class="review-text">
-
-                        “Best Authentic Taste! This combo pack is a lifesaver for busy mornings!
+                        "Best Authentic Taste! This combo pack is a lifesaver for busy mornings!
                         The Peanut chutney is rich and nutty, while the Flaxseed is savory and spicy.
-                        These powders go perfectly with idli, dosa, rotis and sandwiches.”
-
+                        These powders go perfectly with idli, dosa, rotis and sandwiches."
                     </p>
-
-                    <button class="read-more-btn">
-                        Read More
-                    </button>
-
+                    <button class="read-more-btn">Read More</button>
                     <h4>— Praveen Yandigeri</h4>
-
                 </div>
 
-                <!-- REVIEW -->
-
                 <div class="review-card">
-
                     <div class="stars">★★★★★</div>
-
                     <p class="review-text">
-
-                        “We tried both the chutney pudis you gave and wanted to share our feedback.
+                        "We tried both the chutney pudis you gave and wanted to share our feedback.
                         The peanut chutney pudi was genuinely very good. We had it with chapati,
                         curd, hot rice and ghee, and everyone at home loved it.
-
                         The flavour is very comforting with the perfect balance of spiciness,
-                        tanginess and masala.
-
-                        We also tried the flaxseed chutney pudi.
-                        Overall both chutney pudis are very tasty, homely and comforting 😊”
-
+                        tanginess and masala. Overall both chutney pudis are very tasty, homely and comforting 😊"
                     </p>
-
-                    <button class="read-more-btn">
-                        Read More
-                    </button>
-
+                    <button class="read-more-btn">Read More</button>
                     <h4>— Bhoomika</h4>
-
                 </div>
 
-                <!-- REVIEW -->
-
                 <div class="review-card">
-
                     <div class="stars">★★★★★</div>
-
                     <p class="review-text">
-
-                        “Absolutely loved the taste! Feels very homemade and authentic.
+                        "Absolutely loved the taste! Feels very homemade and authentic.
                         The peanut chutney is very tasty and the flaxseed one is healthy
-                        and unique. Highly recommend 👌.”
-
+                        and unique. Highly recommend 👌."
                     </p>
-
-                    <button class="read-more-btn">
-                        Read More
-                    </button>
-
+                    <button class="read-more-btn">Read More</button>
                     <h4>— Varada Rajesh</h4>
-
                 </div>
-
-                <!-- REVIEW -->
 
                 <div class="review-card">
-
                     <div class="stars">★★★★★</div>
-
-                    <p class="review-text">
-
-                        “The chutney was very delicious and full of rich flavour.
-                        The aroma was fresh and fragrant.”
-
-                    </p>
-
+                    <p class="review-text">"The chutney was very delicious and full of rich flavour. The aroma was fresh and fragrant."</p>
                     <h4>— Shridevi Mittalkod</h4>
-
                 </div>
-<div class="review-card">
 
-    <div class="stars">★★★★★</div>
+                <div class="review-card">
+                    <div class="stars">★★★★★</div>
+                    <p class="review-text">"It's purely homely taste."</p>
+                    <h4>— Balakrisha Ganji</h4>
+                </div>
 
-    <p class="review-text">
+                <div class="review-card">
+                    <div class="stars">★★★★★</div>
+                    <p class="review-text">"Very authentic homemade flavour and premium quality. Loved it with hot rice and ghee."</p>
+                    <h4>— Tejashwini Muttu</h4>
+                </div>
 
-        “It's purely homely taste.”
-
-    </p>
-
-    <h4>— Balakrisha Ganji</h4>
-
-</div>
-
-<div class="review-card">
-
-    <div class="stars">★★★★★</div>
-
-    <p class="review-text">
-
-        “Very authentic homemade flavour and premium quality.
-        Loved it with hot rice and ghee.”
-
-    </p>
-
-    <h4>— Tejashwini Muttu</h4>
-
-</div>
-
-<div class="review-card">
-
-    <div class="stars">★★★★★</div>
-
-    <p class="review-text">
-
-        “Traditional taste with excellent freshness.
-        Perfect combination for everyday meals.”
-
-    </p>
-
-    <h4>— Mahalingappa Yandigeri</h4>
-
-</div>
+                <div class="review-card">
+                    <div class="stars">★★★★★</div>
+                    <p class="review-text">"Traditional taste with excellent freshness. Perfect combination for everyday meals."</p>
+                    <h4>— Mahalingappa Yandigeri</h4>
+                </div>
 
             </div>
-
-            <!-- RIGHT -->
-
-            <button class="review-nav next-review">
-
-                <i class="fa-solid fa-chevron-right"></i>
-
-            </button>
-
+            <button class="review-nav next-review"><i class="fa-solid fa-chevron-right"></i></button>
         </div>
 
-        <!-- DOTS -->
-
-        <!-- BUTTON -->
-
-        <a href="https://g.page/r/CV0qbh-IqbKZEBM/review"
-           target="_blank"
-           class="google-review-btn">
-
+        <a href="https://g.page/r/CV0qbh-IqbKZEBM/review" target="_blank" class="google-review-btn">
+            <i class="fa-brands fa-google"></i>
             View All Reviews On Google
-
         </a>
-
     </div>
-
 </section>
 
 <!-- ========================= -->
-<!-- FOOTER -->
+<!-- INSTAGRAM STRIP (NEW)     -->
 <!-- ========================= -->
+<section class="instagram-section">
+    <div class="container">
+        <div class="instagram-inner">
+            <div class="instagram-left">
+                <p class="why-eyebrow">FOLLOW ALONG</p>
+                <h2 class="instagram-title">We're on<br><span>Instagram</span></h2>
+                <p class="instagram-desc">See how families across Karnataka are enjoying Jayvi's every day. Tag us in your meals!</p>
+                <a href="https://instagram.com/jayvifoods" target="_blank" class="instagram-btn">
+                    <i class="fa-brands fa-instagram"></i>
+                    @jayvifoods
+                </a>
+            </div>
+            <div class="instagram-right">
+                <div class="insta-grid">
+                    <div class="insta-tile insta-tile--1">
+                        <img src="images/With-Soft-Idlis.webp" alt="Jayvi on Instagram">
+                        <div class="insta-overlay"><i class="fa-brands fa-instagram"></i></div>
+                    </div>
+                    <div class="insta-tile insta-tile--2">
+                        <img src="images/With-Crispy-Dosas.webp" alt="Jayvi on Instagram">
+                        <div class="insta-overlay"><i class="fa-brands fa-instagram"></i></div>
+                    </div>
+                    <div class="insta-tile insta-tile--3">
+                        <img src="images/With-Hot-Rice-&-Ghee.webp" alt="Jayvi on Instagram">
+                        <div class="insta-overlay"><i class="fa-brands fa-instagram"></i></div>
+                    </div>
+                    <div class="insta-tile insta-tile--4">
+                        <img src="images/Peanut-Chutney-Powder.webp" alt="Jayvi on Instagram">
+                        <div class="insta-overlay"><i class="fa-brands fa-instagram"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
 
+<!-- ========================= -->
+<!-- FINAL CTA BANNER (NEW)    -->
+<!-- ========================= -->
+<section class="cta-banner">
+    <div class="container">
+        <div class="cta-banner-inner">
+            <div class="cta-banner-text">
+                <h2>Ready to Taste Karnataka<br>in Every Bite?</h2>
+                <p>Order today and experience the authentic homemade flavour your family deserves.</p>
+            </div>
+            <div class="cta-banner-actions">
+                <a href="https://wa.me/918861981003" target="_blank" class="cta-wa-btn">
+                    <i class="fa-brands fa-whatsapp"></i>
+                    Order on WhatsApp
+                </a>
+                <a href="https://instagram.com/jayvifoods" target="_blank" class="cta-ig-btn">
+                    <i class="fa-brands fa-instagram"></i>
+                    Follow Us
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ========================= -->
+<!-- FOOTER                    -->
+<!-- ========================= -->
 <footer class="footer" id="contact">
 
     <div class="footer-container">
 
         <!-- BRAND -->
-
         <div class="footer-brand">
-
-            <img src="images/logo.svg"
-                 alt="Jayvi Foods"
-                 class="footer-logo">
-
+            <img src="images/logo.svg" alt="Jayvi Foods" class="footer-logo">
             <p>
-    Jayvi’s brings authentic Karnataka flavours
-    to modern families through traditional recipes,
-    premium ingredients and homemade care.
-</p>
-
+                Jayvi's brings authentic Karnataka flavours to modern families through
+                traditional recipes, premium ingredients and homemade care.
+            </p>
             <div class="footer-socials">
-
-                <a href="https://instagram.com/jayvifoods" target="_blank">
+                <a href="https://instagram.com/jayvifoods" target="_blank" aria-label="Instagram">
                     <i class="fab fa-instagram"></i>
                 </a>
-
-                <a href="https://wa.me/918861981003" target="_blank">
+                <a href="https://wa.me/918861981003" target="_blank" aria-label="WhatsApp">
                     <i class="fab fa-whatsapp"></i>
                 </a>
-
-                <a href="https://g.page/r/CV0qbh-IqbKZEBM/review" target="_blank">
+                <a href="https://g.page/r/CV0qbh-IqbKZEBM/review" target="_blank" aria-label="Google Reviews">
                     <i class="fab fa-google"></i>
                 </a>
-
             </div>
-
         </div>
 
         <!-- LINKS -->
-
         <div class="footer-links">
-
             <h3>Quick Links</h3>
-
             <a href="#home">Home</a>
             <a href="#products">Products</a>
             <a href="#story">Our Story</a>
             <a href="#process">Process</a>
             <a href="#reviews">Testimonials</a>
-
         </div>
 
         <!-- CONTACT -->
-
         <div class="footer-contact">
-
-            <h3>Contact</h3>
-
-            <p>
-                <i class="fas fa-phone-alt"></i>
-                +91 88619 81003
-            </p>
-
-            <p>
-                <i class="fab fa-instagram"></i>
-                @jayvifoods
-            </p>
-
-            <p>
-                <i class="fas fa-map-marker-alt"></i>
-                Karnataka, India
-            </p>
-
+            <h3>Contact Us</h3>
+            <p><i class="fas fa-phone-alt"></i> +91 88619 81003</p>
+            <p><i class="fab fa-instagram"></i> @jayvifoods</p>
+            <p><i class="fas fa-map-marker-alt"></i> Karnataka, India</p>
+            <a href="https://wa.me/918861981003" target="_blank" class="footer-wa-btn">
+                <i class="fa-brands fa-whatsapp"></i> Chat on WhatsApp
+            </a>
         </div>
 
     </div>
 
     <div class="footer-bottom">
-        © 2026 Jayvi Foods. All Rights Reserved.
+        <span>© 2026 Jayvi Foods. All Rights Reserved.</span>
+        <span class="footer-bottom-right">Crafted with ❤️ in Karnataka</span>
     </div>
 
 </footer>
 
+<!-- ========================= -->
+<!-- FLOATING WHATSAPP BUTTON  -->
+<!-- ========================= -->
+<a href="https://wa.me/918861981003" target="_blank" class="float-wa" aria-label="Order on WhatsApp">
+    <i class="fa-brands fa-whatsapp"></i>
+</a>
+
 <!-- =========================
      JAVASCRIPT
 ========================= -->
-
 <script>
 
-/* =========================
-   MOBILE HAMBURGER NAV
-========================= */
+/* ── ANNOUNCEMENT BAR SCROLL HIDE ── */
+let lastScroll = 0;
+const bar = document.getElementById('announcementBar');
+window.addEventListener('scroll', () => {
+    if (window.scrollY > 80 && bar) bar.style.display = 'none';
+}, { passive: true });
 
-const hamburger  = document.getElementById('navHamburger');
-const mobileNav  = document.getElementById('mobileNav');
+/* ── MOBILE HAMBURGER NAV ── */
+const hamburger = document.getElementById('navHamburger');
+const mobileNav = document.getElementById('mobileNav');
 
 hamburger.addEventListener('click', () => {
-    mobileNav.classList.toggle('open');
+    const isOpen = mobileNav.classList.toggle('open');
+    hamburger.classList.toggle('active', isOpen);
 });
 
 function closeMobileNav() {
     mobileNav.classList.remove('open');
+    hamburger.classList.remove('active');
 }
 
-/* Close drawer when clicking outside */
 document.addEventListener('click', (e) => {
     if (!hamburger.contains(e.target) && !mobileNav.contains(e.target)) {
         mobileNav.classList.remove('open');
+        hamburger.classList.remove('active');
     }
 });
 
-/* =========================
-   REVIEWS SLIDER
-========================= */
+/* ── NAVBAR ACTIVE LINK ON SCROLL ── */
+const sections = document.querySelectorAll('section[id], header[id]');
+const navAnchors = document.querySelectorAll('.nav-links a');
 
+window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => {
+        if (window.scrollY >= s.offsetTop - 100) current = s.id;
+    });
+    navAnchors.forEach(a => {
+        a.classList.remove('active');
+        if (a.getAttribute('href') === '#' + current) a.classList.add('active');
+    });
+}, { passive: true });
+
+/* ── REVIEWS SLIDER ── */
 const slider  = document.getElementById("reviewsSlider");
 const nextBtn = document.querySelector(".next-review");
 const prevBtn = document.querySelector(".prev-review");
 
-function getCardWidth(){
+function getCardWidth() {
     const card = document.querySelector(".review-card");
     return card.offsetWidth + 22;
 }
 
-nextBtn.addEventListener("click", () => {
-    slider.scrollBy({ left: getCardWidth(), behavior: "smooth" });
-});
+nextBtn.addEventListener("click", () => slider.scrollBy({ left:  getCardWidth(), behavior: "smooth" }));
+prevBtn.addEventListener("click", () => slider.scrollBy({ left: -getCardWidth(), behavior: "smooth" }));
 
-prevBtn.addEventListener("click", () => {
-    slider.scrollBy({ left: -getCardWidth(), behavior: "smooth" });
-});
-
-/* =========================
-   READ MORE
-========================= */
-
+/* ── READ MORE ── */
 document.querySelectorAll(".read-more-btn").forEach(button => {
     button.addEventListener("click", () => {
-        const card = button.closest(".review-card");
-        const text = card.querySelector(".review-text");
+        const text = button.closest(".review-card").querySelector(".review-text");
         text.classList.toggle("expanded");
         button.innerText = text.classList.contains("expanded") ? "Show Less" : "Read More";
     });
 });
 
-/* HIDE BUTTON FOR SHORT REVIEWS */
 document.querySelectorAll(".review-card").forEach(card => {
     const text = card.querySelector(".review-text");
     const btn  = card.querySelector(".read-more-btn");
     if (!btn) return;
     setTimeout(() => {
-        if (text.scrollHeight <= text.clientHeight + 5) {
-            btn.style.display = "none";
-        }
+        if (text.scrollHeight <= text.clientHeight + 5) btn.style.display = "none";
     }, 100);
 });
+
+/* ── SCROLL-IN ANIMATIONS ── */
+const animEls = document.querySelectorAll(
+    '.stat-item, .what-we-make-card, .why-card, .order-step, .review-card, .meal-card, .feature-item'
+);
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+        if (e.isIntersecting) {
+            e.target.classList.add('anim-in');
+            observer.unobserve(e.target);
+        }
+    });
+}, { threshold: 0.12 });
+animEls.forEach(el => { el.classList.add('anim-ready'); observer.observe(el); });
+
+/* ── STATS COUNT-UP ── */
+function animateCount(el, target, suffix) {
+    let start = 0;
+    const step = target / 60;
+    const timer = setInterval(() => {
+        start += step;
+        if (start >= target) { el.textContent = target + suffix; clearInterval(timer); }
+        else el.textContent = Math.floor(start) + suffix;
+    }, 16);
+}
+const statsObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        const nums = document.querySelectorAll('.stat-number');
+        nums[0] && animateCount(nums[0], 500, '+');
+        nums[1] && animateCount(nums[1], 100, '%');
+        statsObs.disconnect();
+    });
+}, { threshold: 0.4 });
+const statsBar = document.querySelector('.stats-bar');
+if (statsBar) statsObs.observe(statsBar);
 
 </script>
 
