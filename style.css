@@ -1305,6 +1305,11 @@ overflow: hidden;
     margin-bottom:22px;
 }
 
+.logo{
+    width:110px;
+    height:auto;
+}
+
 /* BRAND TEXT */
 
 .footer-brand p{
@@ -1469,48 +1474,38 @@ overflow: hidden;
 }
 @media(max-width:768px){
 
-    /* GLOBAL */
-
-    body{
-        overflow-x:hidden;
-    }
-
-    .container{
-        width:100%;
-        padding-left:16px;
-        padding-right:16px;
-    }
-
     /* NAVBAR */
 
     .navbar{
-        padding:14px 0;
+        padding:10px 0;
     }
 
     .nav-container{
-        flex-direction:column;
-        gap:14px;
+        flex-direction:row;
+        justify-content:space-between;
+        align-items:center;
+    }
+
+    .logo{
+        width:70px;
+        height:auto;
     }
 
     .nav-links{
-        gap:18px;
-        flex-wrap:wrap;
-        justify-content:center;
-    }
-
-    .nav-links a{
-        font-size:14px;
+        display:none;
     }
 
     .whatsapp-btn{
-        padding:10px 18px;
-        font-size:14px;
+        padding:8px 14px;
+        font-size:13px;
+        border-radius:30px;
     }
 
+}
     /* HERO */
 
     .hero-section{
-        padding:50px 0 60px;
+        padding:25px 0 50px;
     }
 
     .hero-grid{
