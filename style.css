@@ -134,15 +134,46 @@ section{
     max-height .35s ease;
 }
 
-.navbar.scrolled .logo-section{
+/* =========================
+   SMART MOBILE NAVBAR
+========================= */
 
-    transform:translateY(-20px);
+.navbar{
+    transition:
+    padding .3s ease,
+    background .3s ease,
+    box-shadow .3s ease;
+}
 
-    opacity:0;
+/* LOGO TRANSITION */
 
-    max-height:0;
+.logo{
+    width:110px;
+    transition:
+    width .3s ease,
+    opacity .3s ease,
+    transform .3s ease;
+}
 
-    overflow:hidden;
+/* WHEN SCROLLED */
+
+.navbar.scrolled{
+
+    padding:8px 0;
+
+    background:#ffffffee;
+
+    box-shadow:
+    0 4px 18px rgba(0,0,0,0.08);
+}
+
+/* SHRINK LOGO ONLY */
+
+.navbar.scrolled .logo{
+
+    width:55px;
+
+    opacity:.9;
 }
 
 /* smoother navbar */
