@@ -124,6 +124,47 @@ section{
 }
 
 /* =========================
+   SMART SCROLL NAVBAR
+========================= */
+
+.logo-section{
+    transition:
+    transform .35s ease,
+    opacity .35s ease,
+    max-height .35s ease;
+}
+
+.navbar.scrolled .logo-section{
+
+    transform:translateY(-20px);
+
+    opacity:0;
+
+    max-height:0;
+
+    overflow:hidden;
+}
+
+/* smoother navbar */
+
+.navbar{
+    transition:
+    padding .3s ease,
+    background .3s ease,
+    box-shadow .3s ease;
+}
+
+.navbar.scrolled{
+
+    padding:10px 0;
+
+    background:#fffffffa;
+
+    box-shadow:
+    0 4px 18px rgba(0,0,0,0.08);
+}
+
+/* =========================
    HERO
 ========================= */
 
@@ -1308,6 +1349,15 @@ overflow: hidden;
 .logo{
     width:110px;
     height:auto;
+}
+
+.logo{
+    width:95px;
+    transition:.3s ease;
+}
+
+.navbar.scrolled .logo{
+    width:65px;
 }
 
 /* BRAND TEXT */

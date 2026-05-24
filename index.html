@@ -64,7 +64,7 @@ content="Karnataka food brand, idli podi, dosa podi, peanut chutney powder, flax
     <div class="container nav-container">
 
         <!-- LOGO -->
-        <div class="logo-section">
+        <div class="logo-section" id="logoSection">
 
             <img src="images/logo.svg"
                  alt="Jayvi Foods"
@@ -1093,6 +1093,26 @@ document
         }
 
     },100);
+
+});
+
+/* =========================
+   SMART NAVBAR SCROLL
+========================= */
+
+const navbar =
+document.querySelector(".navbar");
+
+window.addEventListener("scroll", () => {
+
+    if(window.scrollY > 80){
+
+        navbar.classList.add("scrolled");
+
+    } else {
+
+        navbar.classList.remove("scrolled");
+    }
 
 });
 
