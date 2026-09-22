@@ -479,6 +479,41 @@ const money=n=>'₹'+Number(n||0).toLocaleString('en-IN');
 const isMobile=()=>window.matchMedia('(max-width:959px)').matches;
 function escapeHtml(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 
+// PatilKaki-review addition: search synonyms, kept in this ONE map so
+// it stays maintainable (per the brief, no separate search system).
+// Each key maps to the other terms customers might type instead —
+// both directions are handled by expandSearchQuery() below, so it's
+// enough to list a pair once.
+const SEARCH_SYNONYMS = {
+  'peanut':['shenga','groundnut'],
+  'shenga':['peanut','groundnut'],
+  'flaxseed':['agasi','flax seed','flax'],
+  'agasi':['flaxseed','flax seed','flax'],
+  'chutney pudi':['chutney powder'],
+  'chutney powder':['chutney pudi'],
+  'pudi':['powder'],
+  'powder':['pudi'],
+  'idli dosa pudi':['idli dosa chutney powder','idli/dosa pudi'],
+  'idli/dosa pudi':['idli dosa pudi'],
+  'rajam':['rajamudi','rajmudi rice'],
+  'rajamudi':['rajam','rajmudi rice']
+};
+function expandSearchQuery(q){
+  q=(q||'').trim().toLowerCase();
+  if(!q) return [q];
+  const terms=new Set([q]);
+  Object.entries(SEARCH_SYNONYMS).forEach(([k,vals])=>{
+    if(q.includes(k)) vals.forEach(v=>terms.add(v));
+    if(vals.some(v=>q.includes(v))) terms.add(k);
+  });
+  return [...terms];
+}
+function matchesSearch(p,q){
+  if(!q) return true;
+  const haystack=`${p.name} ${catName(p.category)} ${p.short||''} ${p.description||''}`.toLowerCase();
+  return expandSearchQuery(q).some(term=>haystack.includes(term));
+}
+
 /* ---------- Config / data ---------- */
 function loadConfig(){
   try{
@@ -548,7 +583,14 @@ async function loadCatalogFromSupabase(){
         description:p.description, category:p.category, categories:p.categories,
         mealTags:p.meal_tags, active:p.active, best:p.best,
         image:media[0]?.path||'', media,
-        variants:p.variants||[], rating:p.rating, reviewCount:p.review_count
+        variants:p.variants||[], rating:p.rating, reviewCount:p.review_count,
+        // Additive product-detail fields (supabase_migration_product_details.sql).
+        // All optional — openProduct() only renders a section when the
+        // corresponding value is actually present.
+        highlights:p.highlights||[], ingredients:p.ingredients||'',
+        storageInstructions:p.storage_instructions||'', shelfLife:p.shelf_life||'',
+        allergens:p.allergens||'', nutrition:p.nutrition||[], faq:p.faq||[],
+        isNew:!!p.is_new, newUntil:p.new_until||null
       };
     });
 
@@ -688,6 +730,58 @@ function getVariant(p,vid){
     || null;
 }
 function catName(id){return categories.find(c=>c.id===id)?.name||id}
+// PatilKaki-review additions — admin-controlled "New" badge (never
+// auto-derived from created_at, so importing older catalogue rows
+// doesn't silently mark everything new) and a per-product "Offer"
+// badge computed from the SAME activeOffers array already fetched for
+// the floating offer button (see fetchActiveOffers()) — no second
+// offers query.
+function isProductNew(p){
+  if(!p?.isNew) return false;
+  if(!p.newUntil) return true;
+  const today=new Date(); today.setHours(0,0,0,0);
+  return new Date(p.newUntil) >= today;
+}
+// Mirrors validate_coupon()'s restriction check EXACTLY (see
+// supabase_migration_coupon_checkout.sql): applicable_products/
+// applicable_categories are containment ("<@" — every id on the left
+// must be in the list on the right) checks, evaluated independently,
+// BOTH must pass when both are configured. For one product that
+// means: if applicable_products is set, p.id must be in it; if
+// applicable_categories is set, EVERY category p belongs to (not just
+// one) must be in it — a product in a category outside the coupon's
+// allowed set fails this, same as validate_coupon() would reject a
+// cart containing it. Using .every() here (not .some()) is what keeps
+// this in lockstep with the real eligibility check — a looser .some()
+// would badge products the coupon actually can't discount.
+function productHasActiveOffer(p){
+  if(!p || !(activeOffers||[]).length) return false;
+  const pCats=[p.category,...(p.categories||[])].filter(Boolean);
+  return activeOffers.some(o=>{
+    const prodRestricted=o.applicable_products?.length>0;
+    const catRestricted=o.applicable_categories?.length>0;
+    const prodOk = !prodRestricted || o.applicable_products.includes(p.id);
+    const catOk = !catRestricted || (pCats.length>0 && pCats.every(c=>o.applicable_categories.includes(c)));
+    return prodOk && catOk;
+  });
+}
+// Inline (non-absolutely-positioned) variant of the same badge set,
+// for use in the product detail modal where there's no .visualWrap to
+// anchor an absolute badge stack against.
+function detailBadges(p){
+  const t=[];
+  if(p.best) t.push('<span class="tag tagBest">Bestseller</span>');
+  if(isProductNew(p)) t.push('<span class="tag tagNew">New</span>');
+  if(productHasActiveOffer(p)) t.push('<span class="tag tagOffer">Offer</span>');
+  return t.length?`<div class="detailTags">${t.join('')}</div>`:'';
+}
+function productBadges(p){
+  const b=[];
+  if(p.best) b.push('<span class="badge" title="Bestseller" aria-label="Bestseller"><i class="fa-solid fa-star" aria-hidden="true"></i></span>');
+  if(isProductNew(p)) b.push('<span class="badge badgeNew" title="New" aria-label="New"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>');
+  if(productHasActiveOffer(p)) b.push('<span class="badge badgeOffer" title="Offer available" aria-label="Offer available"><i class="fa-solid fa-percent" aria-hidden="true"></i></span>');
+  return b.length?`<div class="badgeStack">${b.join('')}</div>`:'';
+}
 function variantKey(id){return selectedVariants[id]||getVariant(getProduct(id))?.id}
 function setVariant(id,vid){selectedVariants[id]=vid;refreshProductViews()}
 function cartQtyFor(pid,vid){const x=cart.find(i=>i.type==='product'&&i.productId===pid&&i.variantId===vid);return x?.qty||0}
@@ -808,7 +902,7 @@ function productCard(p){
     ?`<div class="pcActions hasQty"><div class="inlineQty"><button onclick="changeProductQty('${p.id}','${v.id}',-1)" aria-label="Decrease quantity"><i class="fa-solid fa-minus"></i></button><b>${q}</b><button onclick="changeProductQty('${p.id}','${v.id}',1)" aria-label="Increase quantity"><i class="fa-solid fa-plus"></i></button></div><button class="viewCartBtn" onclick="openCart()" aria-label="View cart"><i class="fa-solid fa-bag-shopping"></i></button></div>`
     :`<div class="pcActions"><button onclick="addToCart('${p.id}','${v.id}')">Add to cart</button><button onclick="buyNow('${p.id}','${v.id}')">Buy now</button></div>`;
   return `<article class="productCard" data-product-id="${p.id}">
-    <div class="visualWrap" onclick="openProduct('${p.id}')">${cardMediaMarkup(p)}${p.best?'<span class="badge" title="Bestseller" aria-label="Bestseller"><i class="fa-solid fa-star" aria-hidden="true"></i></span>':''}<button class="heart ${wishlist.includes(p.id)?'isWish':''}" onclick="event.stopPropagation();toggleWishlist('${p.id}')" aria-label="Favourite ${escapeHtml(p.name)}"><i class="${wishlist.includes(p.id)?'fa-solid':'fa-regular'} fa-heart"></i></button></div>
+    <div class="visualWrap" onclick="openProduct('${p.id}')">${cardMediaMarkup(p)}${productBadges(p)}<button class="heart ${wishlist.includes(p.id)?'isWish':''}" onclick="event.stopPropagation();toggleWishlist('${p.id}')" aria-label="Favourite ${escapeHtml(p.name)}"><i class="${wishlist.includes(p.id)?'fa-solid':'fa-regular'} fa-heart"></i></button></div>
     <div class="pcBody">
       <small>${escapeHtml(catName(p.category))}</small>
       <h3 onclick="openProduct('${p.id}')">${escapeHtml(p.name)}</h3>
@@ -820,7 +914,35 @@ function productCard(p){
     </div>
   </article>`;
 }
-function renderBest(){ if($('bestGrid')) $('bestGrid').innerHTML=products.filter(p=>p.best).slice(0,4).map(productCard).join(''); bindGalleryScrollers(); }
+// PatilKaki-review addition: Bestsellers / New Arrivals tabs on the
+// homepage discovery section. Reuses the existing bestseller flag and
+// the isNew() helper above — no separate "new products" fetch. The
+// tab row only appears at all when there's at least one new product to
+// show, so sites with no New items yet look exactly as before.
+let discoveryTab='best';
+function setDiscoveryTab(t){ discoveryTab=t; renderBest(); }
+function renderBest(){
+  if(!$('bestGrid')) return;
+  const newArrivals=products.filter(isProductNew);
+  const tabs=$('discoveryTabs');
+  if(tabs){
+    if(newArrivals.length){
+      tabs.style.display='flex';
+      tabs.innerHTML=`<button class="${discoveryTab==='best'?'active':''}" onclick="setDiscoveryTab('best')">Bestsellers</button><button class="${discoveryTab==='new'?'active':''}" onclick="setDiscoveryTab('new')">New Arrivals</button>`;
+    } else {
+      tabs.style.display='none'; discoveryTab='best';
+    }
+  }
+  const showingNew = discoveryTab==='new' && newArrivals.length>0;
+  // Heading/eyebrow follow the selected tab, not just the grid contents
+  // — previously these stayed fixed on "Bestsellers" even after
+  // switching to New Arrivals.
+  if($('discoveryEyebrow')) $('discoveryEyebrow').textContent = showingNew ? "WHAT'S NEW AT JAYVI" : "SHOP JAYVI'S BESTSELLERS";
+  if($('discoveryHeading')) $('discoveryHeading').textContent = showingNew ? 'New Arrivals' : 'Bestsellers';
+  const list = showingNew ? newArrivals.slice(0,4) : products.filter(p=>p.best).slice(0,4);
+  $('bestGrid').innerHTML = list.map(productCard).join('') || '<div class="empty smallEmpty">Nothing here yet.</div>';
+  bindGalleryScrollers();
+}
 function renderCategories(){
   if(!$('categoryTabs'))return;
   $('categoryTabs').innerHTML=`<button class="${cat==='all'?'active':''}" onclick="setCat('all',this)">All</button>`+
@@ -830,7 +952,7 @@ function setCat(c,b){cat=c;document.querySelectorAll('.categoryTabs button').for
 function renderProducts(){
   if(!$('productGrid'))return;
   const q=($('productSearch')?.value||'').toLowerCase();
-  let arr=products.filter(p=>(cat==='all'||p.category===cat)&&(`${p.name} ${catName(p.category)}`.toLowerCase().includes(q)));
+  let arr=products.filter(p=>(cat==='all'||p.category===cat)&&matchesSearch(p,q));
   const s=$('sortSelect')?.value;
   if(s==='priceLow')arr.sort((a,b)=>getVariant(a,variantKey(a.id)).price-getVariant(b,variantKey(b.id)).price);
   if(s==='priceHigh')arr.sort((a,b)=>getVariant(b,variantKey(b.id)).price-getVariant(a,variantKey(a.id)).price);
@@ -858,28 +980,32 @@ function comboMediaMarkup(c){
   return `<div class="comboMediaScroller" data-count="${count}" aria-label="${escapeHtml(c.name)} images">${slides}</div>${controls}`;
 }
 function cartQtyForCombo(cid){const x=cart.find(i=>i.type==='combo'&&i.comboId===cid);return x?.qty||0}
+// Extracted from renderCombos() so the same combo card markup can be
+// reused in the product-detail "Complete your meal" section (see
+// relatedSectionsMarkup) without a second, drifting copy of it.
+function comboCard(c){
+  // V32.5 fix (Priority 2, item 5): same data-driven qty-stepper pattern
+  // as productCard() — a combo already in the cart must show -/+ just
+  // like every other product, not a static Add to cart button forever.
+  const q=cartQtyForCombo(c.id);
+  const actions=q
+    ?`<div class="pcActions comboActions hasQty"><div class="inlineQty"><button onclick="changeComboQty('${c.id}',-1)" aria-label="Decrease quantity"><i class="fa-solid fa-minus"></i></button><b>${q}</b><button onclick="changeComboQty('${c.id}',1)" aria-label="Increase quantity"><i class="fa-solid fa-plus"></i></button></div><button class="viewCartBtn" onclick="openCart()" aria-label="View cart"><i class="fa-solid fa-bag-shopping"></i></button></div>`
+    :`<div class="pcActions comboActions"><button onclick="addCombo('${c.id}')">Add to cart</button><button onclick="buyCombo('${c.id}')">Buy now</button></div>`;
+  return `<article class="comboCard">
+  <div class="comboImage">${comboMediaMarkup(c)}</div>
+  <div class="comboBody">
+    <div class="eyebrow" style="color:#e8d9b6">COMBO</div>
+    <h3>${escapeHtml(c.name)}</h3><p>${escapeHtml(c.short)}</p>
+    <div class="comboItems">${c.items.map(i=>{const p=getProduct(i.productId),v=p?getVariant(p,i.variantId):null;return `<span>${escapeHtml(p?.name||'')} · ${v?.label||''}</span>`}).join('')}</div>
+    <div class="comboPrice"><b>${money(c.price)}</b><del>${money(c.mrp)}</del><em>Save ${money(c.mrp-c.price)}</em></div>
+    ${actions}
+  </div></article>`;
+}
 function renderCombos(){
   if(!$('comboGrid'))return;
   const cs=(CONFIG.combos||[]).filter(c=>c.active);
   $('comboCount').textContent=cs.length?`${cs.length} combo${cs.length>1?'s':''}`:'';
-  $('comboGrid').innerHTML=cs.length?cs.map(c=>{
-    // V32.5 fix (Priority 2, item 5): same data-driven qty-stepper pattern
-    // as productCard() — a combo already in the cart must show -/+ just
-    // like every other product, not a static Add to cart button forever.
-    const q=cartQtyForCombo(c.id);
-    const actions=q
-      ?`<div class="pcActions comboActions hasQty"><div class="inlineQty"><button onclick="changeComboQty('${c.id}',-1)" aria-label="Decrease quantity"><i class="fa-solid fa-minus"></i></button><b>${q}</b><button onclick="changeComboQty('${c.id}',1)" aria-label="Increase quantity"><i class="fa-solid fa-plus"></i></button></div><button class="viewCartBtn" onclick="openCart()" aria-label="View cart"><i class="fa-solid fa-bag-shopping"></i></button></div>`
-      :`<div class="pcActions comboActions"><button onclick="addCombo('${c.id}')">Add to cart</button><button onclick="buyCombo('${c.id}')">Buy now</button></div>`;
-    return `<article class="comboCard">
-    <div class="comboImage">${comboMediaMarkup(c)}</div>
-    <div class="comboBody">
-      <div class="eyebrow" style="color:#e8d9b6">COMBO</div>
-      <h3>${escapeHtml(c.name)}</h3><p>${escapeHtml(c.short)}</p>
-      <div class="comboItems">${c.items.map(i=>{const p=getProduct(i.productId),v=p?getVariant(p,i.variantId):null;return `<span>${escapeHtml(p?.name||'')} · ${v?.label||''}</span>`}).join('')}</div>
-      <div class="comboPrice"><b>${money(c.price)}</b><del>${money(c.mrp)}</del><em>Save ${money(c.mrp-c.price)}</em></div>
-      ${actions}
-    </div></article>`;
-  }).join(''):'<div class="empty" style="color:#cbbca8">No active combos yet.</div>';
+  $('comboGrid').innerHTML=cs.length?cs.map(comboCard).join(''):'<div class="empty" style="color:#cbbca8">No active combos yet.</div>';
   bindComboGalleryScrollers();
 }
 function addCombo(id){
@@ -1606,7 +1732,7 @@ function openSearch(){$('searchOverlay').classList.add('open');document.body.cla
 function closeSearch(){$('searchOverlay').classList.remove('open');document.body.classList.remove('modalOpen')}
 function renderSearch(){
   const q=$('searchBox').value.toLowerCase();
-  $('searchResults').innerHTML=products.filter(p=>(p.name+' '+catName(p.category)).toLowerCase().includes(q))
+  $('searchResults').innerHTML=products.filter(p=>matchesSearch(p,q))
     .map(p=>`<button onclick="closeSearch();openProduct('${p.id}')"><b>${escapeHtml(p.name)}</b><span>${money(getVariant(p,variantKey(p.id)).price)}</span></button>`).join('')
     ||'<div class="empty">No products found.</div>';
 }
@@ -2431,6 +2557,93 @@ function trackOrder(){
 // re-renders correctly on every cart change), so it only surfaced when a
 // just-added product was tested through the detail view.
 let openProductId = null;
+/* ---------- Product detail: structured info accordions (PatilKaki-review addition) ----------
+   Each section below renders to '' when its data is empty, so openProduct()
+   can simply concatenate all of them — a product with no data entered
+   yet looks exactly like it did before this change. */
+function accordion(title,bodyHtml,open=false,id=''){
+  return `<details class="detailAccordion"${open?' open':''}${id?` id="${id}"`:''}><summary>${escapeHtml(title)}</summary><div class="detailAccordionBody">${bodyHtml}</div></details>`;
+}
+function sectionHighlights(p){
+  if(!p.highlights?.length) return '';
+  return accordion("Why you'll love it", `<ul class="highlightList">${p.highlights.map(h=>`<li><i class="fa-solid fa-check"></i>${escapeHtml(h)}</li>`).join('')}</ul>`, true);
+}
+function sectionIngredients(p){
+  if(!p.ingredients) return '';
+  return accordion('Ingredients', `<p>${escapeHtml(p.ingredients)}</p>`);
+}
+function sectionHowToEnjoy(p){
+  // Reuses mealTags — the exact same data already shown as "Works well
+  // with" in the old modal — rather than a separate how-to-enjoy field.
+  const names=(p.mealTags||[]).map(m=>escapeHtml(mealTagList.find(t=>t.id===m)?.name||CONFIG.mealLabels?.[m]||m)).filter(Boolean);
+  if(!names.length) return '';
+  return accordion('How to enjoy', `<div class="pillRow">${names.map(n=>`<span class="pill">${n}</span>`).join('')}</div>`);
+}
+function sectionStorage(p){
+  if(!p.storageInstructions && !p.shelfLife) return '';
+  const rows=[
+    p.storageInstructions?`<div class="kvRow"><b>Storage</b><span>${escapeHtml(p.storageInstructions)}</span></div>`:'',
+    p.shelfLife?`<div class="kvRow"><b>Shelf life</b><span>${escapeHtml(p.shelfLife)}</span></div>`:''
+  ].join('');
+  return accordion('Storage & shelf life', rows);
+}
+function sectionNutritionAllergens(p){
+  if(!p.nutrition?.length && !p.allergens) return '';
+  const table=p.nutrition?.length?`<div class="nutritionTable">${p.nutrition.map(r=>`<div class="kvRow"><b>${escapeHtml(r.label||'')}</b><span>${escapeHtml(r.value||'')}</span></div>`).join('')}</div>`:'';
+  const allergenNote=p.allergens?`<p class="allergenNote"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(p.allergens)}</p>`:'';
+  return accordion('Nutrition & allergens', table+allergenNote);
+}
+function sectionFaq(p){
+  if(!p.faq?.length) return '';
+  const rows=p.faq.map(f=>`<div class="faqRow"><b>${escapeHtml(f.question||'')}</b><p>${escapeHtml(f.answer||'')}</p></div>`).join('');
+  return accordion('Frequently asked questions', rows);
+}
+// "Complete your meal" / "You may also like" / "More from this
+// category" — all three reuse existing catalogue data (combos,
+// mealTags, category) rather than a new recommendation engine.
+function relatedSectionsMarkup(p){
+  const combosWithProduct=(CONFIG.combos||[]).filter(c=>c.active&&(c.items||[]).some(it=>it.productId===p.id)).slice(0,2);
+  const sameCategory=products.filter(x=>x.id!==p.id&&x.category===p.category).slice(0,4);
+  const usedIds=new Set(sameCategory.map(x=>x.id));
+  const pTags=p.mealTags||[];
+  const sameMeal=products.filter(x=>x.id!==p.id&&!usedIds.has(x.id)&&(x.mealTags||[]).some(t=>pTags.includes(t))).slice(0,4);
+  const block=(title,gridClass,items,cardFn)=>items.length?`<div class="relatedBlock"><h3>${escapeHtml(title)}</h3><div class="${gridClass} relatedGrid">${items.map(cardFn).join('')}</div></div>`:'';
+  return [
+    block('Complete your meal','comboGrid',combosWithProduct,comboCard),
+    block('You may also like','productGrid',sameMeal,productCard),
+    block('More from this category','productGrid',sameCategory,productCard)
+  ].filter(Boolean).join('');
+}
+// Product-specific reviews reuse the exact same website_reviews table
+// and 'approved' status the homepage/account review flows already use
+// (see renderReviews / submitReview) — filtered to this product's id,
+// which that table already stores. No new reviews system.
+async function loadProductReviews(pid){
+  const holder=document.getElementById(`prodReviews-${pid}`);
+  if(!holder) return;
+  try{
+    const {data,count}=await sb.from('website_reviews')
+      .select('customer_name,rating,review_text,created_at',{count:'exact'})
+      .eq('status','approved').eq('product_id',pid)
+      .order('created_at',{ascending:false}).limit(4);
+    const rows=data||[];
+    if(!rows.length){ holder.closest('details')?.remove(); return; }
+    holder.innerHTML=rows.map(r=>`<article class="prodReviewCard"><div class="stars">${'★'.repeat(r.rating)}</div><p>“${escapeHtml(r.review_text)}”</p><b>${escapeHtml(r.customer_name)}</b></article>`).join('')
+      + (count>rows.length?`<a href="#" class="viewAllProdReviews" onclick="closeProduct();openAllReviews();return false">View all ${count} reviews →</a>`:'');
+  }catch(err){
+    console.warn('Could not load product reviews:', err?.message||err);
+    holder.closest('details')?.remove();
+  }
+}
+// Clicking the rating line ("★★★★★ 4.8 · 12 reviews") opens and
+// scrolls to the existing Customer reviews accordion below — no new
+// review UI, just a shortcut into the one that's already there.
+function goToProductReviews(){
+  const el=document.getElementById('prodReviewsAccordion');
+  if(!el) return;
+  el.open=true;
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+}
 function refreshOpenProductDetail(pid){
   if(openProductId===pid && $('productOverlay')?.classList.contains('open')) openProduct(pid);
 }
@@ -2453,19 +2666,35 @@ function openProduct(id){
   const detailActions = q
     ? `<div class="detailBtns hasQty"><div class="inlineQty"><button onclick="changeProductQty('${p.id}','${v.id}',-1)" aria-label="Decrease quantity"><i class="fa-solid fa-minus"></i></button><b>${q}</b><button onclick="changeProductQty('${p.id}','${v.id}',1)" aria-label="Increase quantity"><i class="fa-solid fa-plus"></i></button></div><button class="btn gold" onclick="openCart()">View cart</button></div>`
     : `<div class="detailBtns"><button class="btn light" ${paused?'disabled':''} onclick="${addAction}">${paused?'Orders paused':'Add to cart'}</button><button class="btn gold" ${paused?'disabled':''} onclick="${buyAction}">${paused?'Unavailable':'Buy now →'}</button></div>`;
+  // Order below follows the brief exactly: image -> name -> rating ->
+  // price/variant -> Add to cart/Buy now (all inside detailGrid, kept
+  // fixed and above the fold) -> structured info accordions -> reviews
+  // -> related products (all full-width, below). Every accordion
+  // section function returns '' when its data is empty, so a product
+  // with nothing entered yet renders identically to before.
+  const infoSections=[
+    sectionHighlights(p), sectionIngredients(p), sectionHowToEnjoy(p),
+    sectionStorage(p), sectionNutritionAllergens(p), sectionFaq(p)
+  ].filter(Boolean).join('');
+  const reviewsSection=accordion(`Customer reviews (${p.reviewCount||0})`, `<div id="prodReviews-${p.id}" class="prodReviewGrid"><div class="empty smallEmpty">Loading reviews…</div></div>`, false, 'prodReviewsAccordion');
+  const relatedHtml=relatedSectionsMarkup(p);
+
   $('productContent').innerHTML=`<div class="detailGrid">
     <div class="detailImage">${productGalleryMarkup(p)}</div>
     <div class="detailCopy">
-      <div class="eyebrow">${escapeHtml(catName(p.category))}</div>
+      <div class="detailTopRow"><div class="eyebrow">${escapeHtml(catName(p.category))}</div>${detailBadges(p)}</div>
       <h2>${escapeHtml(p.name)}</h2>
-      <div class="stars">★★★★★ <span>${p.rating} · ${p.reviewCount} reviews</span></div>
+      <div class="stars ratingLink" onclick="goToProductReviews()" role="button" tabindex="0"><span class="starsIcon">★★★★★</span> <span>${p.rating} · ${p.reviewCount} reviews</span></div>
       <p>${escapeHtml(p.short)}</p>
       <div class="detailVariants">${p.variants.filter(x=>x.active).map(x=>`<button class="${x.id===v.id?'active':''}" onclick="selectedVariants['${p.id}']='${x.id}';openProduct('${p.id}')">${escapeHtml(x.label)}<small>${money(x.price)}</small></button>`).join('')}</div>
       <div class="detailPrice"><b>${money(v.price)}</b><del>${money(v.mrp)}</del>${v.mrp>v.price?`<em>Save ${money(v.mrp-v.price)}</em>`:''}</div>
-      <div class="detailUse"><b>Works well with</b><span>${(p.mealTags||[]).map(m=>escapeHtml(mealTagList.find(t=>t.id===m)?.name||CONFIG.mealLabels?.[m]||m)).join(' · ')||'Everyday meals'}</span></div>
       ${detailActions}
-    </div></div>`;
+    </div></div>
+    <div class="detailInfoStack">${infoSections}${reviewsSection}</div>
+    ${relatedHtml ? `<div class="detailRelated">${relatedHtml}</div>` : ''}`;
   $('productOverlay').classList.add('open');document.body.classList.add('modalOpen');
+  bindGalleryScrollers(); bindComboGalleryScrollers();
+  loadProductReviews(p.id);
 }
 function closeProduct(){openProductId=null;$('productOverlay').classList.remove('open');document.body.classList.remove('modalOpen')}
 

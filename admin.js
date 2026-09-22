@@ -484,6 +484,11 @@ async function fetchProducts(){
     active:p.active, best:p.best, displayOrder:p.display_order||0,
     variants:p.variants||[], rating:p.rating||0, reviewCount:p.review_count||0,
     media:mediaRows.filter(m=>m.product_id===p.id).map(m=>({id:m.id,type:m.media_type,path:m.media_url,poster:m.poster_url||'',order:m.display_order,isPrimary:!!m.is_primary})),
+    // PatilKaki-review additions (supabase_migration_product_details.sql) — all optional.
+    highlights:p.highlights||[], ingredients:p.ingredients||'',
+    storageInstructions:p.storage_instructions||'', shelfLife:p.shelf_life||'',
+    allergens:p.allergens||'', nutrition:p.nutrition||[], faq:p.faq||[],
+    isNew:!!p.is_new, newUntil:p.new_until||'',
   }));
   products.forEach(p=>{p.image=(p.media.find(m=>m.isPrimary)||p.media[0])?.path||''});
   data.products=products;
@@ -674,7 +679,12 @@ async function saveProductToSupabase(p, mediaDraft){
   const {error:pErr}=await sb.from('products').upsert({
     id:p.id, sku:p.sku, name:p.name, short_description:p.short, description:p.description,
     category:p.category, categories:p.categories, meal_tags:p.mealTags,
-    active:p.active, best:p.best, variants:p.variants, rating:p.rating||0, review_count:p.reviewCount||0
+    active:p.active, best:p.best, variants:p.variants, rating:p.rating||0, review_count:p.reviewCount||0,
+    // PatilKaki-review additions — all optional, nullable/defaulted in the DB.
+    highlights:p.highlights||[], ingredients:p.ingredients||null,
+    storage_instructions:p.storageInstructions||null, shelf_life:p.shelfLife||null,
+    allergens:p.allergens||null, nutrition:p.nutrition||[], faq:p.faq||[],
+    is_new:!!p.isNew, new_until:p.newUntil||null
   });
   if(pErr){ toast('Could not save product: '+pErr.message); return false; }
   const {error:delErr}=await sb.from('product_media').delete().eq('product_id',p.id);
@@ -1111,10 +1121,12 @@ async function productsPage(){
  return `<section class="panel">${liveCatalogNote()}<div class="panelHead"><div><h2>Products</h2><p>Product catalogue, merchandising, multiple categories and media — stored in Supabase.</p></div><button class="gold" onclick="productForm()">+ Add product</button></div><div class="productAdminGrid">${data.products.map(p=>`<article class="productAdminCard"><div class="thumb"><img src="${esc(p.image||'')}" alt=""></div><div class="productInfo"><span class="typeTag">${p.best?'BESTSELLER':'PRODUCT'}</span><h3>${esc(p.name)}</h3><p>${esc(p.short||'')}</p><small>${(p.categories?.length?p.categories:[p.category]).map(catName).join(' · ')} · ${p.variants?.length||0} variants · ${p.media?.length||0} media</small><div class="cardActions"><button class="outline" onclick="productForm('${esc(p.id)}')">Edit</button><button class="outline dangerBtn" onclick="deleteProduct('${esc(p.id)}')">Delete</button></div></div></article>`).join('')}</div></section>`;
 }
 function productForm(id=null){
- const p=id?product(id):{id:'',sku:'',name:'',short:'',description:'',category:data.categories[0]?.id||'',categories:[],active:true,best:false,media:[],mealTags:[],rating:0,reviewCount:0,variants:[]};
+ const p=id?product(id):{id:'',sku:'',name:'',short:'',description:'',category:data.categories[0]?.id||'',categories:[],active:true,best:false,media:[],mealTags:[],rating:0,reviewCount:0,variants:[],highlights:[],ingredients:'',storageInstructions:'',shelfLife:'',allergens:'',nutrition:[],faq:[],isNew:false,newUntil:''};
  const selected=p.categories?.length?p.categories:[p.category].filter(Boolean);
  window._mediaDraft=structuredClone(p.media||[]).map(m=>({type:m.type,path:m.path,poster:m.poster||'',primary:!!m.isPrimary}));
  window._mediaOwnerId=p.id||'new-product';
+ window._nutritionDraft=structuredClone(p.nutrition||[]);
+ window._faqDraft=structuredClone(p.faq||[]);
  openModal(`<div class="eyebrow">PRODUCT</div><h2>${id?'Edit product':'Add product'}</h2>
  <div class="formGrid">
  <label>Product ID<input id="pId" value="${esc(p.id)}" placeholder="peanut-chutney" ${id?'disabled':''}></label>
@@ -1125,11 +1137,41 @@ function productForm(id=null){
  <label class="fullLabel">Full product description<textarea id="pDesc" rows="7">${esc(p.description||'')}</textarea></label>
  </div>
  <div class="formSection"><h3>Categories / collections</h3><p>Select as many as needed. Primary category is separate from merchandising collections.</p><div class="checkGrid">${data.categories.map(c=>`<label><input type="checkbox" class="pCats" value="${c.id}" ${selected.includes(c.id)?'checked':''}> ${esc(c.name)}</label>`).join('')}</div></div>
- <div class="formSection"><h3>Meal tags</h3><p>Admin-managed. Add more from <b>Meal tags</b> in the sidebar; nothing is hardcoded to four choices.</p><div class="checkGrid">${(data.mealTags||[]).filter(t=>t.enabled).sort((a,b)=>a.order-b.order).map(t=>`<label><input type="checkbox" class="pMeals" value="${t.id}" ${(p.mealTags||[]).includes(t.id)?'checked':''}> ${esc(t.name)}</label>`).join('')}</div></div>
+ <div class="formSection"><h3>Meal tags</h3><p>Admin-managed. Add more from <b>Meal tags</b> in the sidebar; nothing is hardcoded to four choices. Also used as the storefront's "How to enjoy" section on the product page.</p><div class="checkGrid">${(data.mealTags||[]).filter(t=>t.enabled).sort((a,b)=>a.order-b.order).map(t=>`<label><input type="checkbox" class="pMeals" value="${t.id}" ${(p.mealTags||[]).includes(t.id)?'checked':''}> ${esc(t.name)}</label>`).join('')}</div></div>
  ${mediaEditorMarkup()}
+ <div class="formSection"><h3>Product detail page — extra content</h3><p>All optional. Leave a field blank and its section simply won't show on the storefront for this product.</p>
+   <label class="fullLabel">Why you'll love it<textarea id="pHighlights" rows="3" placeholder="One claim per line, e.g.&#10;Traditional recipe&#10;Freshly packed&#10;Authentic Karnataka flavour">${esc((p.highlights||[]).join('\n'))}</textarea><small class="fieldHint">One short claim per line. Only list things that are actually true for this product.</small></label>
+   <label class="fullLabel">Ingredients<textarea id="pIngredients" rows="2" placeholder="Groundnut, red chilli, garlic, salt, tamarind">${esc(p.ingredients||'')}</textarea></label>
+   <div class="formGrid">
+     <label>Storage instructions<input id="pStorage" value="${esc(p.storageInstructions||'')}" placeholder="Store in an airtight container, away from sunlight"></label>
+     <label>Shelf life<input id="pShelfLife" value="${esc(p.shelfLife||'')}" placeholder="3 months from date of packing"></label>
+   </div>
+   <label class="fullLabel">Allergens<textarea id="pAllergens" rows="2" placeholder="Contains peanuts. May contain traces of tree nuts.">${esc(p.allergens||'')}</textarea></label>
+   <h4 class="formSubHead">Nutrition</h4><div id="nutritionRows"></div><button class="outline" onclick="addNutritionRow()">+ Add nutrition row</button>
+   <h4 class="formSubHead">Product FAQ</h4><div id="faqRows"></div><button class="outline" onclick="addFaqRow()">+ Add FAQ</button>
+ </div>
+ <div class="formSection"><h3>New badge</h3>
+   <label class="checkOnly"><input type="checkbox" id="pIsNew" ${p.isNew?'checked':''}> Show "New" badge</label>
+   <label>Show until (optional)<input type="date" id="pNewUntil" value="${esc(p.newUntil||'')}"></label>
+   <small class="fieldHint">Leave blank to keep showing the badge until you untick it above.</small>
+ </div>
  <label class="checkOnly"><input type="checkbox" id="pActive" ${p.active?'checked':''}> Product visible</label>
  <label class="checkOnly"><input type="checkbox" id="pBest" ${p.best?'checked':''}> Bestseller</label>
  <button class="gold full" onclick="saveProduct('${id?esc(id):''}')">Save product</button>`);
+ renderNutritionRows(); renderFaqRows();
+}
+// Dynamic nutrition rows (label/value pairs), same add/remove-row idiom
+// already used for combo items (window._comboDraft) elsewhere in this
+// file — kept consistent rather than inventing a different pattern.
+function addNutritionRow(){window._nutritionDraft.push({label:'',value:''});renderNutritionRows()}
+function renderNutritionRows(){
+  const box=document.getElementById('nutritionRows'); if(!box) return;
+  box.innerHTML=(window._nutritionDraft||[]).map((r,i)=>`<div class="kvItemForm"><input placeholder="Energy" value="${esc(r.label)}" onchange="window._nutritionDraft[${i}].label=this.value"><input placeholder="540 kcal" value="${esc(r.value)}" onchange="window._nutritionDraft[${i}].value=this.value"><button onclick="window._nutritionDraft.splice(${i},1);renderNutritionRows()">×</button></div>`).join('')||'<div class="empty smallEmpty">No nutrition rows yet.</div>';
+}
+function addFaqRow(){window._faqDraft.push({question:'',answer:''});renderFaqRows()}
+function renderFaqRows(){
+  const box=document.getElementById('faqRows'); if(!box) return;
+  box.innerHTML=(window._faqDraft||[]).map((r,i)=>`<div class="faqItemForm"><input placeholder="Question" value="${esc(r.question)}" onchange="window._faqDraft[${i}].question=this.value"><textarea rows="2" placeholder="Answer" onchange="window._faqDraft[${i}].answer=this.value">${esc(r.answer)}</textarea><button onclick="window._faqDraft.splice(${i},1);renderFaqRows()">×</button></div>`).join('')||'<div class="empty smallEmpty">No FAQ entries yet.</div>';
 }
 async function saveProduct(existingId){
  const id=(existingId||document.getElementById('pId').value.trim());
@@ -1141,7 +1183,17 @@ async function saveProduct(existingId){
  mealTags:[...document.querySelectorAll('.pMeals:checked')].map(x=>x.value),
  active:document.getElementById('pActive').checked,best:document.getElementById('pBest').checked,
  variants:existing?existing.variants:[],rating:existing?existing.rating:0,
- reviewCount:existing?existing.reviewCount:0};
+ reviewCount:existing?existing.reviewCount:0,
+ // PatilKaki-review additions
+ highlights:document.getElementById('pHighlights').value.split('\n').map(s=>s.trim()).filter(Boolean),
+ ingredients:document.getElementById('pIngredients').value.trim(),
+ storageInstructions:document.getElementById('pStorage').value.trim(),
+ shelfLife:document.getElementById('pShelfLife').value.trim(),
+ allergens:document.getElementById('pAllergens').value.trim(),
+ nutrition:(window._nutritionDraft||[]).filter(r=>r.label&&r.value),
+ faq:(window._faqDraft||[]).filter(r=>r.question&&r.answer),
+ isNew:document.getElementById('pIsNew').checked,
+ newUntil:document.getElementById('pNewUntil').value||''};
 
  // Item Q — required-field validation before publish. Missing core
  // fields block the save outright, named individually. Variants are a

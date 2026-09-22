@@ -537,6 +537,61 @@ footer a:hover{color:#fff}
 .detailUse b{display:block;margin-bottom:4px}
 .detailBtns{display:flex;gap:10px;margin-top:14px}
 .detailBtns .btn{flex:1}
+.detailCopy .ratingLink{cursor:pointer;width:fit-content}
+.detailCopy .ratingLink:hover .starsIcon{text-decoration:underline}
+
+/* ---------- PatilKaki-review additions ---------- */
+/* Card + detail badges (bestseller/new/offer) */
+.badgeStack{position:absolute;left:10px;top:10px;z-index:2;display:flex;flex-direction:column;gap:6px}
+.badgeStack .badge{position:static}
+.badge.badgeNew{background:var(--ink);color:#fff}
+.badge.badgeOffer{background:var(--brand);color:#fff}
+.detailTopRow{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.detailTags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:4px 9px;border-radius:99px}
+.tagBest{background:var(--gold-soft);color:#8a6a1a}
+.tagNew{background:var(--ink);color:#fff}
+.tagOffer{background:var(--brand-soft);color:var(--brand-dark)}
+
+/* Product-detail structured-info accordions */
+.detailInfoStack{margin-top:22px;display:flex;flex-direction:column;gap:10px}
+.detailAccordion{border:1px solid var(--line-soft);border-radius:var(--radius-md);background:var(--surface);overflow:hidden}
+.detailAccordion summary{cursor:pointer;list-style:none;padding:14px 16px;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:space-between}
+.detailAccordion summary::-webkit-details-marker{display:none}
+.detailAccordion summary::after{content:'+';font-weight:700;color:var(--ink-faint);font-size:16px}
+.detailAccordion[open] summary::after{content:'–'}
+.detailAccordionBody{padding:0 16px 16px;font-size:13.5px;color:var(--ink-soft);line-height:1.55}
+.highlightList{list-style:none;display:flex;flex-direction:column;gap:8px}
+.highlightList li{display:flex;align-items:flex-start;gap:8px}
+.highlightList li i{color:var(--brand);margin-top:3px}
+.pillRow{display:flex;gap:8px;flex-wrap:wrap}
+.pillRow .pill{background:var(--surface-2);border-radius:99px;padding:6px 12px;font-size:12.5px;font-weight:700;color:var(--ink-soft)}
+.kvRow{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line-soft)}
+.kvRow:last-child{border-bottom:0}
+.kvRow b{flex:0 0 40%;color:var(--ink)}
+.nutritionTable{margin-bottom:8px}
+.allergenNote{background:var(--surface-2);border-radius:var(--radius-sm,8px);padding:10px 12px;font-size:13px}
+.allergenNote i{color:var(--brand);margin-right:6px}
+.faqRow{padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.faqRow:last-child{border-bottom:0}
+.faqRow b{display:block;margin-bottom:4px}
+.faqRow p{margin:0;color:var(--ink-soft)}
+
+/* Product-detail reviews (reuses .stars from product cards) */
+.prodReviewGrid{display:flex;flex-direction:column;gap:12px}
+.prodReviewCard{background:var(--surface-2);border-radius:var(--radius-md);padding:12px 14px;font-size:13px}
+.prodReviewCard p{margin:6px 0;color:var(--ink-soft)}
+.viewAllProdReviews{display:inline-block;margin-top:4px;font-weight:700;font-size:13px;color:var(--brand)}
+
+/* Product-detail related sections (Complete your meal / You may also
+   like / More from this category) — full-width, below the fold */
+.detailRelated{margin-top:26px;display:flex;flex-direction:column;gap:22px}
+.relatedBlock h3{font-size:17px;margin-bottom:10px}
+.relatedGrid{grid-template-columns:repeat(2,1fr)}
+@media(min-width:640px){.relatedGrid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:900px){.relatedGrid{grid-template-columns:repeat(4,1fr)}}
+.relatedBlock .comboGrid.relatedGrid{grid-template-columns:1fr}
+@media(min-width:640px){.relatedBlock .comboGrid.relatedGrid{grid-template-columns:repeat(2,1fr)}}
 
 /* Checkout */
 .checkoutGrid{display:flex;flex-direction:column;gap:24px}
