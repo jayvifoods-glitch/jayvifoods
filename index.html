@@ -25,7 +25,7 @@
   <div class="wrap nav">
     <button class="mobileOnly icon" onclick="toggleMenu()" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
     <a class="logo" href="#home" aria-label="Jayvi Foods"><img src="images/brand/jayvi-foods-logo.webp" alt="Jayvi Foods"></a>
-    <nav><a href="#shop">Shop</a><a href="#shopByCategory">Categories</a><a href="#combos">Combos</a><a href="#bestsellers">Best Sellers</a><a href="#" onclick="setDiscoveryTab('new');document.getElementById('bestsellers').scrollIntoView({behavior:'smooth'});return false">New Arrivals</a><a href="#offersSection">Offers</a></nav>
+    <nav><a href="#shop">Shop</a><a href="#shopByCategory">Categories</a><a href="#combos">Combos</a><a href="#bestsellers">Best Sellers</a><a href="#" onclick="viewAllDiscovery('new');return false">New Arrivals</a><a href="#offersSection">Offers</a></nav>
     <div class="navActions">
       <button class="icon" onclick="openSearch()" aria-label="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
       <button class="icon" onclick="openWishlist()" aria-label="Wishlist"><i class="fa-regular fa-heart"></i><b id="wishlistCount" style="display:none">0</b></button>
@@ -48,7 +48,7 @@
     <a href="#shopByCategory" onclick="closeMenu()"><i class="fa-solid fa-grip"></i>Categories</a>
     <a href="#combos" onclick="closeMenu()"><i class="fa-solid fa-layer-group"></i>Combos</a>
     <a href="#bestsellers" onclick="closeMenu()"><i class="fa-solid fa-star"></i>Best Sellers</a>
-    <a href="#" onclick="closeMenu();setDiscoveryTab('new');document.getElementById('bestsellers').scrollIntoView({behavior:'smooth'})"><i class="fa-solid fa-bolt"></i>New Arrivals</a>
+    <a href="#" onclick="closeMenu();viewAllDiscovery('new')"><i class="fa-solid fa-bolt"></i>New Arrivals</a>
     <a href="#offersSection" onclick="closeMenu()"><i class="fa-solid fa-gift"></i>Offers</a>
     <a href="#" onclick="closeMenu();openWishlist()"><i class="fa-regular fa-heart"></i>My Favourites</a>
     <a href="#reviews" onclick="closeMenu()"><i class="fa-solid fa-comment"></i>Reviews</a>
@@ -76,64 +76,52 @@
     </div>
   </div></section>
 
-  <section class="trust"><div class="wrap trustGrid">
-    <div><i class="fa-solid fa-seedling"></i><b>Purely Traditional</b><small>Traditional flavours inspired by Karnataka.</small></div>
-    <div><i class="fa-solid fa-box-open"></i><b>Freshly Packed</b><small>Carefully packed to preserve freshness and taste.</small></div>
-    <div><i class="fa-solid fa-bowl-rice"></i><b>Made for Everyday Meals</b><small>Perfect with idli, dosa, rice and more.</small></div>
-    <div><i class="fa-solid fa-map-location-dot"></i><b>Made in Karnataka</b><small>A brand rooted in traditional flavours.</small></div>
+  <section class="lightSection" id="bestsellers"><div class="wrap">
+    <div class="sectionHead"><div><div class="eyebrow" id="discoveryEyebrow">SHOP JAYVI'S BESTSELLERS</div><h2 id="discoveryHeading">Bestsellers</h2></div><a href="#" onclick="viewAllDiscovery(discoveryTab);return false">View all →</a></div>
+    <div id="discoveryTabs" class="categoryTabs" style="display:none"></div>
+    <div id="bestGrid" class="productGrid"></div>
   </div></section>
 
-  <!-- Phase 2: "Shop by Category" — populated by renderCategoryCards()
-       in app.js from the existing categories/products data, hidden
-       entirely (style="display:none" is overridden by JS on load) if
-       there's nothing to show yet. Scales to any number of future
-       categories with no HTML changes. -->
   <section class="lightSection" id="shopByCategory" style="display:none"><div class="wrap">
     <div class="sectionHead"><div><div class="eyebrow">EXPLORE JAYVI</div><h2>Shop by category.</h2></div></div>
     <div id="categoryCardsGrid" class="categoryCardsGrid"></div>
   </div></section>
 
-  <!-- V32.3: Admin-managed, Supabase-Storage-backed gallery (replaces
-       the V32.6 Git/manifest.json brand marquee) — populated from
-       public.gallery_media via renderBrandGallery() in app.js, which
-       hides this section entirely when there are no active items, so
-       an empty gallery never shows a broken/blank section. Supports
-       any mix of images and videos; a real slideshow (fade + dots),
-       not a continuously-scrolling marquee. -->
-  <section class="gallerySection" id="brandGallery" style="display:none">
-    <div class="galleryStage">
-      <div class="gallerySlides" id="gallerySlides"></div>
-    </div>
-    <div class="galleryDots" id="galleryDots"></div>
-  </section>
-
-  <section class="lightSection" id="bestsellers"><div class="wrap">
-    <div class="sectionHead"><div><div class="eyebrow" id="discoveryEyebrow">SHOP JAYVI'S BESTSELLERS</div><h2 id="discoveryHeading">Bestsellers</h2></div><a href="#shop">View all →</a></div>
-    <div id="discoveryTabs" class="categoryTabs" style="display:none"></div>
-    <div id="bestGrid" class="productGrid"></div>
-  </div></section>
-
-  <!-- Phase 2: "Shop by Occasion" — populated by renderOccasionCards()
-       from the existing mealTags data (no new taxonomy). Hidden
-       entirely if there are no meal-tagged products yet. -->
   <section class="shopSection" id="occasionSection" style="display:none"><div class="wrap">
     <div class="sectionHead"><div><div class="eyebrow">WHAT ARE YOU CRAVING TODAY?</div><h2>Shop by occasion.</h2></div></div>
     <div id="occasionGrid" class="occasionGrid"></div>
   </div></section>
 
   <section class="shopSection" id="shop"><div class="wrap">
-    <div class="sectionHead"><div><div class="eyebrow">SHOP JAYVI'S PRODUCTS</div><h2>Find your favourite.</h2></div></div>
+    <div class="sectionHead"><div><div class="eyebrow">SHOP JAYVI'S PRODUCTS</div><h2>Find your favourite.</h2></div><span id="shopResultCount" class="shopResultCount"></span></div>
     <div class="shopBar">
       <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input id="productSearch" placeholder="Search products..." oninput="renderProducts()"></div>
-      <select id="sortSelect" onchange="renderProducts()">
-        <option value="featured">Featured</option>
-        <option value="priceLow">Price: low to high</option>
-        <option value="priceHigh">Price: high to low</option>
-        <option value="rating">Top rated</option>
-      </select>
+      <div class="shopBarControls desktopOnly">
+        <select id="sortSelect" onchange="setSortValue(this.value)">
+          <option value="featured">Featured</option>
+          <option value="newest">Newest</option>
+          <option value="priceLow">Price: low to high</option>
+          <option value="priceHigh">Price: high to low</option>
+          <option value="rating">Top rated</option>
+        </select>
+        <select id="availabilitySelect" onchange="setAvailabilityFilter(this.value)">
+          <option value="all">All products</option>
+          <option value="inStock">In stock only</option>
+        </select>
+        <select id="priceBucketSelect" onchange="setPriceBucket(this.value)">
+          <option value="all">Any price</option>
+          <option value="under200">Under ₹200</option>
+          <option value="under500">Under ₹500</option>
+          <option value="500plus">₹500 &amp; above</option>
+        </select>
+      </div>
+    </div>
+    <div class="mobileFilterBar mobileOnly">
+      <button onclick="openShopFilterDrawer()"><i class="fa-solid fa-sliders"></i>Filter</button>
+      <button onclick="openShopFilterDrawer()"><i class="fa-solid fa-arrow-down-short-wide"></i>Sort</button>
     </div>
     <div id="categoryTabs" class="categoryTabs"></div>
-    <div id="mealFilterChip" class="mealFilterChip"><span>Filtered by: <b></b></span><button onclick="clearMealFilter()" aria-label="Clear filter">✕</button></div>
+    <div id="mealFilterChip" class="mealFilterChip"><span>Filtered by: <b></b></span><button onclick="clearActiveFilter()" aria-label="Clear filter">✕</button></div>
     <div id="productGrid" class="productGrid"></div>
   </div></section>
 
@@ -142,9 +130,6 @@
     <div id="comboGrid" class="comboGrid"></div>
   </div></section>
 
-  <!-- Phase 2: Offers destination — populated by renderOffersSection()
-       from the SAME activeOffers data as the floating offer button;
-       hidden entirely when there are no active offers. -->
   <section class="lightSection" id="offersSection" style="display:none"><div class="wrap">
     <div class="sectionHead"><div><div class="eyebrow">DON'T MISS OUT</div><h2>Current offers.</h2></div></div>
     <div id="offersSectionGrid" class="offersSectionGrid"></div>
@@ -158,10 +143,24 @@
     <div id="mealRecommendations" class="mealRecommendations"></div>
   </div></section>
 
+  <section class="trust" id="whyJayvi"><div class="wrap trustGrid">
+    <div><i class="fa-solid fa-seedling"></i><b>Purely Traditional</b><small>Traditional flavours inspired by Karnataka.</small></div>
+    <div><i class="fa-solid fa-box-open"></i><b>Freshly Packed</b><small>Carefully packed to preserve freshness and taste.</small></div>
+    <div><i class="fa-solid fa-bowl-rice"></i><b>Made for Everyday Meals</b><small>Perfect with idli, dosa, rice and more.</small></div>
+    <div><i class="fa-solid fa-map-location-dot"></i><b>Made in Karnataka</b><small>A brand rooted in traditional flavours.</small></div>
+  </div></section>
+
   <section class="reviewSection" id="reviews"><div class="wrap">
     <div class="sectionHead"><div><div class="eyebrow">CUSTOMER LOVE</div><h2>4.8 <span class="starsBig">★★★★★</span></h2><p class="muted">Real feedback from Jayvi customers.</p></div><a class="googleLink" id="googleReviewsTop" target="_blank">View Google reviews →</a></div>
     <div id="reviewGrid" class="reviewGrid"></div>
   </div></section>
+
+  <section class="gallerySection" id="brandGallery" style="display:none">
+    <div class="galleryStage">
+      <div class="gallerySlides" id="gallerySlides"></div>
+    </div>
+    <div class="galleryDots" id="galleryDots"></div>
+  </section>
 
   <section class="smallAbout" id="about"><div class="wrap">
     <div><div class="eyebrow">ABOUT JAYVI</div><h2>Traditional flavour.<br><em>Made for today.</em></h2></div>
@@ -174,8 +173,9 @@
 
 <footer><div class="wrap footerGrid">
   <div class="footerBrand"><a class="footerLogo" href="#home"><img src="images/brand/jayvi-foods-logo.webp" alt="Jayvi Foods"></a><p>Purely Traditional.<br>Simply Delicious.</p></div>
-  <div><b>Shop</b><a href="#bestsellers">Bestsellers</a><a href="#shop">All products</a><a href="#combos">Combos</a></div>
-  <div><b>Help &amp; Legal</b><a href="help.html">Help &amp; Shipping</a><a href="#" onclick="openTrackOrder();return false">Track Order</a><a href="legal.html#returns">Returns &amp; Refunds</a><a href="legal.html#privacy">Privacy</a><a href="legal.html#terms">Terms</a><a href="#" onclick="openAccount();return false">My account</a></div>
+  <div><b>Shop</b><a href="#shop">All Products</a><a href="#shopByCategory">Categories</a><a href="#bestsellers">Best Sellers</a><a href="#combos">Combos</a><a href="#offersSection">Offers</a></div>
+  <div><b>Customer Care</b><a href="https://wa.me/918861981003" target="_blank">Contact</a><a href="help.html">Shipping</a><a href="legal.html#returns">Returns</a><a href="help.html">FAQs</a><a href="#" onclick="openTrackOrder();return false">Track Order</a><a href="legal.html#privacy">Privacy</a><a href="legal.html#terms">Terms</a></div>
+  <div><b>About Jayvi</b><a href="#about">Our Story</a><a href="#whyJayvi">Quality Promise</a><a href="#shop">Our Products</a></div>
   <div><b>Connect</b><span id="footerSocialLinks"><a href="https://wa.me/918861981003" target="_blank">WhatsApp</a><a href="https://instagram.com/jayvifoods" target="_blank">Instagram</a></span><a href="mailto:jayvifoods@gmail.com">jayvifoods@gmail.com</a><a href="tel:+918861981003">+91 88619 81003</a></div>
   <div class="footerCompliance"><b>Food Safety &amp; Business</b><div class="fssaiBadge" aria-label="FSSAI"><img src="images/compliance/fssai-logo.png" alt="FSSAI"></div><p>FSSAI Lic. No. <strong>21226177001087</strong></p><p>UDYAM Registered MSME</p><p>UDYAM-KR-03-0681597</p></div>
 </div>
@@ -205,6 +205,32 @@
 <div class="overlay" id="productOverlay"><div class="modal productModal"><button class="close" onclick="closeProduct()">×</button><div id="productContent"></div></div></div>
 <div class="overlay" id="checkoutOverlay"><div class="modal checkoutModal"><button class="close" onclick="closeCheckout()">×</button><div id="checkoutContent"></div></div></div>
 <div class="overlay" id="offersOverlay"><div class="modal offersModal"><button class="close" onclick="closeOffersPanel()">×</button><div class="eyebrow">AVAILABLE OFFERS</div><h2>Current offers.</h2><div id="offersPanelList"></div></div></div>
+<!-- Phase 2: mobile-only Filter/Sort drawer (item 4) — same
+     overlay/drawer pattern as cart/search above; desktop keeps the
+     inline .shopBarControls instead (see style.css min-width:960px). -->
+<div class="overlay drawerOverlay" id="shopFilterOverlay"><aside class="drawer">
+  <div class="drawerHead"><div><div class="eyebrow">FILTER &amp; SORT</div><h2>Refine results</h2></div><button class="close drawerClose" onclick="closeShopFilterDrawer()" aria-label="Close">×</button></div>
+  <div class="filterDrawerBody">
+    <label>Sort by<select id="sortSelectMobile" onchange="setSortValue(this.value)">
+      <option value="featured">Featured</option>
+      <option value="newest">Newest</option>
+      <option value="priceLow">Price: low to high</option>
+      <option value="priceHigh">Price: high to low</option>
+      <option value="rating">Top rated</option>
+    </select></label>
+    <label>Availability<select id="availabilitySelectMobile" onchange="setAvailabilityFilter(this.value)">
+      <option value="all">All products</option>
+      <option value="inStock">In stock only</option>
+    </select></label>
+    <label>Price<select id="priceBucketSelectMobile" onchange="setPriceBucket(this.value)">
+      <option value="all">Any price</option>
+      <option value="under200">Under ₹200</option>
+      <option value="under500">Under ₹500</option>
+      <option value="500plus">₹500 &amp; above</option>
+    </select></label>
+  </div>
+  <button class="btn gold full" onclick="closeShopFilterDrawer()">Show <span id="shopResultCountDrawer"></span> results</button>
+</aside></div>
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>

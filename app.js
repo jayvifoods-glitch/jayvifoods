@@ -470,7 +470,7 @@ function responsiveImgAttrs(path,sizes){
 
 /* ---------- State ---------- */
 let CONFIG, products=[], categories=[], mealTagList=[];
-let cat='all', heroIndex=0, heroTimer=null, meal='idli', selectedVariants={}, mealFilter=null;
+let cat='all', heroIndex=0, heroTimer=null, meal='idli', selectedVariants={}, mealFilter=null, discoveryFilter=null, availabilityFilter='all', priceBucket='all', sortValue='featured';
 let cart=loadCart(), wishlist=loadWishlist(), mapsReady=false;
 
 /* ---------- Helpers ---------- */
@@ -591,7 +591,12 @@ async function loadCatalogFromSupabase(){
         highlights:p.highlights||[], ingredients:p.ingredients||'',
         storageInstructions:p.storage_instructions||'', shelfLife:p.shelf_life||'',
         allergens:p.allergens||'', nutrition:p.nutrition||[], faq:p.faq||[],
-        isNew:!!p.is_new, newUntil:p.new_until||null
+        isNew:!!p.is_new, newUntil:p.new_until||null,
+        // Phase 2 cont'd: created_at already comes back from the
+        // existing `select('*')` below — it just wasn't mapped before.
+        // No migration needed; this is what makes a real "Newest" sort
+        // possible without inventing data.
+        createdAt:p.created_at||null
       };
     });
 
@@ -1037,11 +1042,19 @@ function renderOccasionCards(){
   const box=$('occasionGrid'); const section=$('occasionSection');
   if(!box||!section) return;
   const cards=mealTagList.map(t=>{
-    const count=products.filter(p=>(p.mealTags||[]).includes(t.id)).length;
-    if(!count) return '';
-    return `<button class="occasionCard ${categoryAccentClass(t.id)}" onclick="setMealFilter('${t.id}')">
-      <span class="occasionIcon"><i class="fa-solid fa-utensils" aria-hidden="true"></i></span>
-      <h3>${escapeHtml(t.name)}</h3><span class="occasionCount">${count} pick${count>1?'s':''}</span>
+    const matches=products.filter(p=>(p.mealTags||[]).includes(t.id));
+    if(!matches.length) return '';
+    // Prefer a real product photo (existing product imagery, no new
+    // table) — falls back to the original colourful icon treatment
+    // only when nothing has an image yet.
+    const sample=matches.find(p=>p.image);
+    const accent=categoryAccentClass(t.id);
+    const media=sample
+      ?`<div class="occasionCardImg"><img src="${escapeHtml(sample.image)}" alt="${escapeHtml(t.name)}" loading="lazy" decoding="async"></div>`
+      :`<div class="occasionCardImg occasionIconFallback ${accent}"><span class="occasionIcon"><i class="fa-solid fa-utensils" aria-hidden="true"></i></span></div>`;
+    return `<button class="occasionCard ${accent}" onclick="setMealFilter('${t.id}')">
+      ${media}
+      <div class="occasionCardBody"><h3>${escapeHtml(t.name)}</h3><span class="occasionCount">${matches.length} product${matches.length>1?'s':''} →</span></div>
     </button>`;
   }).filter(Boolean).join('');
   section.style.display=cards?'':'none';
@@ -1050,45 +1063,132 @@ function renderOccasionCards(){
 // Offers homepage section — reads the SAME activeOffers array already
 // fetched for the floating offer button/announcement (fetchActiveOffers()),
 // reuses offerLabel(); no second offers query, no new coupon logic.
+// Resolves a single, reliable navigation target for an offer from the
+// SAME applicable_products/applicable_categories the coupon system
+// already enforces (see list_active_offers()) — never guesses: a
+// multi-category/multi-product offer, or one with no restriction at
+// all (storewide), simply gets no CTA button, per the brief.
+function offerTarget(o){
+  if(o.applicable_categories?.length===1){
+    const c=categories.find(x=>x.id===o.applicable_categories[0]);
+    if(c) return {type:'category',id:c.id,label:`Shop ${c.name} →`};
+  }
+  if(o.applicable_products?.length===1){
+    const p=getProduct(o.applicable_products[0]);
+    if(p) return {type:'product',id:p.id,label:'Shop this product →'};
+  }
+  return null;
+}
 function renderOffersSection(){
   const box=$('offersSectionGrid'); const section=$('offersSection');
   if(!box||!section) return;
   if(!activeOffers.length){ section.style.display='none'; return; }
   section.style.display='';
-  box.innerHTML=activeOffers.map(o=>`<div class="homepageOfferCard"><b>${escapeHtml(o.code)} — ${offerLabel(o)}</b><p>${escapeHtml(o.description||o.name||'')}${o.min_order_value?` · Min order ${money(o.min_order_value)}`:''}</p></div>`).join('');
+  box.innerHTML=activeOffers.map(o=>{
+    const target=offerTarget(o);
+    const cta=target?`<button class="btn gold" onclick="${target.type==='category'?`filterByCategory('${target.id}')`:`openProduct('${target.id}')`}">${escapeHtml(target.label)}</button>`:'';
+    return `<article class="promoOfferCard">
+      <span class="promoOfferEyebrow">${escapeHtml(o.name||'Jayvi offer')}</span>
+      <h3 class="promoOfferHeadline">${offerLabel(o)}</h3>
+      ${o.description?`<p>${escapeHtml(o.description)}</p>`:''}
+      ${o.min_order_value?`<small>Min order ${money(o.min_order_value)}</small>`:''}
+      ${cta}
+    </article>`;
+  }).join('');
 }
-function setCat(c,b){cat=c;mealFilter=null;document.querySelectorAll('.categoryTabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderProducts()}
+function setCat(c,b){cat=c;mealFilter=null;discoveryFilter=null;document.querySelectorAll('.categoryTabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderProducts()}
+// Client-side filters (no migration): availability reuses
+// isProductSoldOut(); price buckets read each product's already-loaded
+// variant price. Both apply on top of category/meal/discovery/search.
+function priceMatchesBucket(v,bucket){
+  if(!v||bucket==='all') return true;
+  if(bucket==='under200') return v.price<200;
+  if(bucket==='under500') return v.price<500;
+  if(bucket==='500plus') return v.price>=500;
+  return true;
+}
 function renderProducts(){
   if(!$('productGrid'))return;
   const q=($('productSearch')?.value||'').toLowerCase();
-  let arr=products.filter(p=>(cat==='all'||p.category===cat)&&(!mealFilter||(p.mealTags||[]).includes(mealFilter))&&matchesSearch(p,q));
-  const s=$('sortSelect')?.value;
+  let arr=products.filter(p=>{
+    const v=getVariant(p,variantKey(p.id));
+    return (cat==='all'||p.category===cat)
+      &&(!mealFilter||(p.mealTags||[]).includes(mealFilter))
+      &&(discoveryFilter!=='best'||p.best)
+      &&(discoveryFilter!=='new'||isProductNew(p))
+      &&(availabilityFilter!=='inStock'||!isProductSoldOut(p))
+      &&priceMatchesBucket(v,priceBucket)
+      &&matchesSearch(p,q);
+  });
+  const s=sortValue;
   if(s==='priceLow')arr.sort((a,b)=>getVariant(a,variantKey(a.id)).price-getVariant(b,variantKey(b.id)).price);
   if(s==='priceHigh')arr.sort((a,b)=>getVariant(b,variantKey(b.id)).price-getVariant(a,variantKey(a.id)).price);
   if(s==='rating')arr.sort((a,b)=>b.rating-a.rating);
-  $('productGrid').innerHTML=arr.map(productCard).join('')||'<div class="empty">No products found.</div>';
+  // "Newest" uses the real created_at column (already in the DB,
+  // just newly mapped — see loadCatalogFromSupabase). Deliberately NO
+  // "Best Selling" sort: the storefront has no reliable per-product
+  // sales-count data, and the brief is explicit not to invent one —
+  // `best` (Bestseller) is a separate, admin-curated flag, surfaced
+  // instead via the "Bestsellers" View all filter, not as a sort.
+  if(s==='newest')arr.sort((a,b)=>(b.createdAt?new Date(b.createdAt).getTime():0)-(a.createdAt?new Date(a.createdAt).getTime():0));
+  $('productGrid').innerHTML=arr.map(productCard).join('')||'<div class="empty">No products match these filters.</div>';
   bindGalleryScrollers();
-  renderMealFilterChip();
+  renderActiveFilterChip();
+  updateShopResultCount(arr.length);
 }
-// Phase 2 — "Shop by Occasion" filter chip. Reuses the exact same
-// mealTags data the product detail's "How to enjoy" section and the
-// existing meal-recommendation tabs already use; this is just another
-// entry point into the same product grid, not a new taxonomy.
+function setAvailabilityFilter(v){ availabilityFilter=v; syncFilterControls(); renderProducts(); }
+function setPriceBucket(v){ priceBucket=v; syncFilterControls(); renderProducts(); }
+function setSortValue(v){ sortValue=v; syncFilterControls(); renderProducts(); }
+// Phase 2 — mobile "Filter / Sort" drawer (item 4). Reuses the exact
+// same .overlay.drawerOverlay/.drawer markup pattern already used for
+// the cart and search drawers, and the SAME state (sortValue,
+// availabilityFilter, priceBucket) the desktop inline controls use —
+// two input surfaces, one shared state, so they can never disagree.
+function openShopFilterDrawer(){
+  syncFilterControls();
+  $('shopFilterOverlay')?.classList.add('open'); document.body.classList.add('modalOpen');
+}
+function closeShopFilterDrawer(){
+  $('shopFilterOverlay')?.classList.remove('open'); document.body.classList.remove('modalOpen');
+}
+function syncFilterControls(){
+  [['sortSelect',sortValue],['sortSelectMobile',sortValue],
+   ['availabilitySelect',availabilityFilter],['availabilitySelectMobile',availabilityFilter],
+   ['priceBucketSelect',priceBucket],['priceBucketSelectMobile',priceBucket]].forEach(([id,val])=>{
+    const el=$(id); if(el) el.value=val;
+  });
+}
+function updateShopResultCount(n){
+  const label=`${n} product${n===1?'':'s'}`;
+  const a=$('shopResultCount'); if(a) a.textContent=label;
+  const b=$('shopResultCountDrawer'); if(b) b.textContent=n;
+}
+// Phase 2 — "Shop by Occasion" filter chip, and (cont'd) the Bestsellers/
+// New Arrivals "View all" destinations, all funnel into this ONE chip +
+// this ONE product grid rather than separate pages/components.
 function setMealFilter(tagId){
-  mealFilter=tagId; cat='all';
+  mealFilter=tagId; discoveryFilter=null; cat='all';
   renderCategories(); renderProducts();
   $('shop')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
-function clearMealFilter(){ mealFilter=null; renderProducts(); }
-function renderMealFilterChip(){
+function viewAllDiscovery(which){ // which: 'best' | 'new'
+  discoveryFilter=which; mealFilter=null; cat='all';
+  renderCategories(); renderProducts();
+  $('shop')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function clearActiveFilter(){ mealFilter=null; discoveryFilter=null; renderProducts(); }
+function renderActiveFilterChip(){
   const box=$('mealFilterChip'); if(!box) return;
-  if(!mealFilter){ box.style.display='none'; return; }
-  const name=mealTagList.find(t=>t.id===mealFilter)?.name||CONFIG.mealLabels?.[mealFilter]||mealFilter;
+  let label=null;
+  if(discoveryFilter==='best') label='Bestsellers';
+  else if(discoveryFilter==='new') label='New Arrivals';
+  else if(mealFilter) label=mealTagList.find(t=>t.id===mealFilter)?.name||CONFIG.mealLabels?.[mealFilter]||mealFilter;
+  if(!label){ box.style.display='none'; return; }
   box.style.display='flex';
-  box.querySelector('b').textContent=name;
+  box.querySelector('b').textContent=label;
 }
 function filterByCategory(catId){
-  mealFilter=null; cat=catId;
+  mealFilter=null; discoveryFilter=null; cat=catId;
   renderCategories(); renderProducts();
   $('shop')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -1122,14 +1222,32 @@ function comboCard(c){
   const q=cartQtyForCombo(c.id);
   const actions=q
     ?`<div class="pcActions comboActions hasQty"><div class="inlineQty"><button onclick="changeComboQty('${c.id}',-1)" aria-label="Decrease quantity"><i class="fa-solid fa-minus"></i></button><b>${q}</b><button onclick="changeComboQty('${c.id}',1)" aria-label="Increase quantity"><i class="fa-solid fa-plus"></i></button></div><button class="viewCartBtn" onclick="openCart()" aria-label="View cart"><i class="fa-solid fa-bag-shopping"></i></button></div>`
-    :`<div class="pcActions comboActions"><button onclick="addCombo('${c.id}')">Add to cart</button><button onclick="buyCombo('${c.id}')">Buy now</button></div>`;
+    :`<div class="pcActions comboActions"><button onclick="addCombo('${c.id}')">Add combo</button><button onclick="buyCombo('${c.id}')">Buy now</button></div>`;
+  // Phase 2 — "Individual Value": computed live from each item's
+  // ACTUAL current variant price (getProduct/getVariant — the same
+  // data the product cards use), rather than trusting admin's
+  // separately hand-entered combo.mrp to stay in sync with prices
+  // that can change independently. Falls back to combo.mrp only if an
+  // item's price can't be resolved (e.g. a since-removed product).
+  const items=c.items.map(i=>{
+    const p=getProduct(i.productId), v=p?getVariant(p,i.variantId):null;
+    return {p,v,qty:i.qty||1};
+  });
+  const resolvedAll=items.every(i=>i.v);
+  const individualValue=resolvedAll?items.reduce((sum,i)=>sum+i.v.price*i.qty,0):c.mrp;
+  const realSavings=individualValue-c.price;
+  const itemRow=items.map(i=>`<span class="comboItemName">${escapeHtml(i.p?.name||'')}${i.v?.label?` · ${escapeHtml(i.v.label)}`:''}</span>`).join('<span class="comboPlus">+</span>');
   return `<article class="comboCard">
   <div class="comboImage">${comboMediaMarkup(c)}</div>
   <div class="comboBody">
-    <div class="eyebrow" style="color:#e8d9b6">COMBO</div>
+    <div class="eyebrow comboEyebrow" style="color:#e8d9b6"><i class="fa-solid fa-gift" aria-hidden="true"></i>Jayvi Combo</div>
     <h3>${escapeHtml(c.name)}</h3><p>${escapeHtml(c.short)}</p>
-    <div class="comboItems">${c.items.map(i=>{const p=getProduct(i.productId),v=p?getVariant(p,i.variantId):null;return `<span>${escapeHtml(p?.name||'')} · ${v?.label||''}</span>`}).join('')}</div>
-    <div class="comboPrice"><b>${money(c.price)}</b><del>${money(c.mrp)}</del><em>Save ${money(c.mrp-c.price)}</em></div>
+    <div class="comboItemsRow">${itemRow}</div>
+    <div class="comboValueBlock">
+      ${individualValue>c.price?`<div class="comboValueRow"><span>Buying separately</span><del>${money(individualValue)}</del></div>`:''}
+      <div class="comboValueRow comboValueMain"><span>Combo price</span><b>${money(c.price)}</b></div>
+      ${realSavings>0?`<div class="comboValueRow comboSaveRow"><span>You save</span><b>${money(realSavings)}</b></div>`:''}
+    </div>
     ${actions}
   </div></article>`;
 }
@@ -1732,11 +1850,17 @@ function refreshProductViews(){
     try{ fn(); }catch(err){ console.error(`${fn.name} failed to render:`, err); }
   });
 }
-function addToCart(pid,vid){
+// Optional third arg lets a BULK caller (addSelectedMealPicks below)
+// reuse this exact function — same key format, same increment logic —
+// without triggering a UI refresh/toast per item; every existing call
+// site passes no third argument, so this is 100% unchanged for them.
+function addToCart(pid,vid,opts){
   const p=getProduct(pid),v=getVariant(p,vid); if(!p||!v)return;
   const key='product:'+pid+':'+v.id, x=cart.find(i=>i.key===key);
   if(x)x.qty++; else cart.push({key,type:'product',productId:pid,variantId:v.id,qty:1});
-  saveCart();renderCart();refreshProductViews();refreshOpenProductDetail(pid);
+  saveCart();
+  if(opts?.silent) return; // caller refreshes the UI once, itself, after the whole batch
+  renderCart();refreshProductViews();refreshOpenProductDetail(pid);
   // Item S (approved spec): Add to Cart must NOT open the cart drawer —
   // customers adding several items shouldn't be bounced to the cart
   // after each one. Confirmation toast with an explicit "View cart"
@@ -2738,13 +2862,61 @@ function relatedSectionsMarkup(p){
   const sameCategory=products.filter(x=>x.id!==p.id&&x.category===p.category).slice(0,4);
   const usedIds=new Set(sameCategory.map(x=>x.id));
   const pTags=p.mealTags||[];
-  const sameMeal=products.filter(x=>x.id!==p.id&&!usedIds.has(x.id)&&(x.mealTags||[]).some(t=>pTags.includes(t))).slice(0,4);
+  const sameMeal=products.filter(x=>x.id!==p.id&&!usedIds.has(x.id)&&(x.mealTags||[]).some(t=>pTags.includes(t)));
   const block=(title,gridClass,items,cardFn)=>items.length?`<div class="relatedBlock"><h3>${escapeHtml(title)}</h3><div class="${gridClass} relatedGrid">${items.map(cardFn).join('')}</div></div>`:'';
+  // Phase 2 item 8: when an actual combo already contains this product,
+  // that combo (with its own one-tap "Add combo") IS the strongest
+  // "complete your meal" answer, so keep showing it exactly as before,
+  // plus "You may also like" from the remaining meal-tag matches.
+  // Only when there's NO combo match do we build the lighter bulk-pick
+  // strip below from the same meal-tag data — never both, to avoid
+  // listing the same products twice under two different headings.
+  let completeYourMeal, alsoLike;
+  if(combosWithProduct.length){
+    completeYourMeal=block('Complete your meal','comboGrid',combosWithProduct,comboCard);
+    alsoLike=block('You may also like','productGrid',sameMeal.slice(0,4),productCard);
+  } else if(sameMeal.length){
+    completeYourMeal=completeMealBulkMarkup(sameMeal.slice(0,3));
+    alsoLike='';
+  } else {
+    completeYourMeal=''; alsoLike='';
+  }
   return [
-    block('Complete your meal','comboGrid',combosWithProduct,comboCard),
-    block('You may also like','productGrid',sameMeal,productCard),
+    completeYourMeal,
+    alsoLike,
     block('More from this category','productGrid',sameCategory,productCard)
   ].filter(Boolean).join('');
+}
+// Lightweight "Complete your meal" bulk-add — reuses the EXISTING
+// addToCart() for every selected item (looped), so there is no second
+// cart mechanism; only the selection UI (checkboxes) is new.
+function completeMealBulkMarkup(items){
+  if(!items.length) return '';
+  const rows=items.map(x=>{
+    const v=getVariant(x,variantKey(x.id));
+    return `<label class="mealPickRow"><input type="checkbox" class="mealPickCb" value="${x.id}" checked>
+      <span class="mealPickThumb">${x.image?`<img src="${escapeHtml(x.image)}" alt="" loading="lazy">`:''}</span>
+      <span class="mealPickName">${escapeHtml(x.name)}</span>
+      <span class="mealPickPrice">${v?money(v.price):''}</span>
+    </label>`;
+  }).join('<span class="comboPlus mealPickPlus">+</span>');
+  return `<div class="relatedBlock"><h3>Complete your meal</h3>
+    <div class="mealPickList">${rows}</div>
+    <button class="btn gold" onclick="addSelectedMealPicks()">Add selected to cart</button>
+  </div>`;
+}
+function addSelectedMealPicks(){
+  const boxes=[...document.querySelectorAll('.mealPickCb:checked')];
+  if(!boxes.length){ showToast('Select at least one item first'); return; }
+  let added=0;
+  boxes.forEach(cb=>{
+    const p=getProduct(cb.value); if(!p) return;
+    const v=getVariant(p,variantKey(p.id)); if(!v) return;
+    addToCart(p.id,v.id,{silent:true}); // the SAME addToCart() every other Add to Cart button uses — no second mutation path
+    added++;
+  });
+  if(added){ renderCart(); refreshProductViews(); } // one refresh for the whole batch, not one per item
+  showToast(added?`Added ${added} item${added>1?'s':''} to cart`:'Could not add those items right now');
 }
 // Product-specific reviews reuse the exact same website_reviews table
 // and 'approved' status the homepage/account review flows already use
@@ -2809,7 +2981,7 @@ function openProduct(id){
   // with nothing entered yet renders identically to before.
   const infoSections=[
     sectionHighlights(p), sectionIngredients(p), sectionHowToEnjoy(p),
-    sectionStorage(p), sectionNutritionAllergens(p), sectionFaq(p)
+    sectionNutritionAllergens(p), sectionStorage(p), sectionFaq(p)
   ].filter(Boolean).join('');
   const reviewsSection=accordion(`Customer reviews (${p.reviewCount||0})`, `<div id="prodReviews-${p.id}" class="prodReviewGrid"><div class="empty smallEmpty">Loading reviews…</div></div>`, false, 'prodReviewsAccordion');
   const relatedHtml=relatedSectionsMarkup(p);
@@ -2950,7 +3122,7 @@ async function init(){
     const b=$('vacationBanner');
     if(b){b.style.display='block';b.textContent=CONFIG.store.vacationMessage||'Orders are temporarily paused while Jayvi Foods is away.'}
   }
-  renderBest();renderCategories();renderProducts();renderCombos();renderMeal();renderReviews();renderCart();
+  renderBest();renderCategories();syncFilterControls();renderProducts();renderCombos();renderMeal();renderReviews();renderCart();
   renderOccasionCards();
   updateWishlistBadge();
   renderFooterSocialLinks();
