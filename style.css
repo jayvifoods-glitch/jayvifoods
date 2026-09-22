@@ -28,6 +28,32 @@
   --danger:#B23B2E;
   --danger-soft:#F8E3DF;
 
+  /* ---------- Jayvi colour system (Phase 2) ----------
+     Named per the brand palette brief. Where a colour already existed
+     above (red/orange via --brand, turmeric-ish via --gold, green via
+     --olive, cream via --paper), this ALIASES that existing token
+     rather than introducing a new value — so nothing already on
+     screen shifts colour as a side effect of adding this system. Only
+     --jayvi-orange/-yellow/-brown/-maroon are genuinely new values,
+     and they're used only by the new Phase 2 surfaces below (badges,
+     Shop by Occasion, category accents, Offers section). */
+  --jayvi-red:var(--brand);
+  --jayvi-red-soft:var(--brand-soft);
+  --jayvi-orange:#E0812F;
+  --jayvi-orange-soft:#FBE9D6;
+  --jayvi-yellow:#E3AC33;
+  --jayvi-yellow-soft:#FAF0D4;
+  --jayvi-green:var(--olive);
+  --jayvi-green-soft:var(--olive-soft);
+  --jayvi-brown:#7A5A3A;
+  --jayvi-brown-soft:#EEE4D6;
+  --jayvi-maroon:#7A222C;
+  --jayvi-maroon-soft:#F2DEDF;
+  --jayvi-cream:var(--paper);
+  --jayvi-white:var(--surface);
+  --jayvi-text:var(--ink);
+  --jayvi-muted:var(--ink-soft);
+
   --radius-sm:10px;
   --radius-md:16px;
   --radius-lg:22px;
@@ -726,3 +752,83 @@ body.modalOpen{overflow:hidden}
 .helpGrid p{font-size:14px;color:var(--ink-soft);margin:10px 0;line-height:1.55}
 .helpGrid p b{color:var(--ink)}
 @media(min-width:768px){.helpGrid{grid-template-columns:repeat(2,1fr)}.helpHero .wrap{flex-direction:row;justify-content:space-between;align-items:center}}
+
+/* =========================================================
+   PHASE 2 — Colourful discovery sections, sold-out state,
+   micro-interactions, accessibility (additive; nothing above
+   this block was restyled, to avoid unrelated visual regressions).
+   ========================================================= */
+
+/* Sold Out badge/state (badge priority: Sold Out > New > Offer) */
+.badge.badgeSoldOut{background:var(--danger);color:#fff}
+.tagSoldOut{background:var(--danger-soft);color:var(--danger)}
+.soldOutBtn{flex:1;background:var(--surface-2);color:var(--ink-faint);border:1.5px solid var(--line);border-radius:var(--radius-pill,999px);font-weight:700;padding:12px;cursor:not-allowed}
+.productCard.isSoldOut .cardMediaFrame,.detailImage.isSoldOut{opacity:.55}
+
+/* Deterministic colour accents (categoryAccentClass() in app.js hashes
+   a category/meal-tag id into one of these 6 — any FUTURE category
+   automatically gets a consistent, distinct accent with zero code
+   changes, rather than a hand-maintained per-name colour map. */
+.catAccent-0{--accent:var(--jayvi-red);--accent-soft:var(--jayvi-red-soft)}
+.catAccent-1{--accent:var(--jayvi-orange);--accent-soft:var(--jayvi-orange-soft)}
+.catAccent-2{--accent:var(--jayvi-yellow);--accent-soft:var(--jayvi-yellow-soft)}
+.catAccent-3{--accent:var(--jayvi-green);--accent-soft:var(--jayvi-green-soft)}
+.catAccent-4{--accent:var(--jayvi-brown);--accent-soft:var(--jayvi-brown-soft)}
+.catAccent-5{--accent:var(--jayvi-maroon);--accent-soft:var(--jayvi-maroon-soft)}
+
+/* Shop by Category — big colourful cards, image-led */
+.categoryCardsGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+@media(min-width:640px){.categoryCardsGrid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:960px){.categoryCardsGrid{grid-template-columns:repeat(5,1fr)}}
+.categoryCard{
+  display:block;text-align:left;border:0;padding:0;background:var(--accent-soft);border-radius:var(--radius-lg);
+  overflow:hidden;cursor:pointer;transition:transform .18s var(--ease),box-shadow .18s var(--ease);border-top:4px solid var(--accent);
+}
+.categoryCard:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+.categoryCardImg{aspect-ratio:4/3;background:var(--surface-2);overflow:hidden}
+.categoryCardImg img{width:100%;height:100%;object-fit:cover;transition:transform .35s var(--ease)}
+.categoryCard:hover .categoryCardImg img{transform:scale(1.06)}
+.categoryCardBody{padding:12px 14px}
+.categoryCardBody h3{font-size:15px;margin:0 0 2px;color:var(--ink)}
+.categoryCardBody span{font-size:12px;color:var(--ink-soft);font-weight:600}
+
+/* Shop by Occasion — reuses mealTags, same accent system as categories */
+.occasionGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media(min-width:640px){.occasionGrid{grid-template-columns:repeat(4,1fr)}}
+.occasionCard{
+  display:flex;flex-direction:column;align-items:flex-start;gap:8px;border:0;cursor:pointer;
+  background:var(--accent-soft);border-radius:var(--radius-md);padding:16px;text-align:left;
+  transition:transform .18s var(--ease),box-shadow .18s var(--ease);
+}
+.occasionCard:hover{transform:translateY(-3px);box-shadow:var(--shadow-sm)}
+.occasionIcon{width:38px;height:38px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:15px}
+.occasionCard h3{font-size:14.5px;margin:0;color:var(--ink)}
+.occasionCard .occasionCount{font-size:12px;color:var(--ink-soft);font-weight:600}
+
+/* "Filtered by <occasion>" chip above the shop grid */
+.mealFilterChip{display:none;align-items:center;gap:8px;background:var(--jayvi-yellow-soft);color:var(--ink);border-radius:var(--radius-pill,999px);padding:8px 14px;font-size:13px;font-weight:700;margin-bottom:14px;width:fit-content}
+.mealFilterChip button{border:0;background:none;color:var(--ink-soft);font-size:15px;cursor:pointer;line-height:1}
+
+/* Offers homepage section — reuses the same offer data as the
+   floating offer button/panel, just laid out as a page section */
+.offersSectionGrid{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:640px){.offersSectionGrid{grid-template-columns:repeat(2,1fr)}}
+.homepageOfferCard{background:var(--jayvi-maroon-soft);border-radius:var(--radius-md);padding:16px;border-left:4px solid var(--jayvi-maroon)}
+.homepageOfferCard b{display:block;color:var(--jayvi-maroon);font-size:15px;margin-bottom:4px}
+.homepageOfferCard p{margin:0;font-size:13px;color:var(--ink-soft)}
+
+/* Micro-interactions: subtle, fast — not decorative for its own sake */
+.productCard{transition:box-shadow .18s var(--ease),transform .18s var(--ease)}
+.productCard:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.heart{transition:transform .15s var(--ease)}
+.heart:active{transform:scale(.88)}
+.btn{transition:transform .12s var(--ease),box-shadow .12s var(--ease)}
+.btn:active{transform:scale(.97)}
+.detailAccordion summary::after{transition:transform .15s var(--ease)}
+
+/* Accessibility: visible keyboard focus everywhere interactive,
+   without changing the mouse/touch appearance of the same elements */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,
+textarea:focus-visible,summary:focus-visible,.categoryCard:focus-visible,.occasionCard:focus-visible,.ratingLink:focus-visible{
+  outline:2px solid var(--jayvi-maroon);outline-offset:2px;
+}

@@ -25,9 +25,10 @@
   <div class="wrap nav">
     <button class="mobileOnly icon" onclick="toggleMenu()" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
     <a class="logo" href="#home" aria-label="Jayvi Foods"><img src="images/brand/jayvi-foods-logo.webp" alt="Jayvi Foods"></a>
-    <nav><a href="#shop">Shop</a><a href="#bestsellers">Bestsellers</a><a href="#combos">Combos</a><a href="#reviews">Reviews</a><a href="#" onclick="openTrackOrder();return false">Track Order</a></nav>
+    <nav><a href="#shop">Shop</a><a href="#shopByCategory">Categories</a><a href="#combos">Combos</a><a href="#bestsellers">Best Sellers</a><a href="#" onclick="setDiscoveryTab('new');document.getElementById('bestsellers').scrollIntoView({behavior:'smooth'});return false">New Arrivals</a><a href="#offersSection">Offers</a></nav>
     <div class="navActions">
       <button class="icon" onclick="openSearch()" aria-label="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
+      <button class="icon" onclick="openWishlist()" aria-label="Wishlist"><i class="fa-regular fa-heart"></i><b id="wishlistCount" style="display:none">0</b></button>
       <button class="icon" onclick="openAccount()" aria-label="Account"><i class="fa-regular fa-user"></i></button>
       <button class="icon" onclick="openCart()" aria-label="Cart"><i class="fa-solid fa-bag-shopping"></i><b id="cartCount">0</b></button>
     </div>
@@ -44,8 +45,12 @@
   <div class="menuTop"><img src="images/brand/jayvi-foods-logo.webp" alt="Jayvi Foods"><button class="menuClose" onclick="closeMenu()" aria-label="Close menu">×</button></div>
   <div class="menuLinks">
     <a href="#shop" onclick="closeMenu()"><i class="fa-solid fa-bag-shopping"></i>Shop</a>
-    <a href="#bestsellers" onclick="closeMenu()"><i class="fa-solid fa-star"></i>Bestsellers</a>
+    <a href="#shopByCategory" onclick="closeMenu()"><i class="fa-solid fa-grip"></i>Categories</a>
     <a href="#combos" onclick="closeMenu()"><i class="fa-solid fa-layer-group"></i>Combos</a>
+    <a href="#bestsellers" onclick="closeMenu()"><i class="fa-solid fa-star"></i>Best Sellers</a>
+    <a href="#" onclick="closeMenu();setDiscoveryTab('new');document.getElementById('bestsellers').scrollIntoView({behavior:'smooth'})"><i class="fa-solid fa-bolt"></i>New Arrivals</a>
+    <a href="#offersSection" onclick="closeMenu()"><i class="fa-solid fa-gift"></i>Offers</a>
+    <a href="#" onclick="closeMenu();openWishlist()"><i class="fa-regular fa-heart"></i>My Favourites</a>
     <a href="#reviews" onclick="closeMenu()"><i class="fa-solid fa-comment"></i>Reviews</a>
     <a href="help.html"><i class="fa-solid fa-circle-question"></i>Help &amp; Shipping</a>
     <a href="#" onclick="closeMenu();openTrackOrder()"><i class="fa-solid fa-location-dot"></i>Track Order</a>
@@ -78,6 +83,16 @@
     <div><i class="fa-solid fa-map-location-dot"></i><b>Made in Karnataka</b><small>A brand rooted in traditional flavours.</small></div>
   </div></section>
 
+  <!-- Phase 2: "Shop by Category" — populated by renderCategoryCards()
+       in app.js from the existing categories/products data, hidden
+       entirely (style="display:none" is overridden by JS on load) if
+       there's nothing to show yet. Scales to any number of future
+       categories with no HTML changes. -->
+  <section class="lightSection" id="shopByCategory" style="display:none"><div class="wrap">
+    <div class="sectionHead"><div><div class="eyebrow">EXPLORE JAYVI</div><h2>Shop by category.</h2></div></div>
+    <div id="categoryCardsGrid" class="categoryCardsGrid"></div>
+  </div></section>
+
   <!-- V32.3: Admin-managed, Supabase-Storage-backed gallery (replaces
        the V32.6 Git/manifest.json brand marquee) — populated from
        public.gallery_media via renderBrandGallery() in app.js, which
@@ -98,6 +113,14 @@
     <div id="bestGrid" class="productGrid"></div>
   </div></section>
 
+  <!-- Phase 2: "Shop by Occasion" — populated by renderOccasionCards()
+       from the existing mealTags data (no new taxonomy). Hidden
+       entirely if there are no meal-tagged products yet. -->
+  <section class="shopSection" id="occasionSection" style="display:none"><div class="wrap">
+    <div class="sectionHead"><div><div class="eyebrow">WHAT ARE YOU CRAVING TODAY?</div><h2>Shop by occasion.</h2></div></div>
+    <div id="occasionGrid" class="occasionGrid"></div>
+  </div></section>
+
   <section class="shopSection" id="shop"><div class="wrap">
     <div class="sectionHead"><div><div class="eyebrow">SHOP JAYVI'S PRODUCTS</div><h2>Find your favourite.</h2></div></div>
     <div class="shopBar">
@@ -110,12 +133,21 @@
       </select>
     </div>
     <div id="categoryTabs" class="categoryTabs"></div>
+    <div id="mealFilterChip" class="mealFilterChip"><span>Filtered by: <b></b></span><button onclick="clearMealFilter()" aria-label="Clear filter">✕</button></div>
     <div id="productGrid" class="productGrid"></div>
   </div></section>
 
   <section class="comboSection" id="combos"><div class="wrap">
     <div class="sectionHead darkHead"><div><div class="eyebrow">JAYVI'S COMBOS</div><h2>More to love.</h2></div><span id="comboCount"></span></div>
     <div id="comboGrid" class="comboGrid"></div>
+  </div></section>
+
+  <!-- Phase 2: Offers destination — populated by renderOffersSection()
+       from the SAME activeOffers data as the floating offer button;
+       hidden entirely when there are no active offers. -->
+  <section class="lightSection" id="offersSection" style="display:none"><div class="wrap">
+    <div class="sectionHead"><div><div class="eyebrow">DON'T MISS OUT</div><h2>Current offers.</h2></div></div>
+    <div id="offersSectionGrid" class="offersSectionGrid"></div>
   </div></section>
 
   <section class="mealSection"><div class="wrap">

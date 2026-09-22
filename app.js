@@ -470,7 +470,7 @@ function responsiveImgAttrs(path,sizes){
 
 /* ---------- State ---------- */
 let CONFIG, products=[], categories=[], mealTagList=[];
-let cat='all', heroIndex=0, heroTimer=null, meal='idli', selectedVariants={};
+let cat='all', heroIndex=0, heroTimer=null, meal='idli', selectedVariants={}, mealFilter=null;
 let cart=loadCart(), wishlist=loadWishlist(), mapsReady=false;
 
 /* ---------- Helpers ---------- */
@@ -510,7 +510,8 @@ function expandSearchQuery(q){
 }
 function matchesSearch(p,q){
   if(!q) return true;
-  const haystack=`${p.name} ${catName(p.category)} ${p.short||''} ${p.description||''}`.toLowerCase();
+  const mealTagNames=(p.mealTags||[]).map(m=>mealTagList.find(t=>t.id===m)?.name||'').join(' ');
+  const haystack=`${p.name} ${catName(p.category)} ${p.short||''} ${p.description||''} ${mealTagNames}`.toLowerCase();
   return expandSearchQuery(q).some(term=>haystack.includes(term));
 }
 
@@ -706,9 +707,25 @@ function sync(){
   // productCard()/openProduct(), which would otherwise crash on
   // getVariant() returning undefined. Every other valid product keeps
   // rendering normally; nothing here can take down the whole grid.
-  const isSellable = p => p && p.id && p.name && p.image &&
-    (p.variants||[]).some(v=>v && v.active && Number(v.price)>0 && Number(v.mrp)>0);
-  products=(CONFIG.products||[]).filter(p=>p.active && isSellable(p))
+  // Item Q, defensive half: even if a fundamentally incomplete product
+  // (no id, no name, no image, or zero PRICED variants) somehow ends
+  // up in the data, it's filtered out here — never reaches
+  // productCard()/openProduct(), which would otherwise crash on
+  // getVariant() returning undefined. Every other valid product keeps
+  // rendering normally; nothing here can take down the whole grid.
+  //
+  // Phase 2: this used to also require an ACTIVE variant, which meant
+  // a fully sold-out product (every variant's "Available for sale"
+  // unchecked in Admin) disappeared from the storefront entirely
+  // instead of showing a "Sold Out" badge. Relaxed to just "has at
+  // least one priced variant" — active/inactive is now decided at
+  // render time by isProductSoldOut() below, so a sold-out product
+  // stays visible (browsable, badge shown, purchase disabled) exactly
+  // like the brief asks, with zero change for any product that still
+  // has stock (that path is untouched).
+  const isDisplayable = p => p && p.id && p.name && p.image &&
+    (p.variants||[]).some(v=>v && Number(v.price)>0 && Number(v.mrp)>0);
+  products=(CONFIG.products||[]).filter(p=>p.active && isDisplayable(p))
     .map(p=>({...p,media:p.media?.length?p.media:(p.image?[{type:'image',path:p.image}]:PLACEHOLDER_MEDIA)}));
   categories=(CONFIG.categories||[]).filter(c=>c.enabled).sort((a,b)=>a.order-b.order);
   mealTagList=(CONFIG.mealTags||[]).filter(t=>t.enabled).sort((a,b)=>a.order-b.order);
@@ -727,7 +744,18 @@ function getVariant(p,vid){
   if(!p) return null;
   return (p.variants||[]).find(v=>v && v.id===vid && v.active && Number(v.price)>0)
     || (p.variants||[]).find(v=>v && v.active && Number(v.price)>0)
+    // Phase 2 addition: if NO variant is active (fully sold out), still
+    // return a priced variant so price/image/gallery keep rendering
+    // instead of the card/detail view breaking. isProductSoldOut()
+    // below is what actually decides the Sold Out badge/disabled
+    // actions — this fallback only ever engages when both clauses
+    // above already failed, so it changes nothing for any in-stock
+    // product.
+    || (p.variants||[]).find(v=>v && Number(v.price)>0)
     || null;
+}
+function isProductSoldOut(p){
+  return !(p?.variants||[]).some(v=>v && v.active && Number(v.price)>0);
 }
 function catName(id){return categories.find(c=>c.id===id)?.name||id}
 // PatilKaki-review additions — admin-controlled "New" badge (never
@@ -768,18 +796,24 @@ function productHasActiveOffer(p){
 // Inline (non-absolutely-positioned) variant of the same badge set,
 // for use in the product detail modal where there's no .visualWrap to
 // anchor an absolute badge stack against.
+// Badge priority (Phase 2): Sold Out > New > Offer — only ONE of these
+// three shows at a time, so a product never carries all three at once;
+// Bestseller is independent of that priority and can still appear
+// alongside whichever one applies.
 function detailBadges(p){
   const t=[];
   if(p.best) t.push('<span class="tag tagBest">Bestseller</span>');
-  if(isProductNew(p)) t.push('<span class="tag tagNew">New</span>');
-  if(productHasActiveOffer(p)) t.push('<span class="tag tagOffer">Offer</span>');
+  if(isProductSoldOut(p)) t.push('<span class="tag tagSoldOut">Sold out</span>');
+  else if(isProductNew(p)) t.push('<span class="tag tagNew">New</span>');
+  else if(productHasActiveOffer(p)) t.push('<span class="tag tagOffer">Offer</span>');
   return t.length?`<div class="detailTags">${t.join('')}</div>`:'';
 }
 function productBadges(p){
   const b=[];
   if(p.best) b.push('<span class="badge" title="Bestseller" aria-label="Bestseller"><i class="fa-solid fa-star" aria-hidden="true"></i></span>');
-  if(isProductNew(p)) b.push('<span class="badge badgeNew" title="New" aria-label="New"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>');
-  if(productHasActiveOffer(p)) b.push('<span class="badge badgeOffer" title="Offer available" aria-label="Offer available"><i class="fa-solid fa-percent" aria-hidden="true"></i></span>');
+  if(isProductSoldOut(p)) b.push('<span class="badge badgeSoldOut" title="Sold out" aria-label="Sold out"><i class="fa-solid fa-ban" aria-hidden="true"></i></span>');
+  else if(isProductNew(p)) b.push('<span class="badge badgeNew" title="New" aria-label="New"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>');
+  else if(productHasActiveOffer(p)) b.push('<span class="badge badgeOffer" title="Offer available" aria-label="Offer available"><i class="fa-solid fa-percent" aria-hidden="true"></i></span>');
   return b.length?`<div class="badgeStack">${b.join('')}</div>`:'';
 }
 function variantKey(id){return selectedVariants[id]||getVariant(getProduct(id))?.id}
@@ -791,8 +825,23 @@ function loadWishlist(){try{return JSON.parse(localStorage.getItem('jayviWishlis
 function saveWishlist(){localStorage.setItem('jayviWishlistV9',JSON.stringify(wishlist))}
 function toggleWishlist(pid){
   wishlist=wishlist.includes(pid)?wishlist.filter(x=>x!==pid):[...wishlist,pid];
-  saveWishlist();refreshProductViews();
+  saveWishlist();refreshProductViews();updateWishlistBadge();
   showToast(wishlist.includes(pid)?'Added to favourites':'Removed from favourites');
+}
+// Phase 2 — header/menu wishlist entry point. Reuses productCard() and
+// the existing account overlay (same pattern as openAllReviews()) —
+// no new modal, no new product-rendering code.
+function updateWishlistBadge(){
+  const el=$('wishlistCount'); if(!el) return;
+  el.textContent=wishlist.length;
+  el.style.display=wishlist.length?'flex':'none';
+}
+function openWishlist(){
+  $('accountOverlay').classList.add('open'); document.body.classList.add('modalOpen');
+  const items=products.filter(p=>wishlist.includes(p.id));
+  $('accountContent').innerHTML=`<div class="eyebrow">YOUR FAVOURITES</div><h2>${items.length} saved item${items.length===1?'':'s'}</h2>
+    <div class="productGrid" style="margin-top:14px">${items.map(productCard).join('')||'<div class="empty">No favourites yet — tap the heart on any product to save it here.</div>'}</div>`;
+  bindGalleryScrollers();
 }
 
 /* ---------- Product media / gallery ---------- */
@@ -897,19 +946,22 @@ function setGalleryImage(path,btn){
 function productCard(p){
   const v=getVariant(p,variantKey(p.id));
   if(!v) return ''; // defensive: should never happen post-sync(), but never crash the grid if it does
-  const off=v.mrp-v.price,q=cartQtyFor(p.id,v.id);
-  const actions=q
+  const soldOut=isProductSoldOut(p);
+  const off=v.mrp-v.price,q=soldOut?0:cartQtyFor(p.id,v.id);
+  const actions=soldOut
+    ?`<div class="pcActions"><button class="soldOutBtn" disabled>Sold out</button></div>`
+    :q
     ?`<div class="pcActions hasQty"><div class="inlineQty"><button onclick="changeProductQty('${p.id}','${v.id}',-1)" aria-label="Decrease quantity"><i class="fa-solid fa-minus"></i></button><b>${q}</b><button onclick="changeProductQty('${p.id}','${v.id}',1)" aria-label="Increase quantity"><i class="fa-solid fa-plus"></i></button></div><button class="viewCartBtn" onclick="openCart()" aria-label="View cart"><i class="fa-solid fa-bag-shopping"></i></button></div>`
     :`<div class="pcActions"><button onclick="addToCart('${p.id}','${v.id}')">Add to cart</button><button onclick="buyNow('${p.id}','${v.id}')">Buy now</button></div>`;
-  return `<article class="productCard" data-product-id="${p.id}">
+  return `<article class="productCard${soldOut?' isSoldOut':''}" data-product-id="${p.id}">
     <div class="visualWrap" onclick="openProduct('${p.id}')">${cardMediaMarkup(p)}${productBadges(p)}<button class="heart ${wishlist.includes(p.id)?'isWish':''}" onclick="event.stopPropagation();toggleWishlist('${p.id}')" aria-label="Favourite ${escapeHtml(p.name)}"><i class="${wishlist.includes(p.id)?'fa-solid':'fa-regular'} fa-heart"></i></button></div>
     <div class="pcBody">
       <small>${escapeHtml(catName(p.category))}</small>
       <h3 onclick="openProduct('${p.id}')">${escapeHtml(p.name)}</h3>
       <div class="stars">★★★★★ <span>${p.rating} · ${p.reviewCount} reviews</span></div>
       <p>${escapeHtml(p.short)}</p>
-      <div class="sizes">${p.variants.filter(x=>x.active).map(x=>`<button class="${x.id===v.id?'active':''}" onclick="event.stopPropagation();setVariant('${p.id}','${x.id}')">${escapeHtml(x.label)}</button>`).join('')}</div>
-      <div class="price"><b>${money(v.price)}</b><del>${money(v.mrp)}</del>${off>0?`<em>Save ${money(off)}</em>`:''}</div>
+      ${soldOut?'':`<div class="sizes">${p.variants.filter(x=>x.active).map(x=>`<button class="${x.id===v.id?'active':''}" onclick="event.stopPropagation();setVariant('${p.id}','${x.id}')">${escapeHtml(x.label)}</button>`).join('')}</div>`}
+      <div class="price"><b>${money(v.price)}</b><del>${money(v.mrp)}</del>${!soldOut&&off>0?`<em>Save ${money(off)}</em>`:''}</div>
       ${actions}
     </div>
   </article>`;
@@ -947,18 +999,98 @@ function renderCategories(){
   if(!$('categoryTabs'))return;
   $('categoryTabs').innerHTML=`<button class="${cat==='all'?'active':''}" onclick="setCat('all',this)">All</button>`+
     categories.map(c=>`<button class="${cat===c.id?'active':''}" onclick="setCat('${c.id}',this)">${escapeHtml(c.name)}</button>`).join('');
+  renderCategoryCards();
 }
-function setCat(c,b){cat=c;document.querySelectorAll('.categoryTabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderProducts()}
+// Phase 2 — deterministic colour accent for any category/meal-tag id:
+// hashes the string into one of 6 palette slots (see .catAccent-0..5 in
+// style.css), so a category added next year gets a distinct, coherent
+// colour automatically — no per-name colour map to maintain.
+function categoryAccentClass(id){
+  let h=0; const s=String(id||'');
+  for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0;
+  return 'catAccent-'+(h%6);
+}
+// "Shop by Category" — big colourful, image-led cards. Data-driven off
+// the same `categories`/`products` arrays the category tabs already
+// use; a category with zero active products simply doesn't get a
+// card, so this scales to 100+ products without any code changes.
+function renderCategoryCards(){
+  const box=$('categoryCardsGrid'); if(!box) return;
+  const cards=categories.map(c=>{
+    const inCat=products.filter(p=>p.category===c.id||(p.categories||[]).includes(c.id));
+    if(!inCat.length) return '';
+    const sample=inCat[0];
+    return `<button class="categoryCard ${categoryAccentClass(c.id)}" onclick="filterByCategory('${c.id}')">
+      <div class="categoryCardImg">${sample?.image?`<img src="${escapeHtml(sample.image)}" alt="${escapeHtml(c.name)}" loading="lazy" decoding="async">`:''}</div>
+      <div class="categoryCardBody"><h3>${escapeHtml(c.name)}</h3><span>${inCat.length} product${inCat.length>1?'s':''}</span></div>
+    </button>`;
+  }).filter(Boolean).join('');
+  const section=$('shopByCategory');
+  if(section) section.style.display=cards?'':'none';
+  box.innerHTML=cards;
+}
+// "Shop by Occasion" — reuses mealTags exactly as they're already
+// stored/managed in Admin; a tag with zero matching products doesn't
+// get a card, and the whole section hides if there's no meal-tag data
+// at all yet.
+function renderOccasionCards(){
+  const box=$('occasionGrid'); const section=$('occasionSection');
+  if(!box||!section) return;
+  const cards=mealTagList.map(t=>{
+    const count=products.filter(p=>(p.mealTags||[]).includes(t.id)).length;
+    if(!count) return '';
+    return `<button class="occasionCard ${categoryAccentClass(t.id)}" onclick="setMealFilter('${t.id}')">
+      <span class="occasionIcon"><i class="fa-solid fa-utensils" aria-hidden="true"></i></span>
+      <h3>${escapeHtml(t.name)}</h3><span class="occasionCount">${count} pick${count>1?'s':''}</span>
+    </button>`;
+  }).filter(Boolean).join('');
+  section.style.display=cards?'':'none';
+  box.innerHTML=cards;
+}
+// Offers homepage section — reads the SAME activeOffers array already
+// fetched for the floating offer button/announcement (fetchActiveOffers()),
+// reuses offerLabel(); no second offers query, no new coupon logic.
+function renderOffersSection(){
+  const box=$('offersSectionGrid'); const section=$('offersSection');
+  if(!box||!section) return;
+  if(!activeOffers.length){ section.style.display='none'; return; }
+  section.style.display='';
+  box.innerHTML=activeOffers.map(o=>`<div class="homepageOfferCard"><b>${escapeHtml(o.code)} — ${offerLabel(o)}</b><p>${escapeHtml(o.description||o.name||'')}${o.min_order_value?` · Min order ${money(o.min_order_value)}`:''}</p></div>`).join('');
+}
+function setCat(c,b){cat=c;mealFilter=null;document.querySelectorAll('.categoryTabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderProducts()}
 function renderProducts(){
   if(!$('productGrid'))return;
   const q=($('productSearch')?.value||'').toLowerCase();
-  let arr=products.filter(p=>(cat==='all'||p.category===cat)&&matchesSearch(p,q));
+  let arr=products.filter(p=>(cat==='all'||p.category===cat)&&(!mealFilter||(p.mealTags||[]).includes(mealFilter))&&matchesSearch(p,q));
   const s=$('sortSelect')?.value;
   if(s==='priceLow')arr.sort((a,b)=>getVariant(a,variantKey(a.id)).price-getVariant(b,variantKey(b.id)).price);
   if(s==='priceHigh')arr.sort((a,b)=>getVariant(b,variantKey(b.id)).price-getVariant(a,variantKey(a.id)).price);
   if(s==='rating')arr.sort((a,b)=>b.rating-a.rating);
   $('productGrid').innerHTML=arr.map(productCard).join('')||'<div class="empty">No products found.</div>';
   bindGalleryScrollers();
+  renderMealFilterChip();
+}
+// Phase 2 — "Shop by Occasion" filter chip. Reuses the exact same
+// mealTags data the product detail's "How to enjoy" section and the
+// existing meal-recommendation tabs already use; this is just another
+// entry point into the same product grid, not a new taxonomy.
+function setMealFilter(tagId){
+  mealFilter=tagId; cat='all';
+  renderCategories(); renderProducts();
+  $('shop')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function clearMealFilter(){ mealFilter=null; renderProducts(); }
+function renderMealFilterChip(){
+  const box=$('mealFilterChip'); if(!box) return;
+  if(!mealFilter){ box.style.display='none'; return; }
+  const name=mealTagList.find(t=>t.id===mealFilter)?.name||CONFIG.mealLabels?.[mealFilter]||mealFilter;
+  box.style.display='flex';
+  box.querySelector('b').textContent=name;
+}
+function filterByCategory(catId){
+  mealFilter=null; cat=catId;
+  renderCategories(); renderProducts();
+  $('shop')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function comboMediaMarkup(c){
   // V32.6: combos now follow the exact same product_media architecture
@@ -1596,7 +1728,7 @@ function cartItemDetails(x){
 // a future bug appeared in renderProducts()/renderMeal(), the combo
 // card would already be updated before either of them ever runs.
 function refreshProductViews(){
-  [renderBest,renderCombos,renderProducts,renderMeal].forEach(fn=>{
+  [renderBest,renderCombos,renderProducts,renderMeal,renderOccasionCards].forEach(fn=>{
     try{ fn(); }catch(err){ console.error(`${fn.name} failed to render:`, err); }
   });
 }
@@ -2656,14 +2788,17 @@ function openProduct(id){
   const v=getVariant(p,variantKey(id));
   if(!v){ showToast('This product is currently unavailable.'); return; } // defensive, same reasoning as productCard()
   openProductId = id;
+  const soldOut=isProductSoldOut(p);
   const paused=!!CONFIG.store.vacationMode;
   const addAction=paused?"showToast('Ordering is paused while Jayvi Foods is on vacation.')":`addToCart('${p.id}','${v.id}')`;
   const buyAction=paused?"showToast('Ordering is paused while Jayvi Foods is on vacation.')":`buyNow('${p.id}','${v.id}')`;
   // Data-driven, same as productCard(): once this variant is in the cart,
   // show the -/+ stepper instead of Add to cart — works automatically for
   // every product, new or existing, with no product-specific code.
-  const q=paused?0:cartQtyFor(p.id,v.id);
-  const detailActions = q
+  const q=(paused||soldOut)?0:cartQtyFor(p.id,v.id);
+  const detailActions = soldOut
+    ? `<div class="detailBtns"><button class="soldOutBtn" style="flex:1" disabled>Sold out — check back soon</button></div>`
+    : q
     ? `<div class="detailBtns hasQty"><div class="inlineQty"><button onclick="changeProductQty('${p.id}','${v.id}',-1)" aria-label="Decrease quantity"><i class="fa-solid fa-minus"></i></button><b>${q}</b><button onclick="changeProductQty('${p.id}','${v.id}',1)" aria-label="Increase quantity"><i class="fa-solid fa-plus"></i></button></div><button class="btn gold" onclick="openCart()">View cart</button></div>`
     : `<div class="detailBtns"><button class="btn light" ${paused?'disabled':''} onclick="${addAction}">${paused?'Orders paused':'Add to cart'}</button><button class="btn gold" ${paused?'disabled':''} onclick="${buyAction}">${paused?'Unavailable':'Buy now →'}</button></div>`;
   // Order below follows the brief exactly: image -> name -> rating ->
@@ -2684,9 +2819,9 @@ function openProduct(id){
     <div class="detailCopy">
       <div class="detailTopRow"><div class="eyebrow">${escapeHtml(catName(p.category))}</div>${detailBadges(p)}</div>
       <h2>${escapeHtml(p.name)}</h2>
-      <div class="stars ratingLink" onclick="goToProductReviews()" role="button" tabindex="0"><span class="starsIcon">★★★★★</span> <span>${p.rating} · ${p.reviewCount} reviews</span></div>
+      <div class="stars ratingLink" onclick="goToProductReviews()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();goToProductReviews()}" role="button" tabindex="0"><span class="starsIcon">★★★★★</span> <span>${p.rating} · ${p.reviewCount} reviews</span></div>
       <p>${escapeHtml(p.short)}</p>
-      <div class="detailVariants">${p.variants.filter(x=>x.active).map(x=>`<button class="${x.id===v.id?'active':''}" onclick="selectedVariants['${p.id}']='${x.id}';openProduct('${p.id}')">${escapeHtml(x.label)}<small>${money(x.price)}</small></button>`).join('')}</div>
+      ${soldOut?'':`<div class="detailVariants">${p.variants.filter(x=>x.active).map(x=>`<button class="${x.id===v.id?'active':''}" onclick="selectedVariants['${p.id}']='${x.id}';openProduct('${p.id}')">${escapeHtml(x.label)}<small>${money(x.price)}</small></button>`).join('')}</div>`}
       <div class="detailPrice"><b>${money(v.price)}</b><del>${money(v.mrp)}</del>${v.mrp>v.price?`<em>Save ${money(v.mrp-v.price)}</em>`:''}</div>
       ${detailActions}
     </div></div>
@@ -2810,12 +2945,14 @@ async function init(){
   // effect on the others.
   await Promise.all([loadCatalogFromSupabase(), loadCategoriesAndMealTagsFromSupabase(), loadSettingsAnnouncementsReviewsFromSupabase(), fetchActiveOffers()]);
   sync();
-  renderFloatingOffer(); renderOfferAnnouncement();
+  renderFloatingOffer(); renderOfferAnnouncement(); renderOffersSection();
   if(CONFIG.store.vacationMode){
     const b=$('vacationBanner');
     if(b){b.style.display='block';b.textContent=CONFIG.store.vacationMessage||'Orders are temporarily paused while Jayvi Foods is away.'}
   }
   renderBest();renderCategories();renderProducts();renderCombos();renderMeal();renderReviews();renderCart();
+  renderOccasionCards();
+  updateWishlistBadge();
   renderFooterSocialLinks();
   renderBrandGallery();
   heroShow();startHero();enableHeroSwipe();setupAnnouncementTicker();
