@@ -1,35 +1,57 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-IN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Jayvi Foods — Traditional Indian Flavours, Delivered Across India</title>
-<meta name="description" content="Shop Jayvi Foods online for traditional chutney powders, podi, snacks and more — authentic Indian flavours made for everyday eating, freshly packed and delivered across India.">
-<meta name="theme-color" content="#211712">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- Title/description below are the fallbacks; Admin → Site content → Brand → SEO overrides them at runtime. -->
+<title>Jayvi Foods — Traditional Karnataka Chutney Powders, Rice &amp; Snacks</title>
+<meta name="description" content="Shop Jayvi Foods online: traditional Karnataka chutney powders, Idli Dosa Pudi, heritage Rajamudi rice and crunchy snacks. Freshly packed and delivered across India.">
+<link rel="canonical" href="https://jayvifoods.com/">
+<meta name="theme-color" content="#9E1B32">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Jayvi Foods">
+<meta property="og:title" content="Jayvi Foods — Purely Traditional. Simply Delicious.">
+<meta property="og:description" content="Traditional Karnataka chutney powders, heritage rice and snacks, delivered across India.">
+<meta property="og:url" content="https://jayvifoods.com/">
+<meta property="og:image" content="https://jayvifoods.com/images/brand/jayvi-foods-logo-640w.webp">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/webp" href="images/brand/jayvi-foods-logo-160w.webp">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-<link rel="stylesheet" href="style.css?v=32.14">
+<link rel="stylesheet" href="style.css?v=33.0">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Organization","name":"Jayvi Foods","url":"https://jayvifoods.com/","logo":"https://jayvifoods.com/images/brand/jayvi-foods-logo-640w.webp","slogan":"Purely Traditional. Simply Delicious."}
+</script>
 </head>
 <body>
 
-<div class="topbar" aria-label="Store announcements"><div class="announcementViewport"><div class="announcementTrack" id="announcementTrack">
-  <span id="topOffer" class="topOfferSpan" style="display:none"></span><span id="topShipping">FREE SHIPPING ABOVE ₹599</span><span>FRESHLY PACKED</span><span>DELIVERED ACROSS INDIA</span><span>PURELY TRADITIONAL · SIMPLY DELICIOUS</span>
-  <span id="topOfferDup" class="topOfferSpan" aria-hidden="true" style="display:none"></span><span id="topShippingDup" aria-hidden="true">FREE SHIPPING ABOVE ₹599</span><span aria-hidden="true">FRESHLY PACKED</span><span aria-hidden="true">DELIVERED ACROSS INDIA</span><span aria-hidden="true">PURELY TRADITIONAL · SIMPLY DELICIOUS</span>
-</div></div></div>
+<!-- Announcement bar — messages, links, rotation and on/off come from Admin → Site content → Announcement bar -->
+<div class="annBar" id="annBar" role="region" aria-label="Store announcements" aria-live="polite" hidden></div>
 
 <div id="vacationBanner" class="vacationBanner" style="display:none"></div>
 
 <header>
   <div class="wrap nav">
-    <button class="mobileOnly icon" onclick="toggleMenu()" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
-    <a class="logo" href="#home" aria-label="Jayvi Foods"><img src="images/brand/jayvi-foods-logo.webp" alt="Jayvi Foods"></a>
-    <nav><a href="#shop">Shop</a><a href="#shopByCategory">Categories</a><a href="#combos">Combos</a><a href="#bestsellers">Best Sellers</a><a href="#" onclick="viewAllDiscovery('new');return false">New Arrivals</a><a href="#offersSection">Offers</a></nav>
+    <button class="mobileOnly icon" onclick="toggleMenu()" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
+    <a class="logo" href="#home" aria-label="Jayvi Foods home"><img src="images/brand/jayvi-foods-logo-160w.webp" srcset="images/brand/jayvi-foods-logo-160w.webp 1x, images/brand/jayvi-foods-logo-320w.webp 2x" width="62" height="56" alt="Jayvi Foods" data-brand-logo></a>
+    <nav class="mainNav" aria-label="Main">
+      <a href="#home">Home</a>
+      <a href="#shop">Shop</a>
+      <div class="navDrop" id="catDrop">
+        <button type="button" aria-expanded="false" aria-controls="megaMenu" onclick="toggleMegaMenu()">Categories <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+        <div class="megaMenu" id="megaMenu" role="menu"></div>
+      </div>
+      <a href="#best-sellers">Best Sellers</a>
+      <a href="#new-arrivals">New Arrivals</a>
+      <a href="#combos">Combos</a>
+      <a href="#offers">Offers</a>
+    </nav>
     <div class="navActions">
-      <button class="icon" onclick="openSearch()" aria-label="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
+      <button class="icon hideMobile" onclick="openSearch()" aria-label="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
+      <button class="icon hideMobile" onclick="openAccount()" aria-label="Account"><i class="fa-regular fa-user"></i></button>
       <button class="icon" onclick="openWishlist()" aria-label="Wishlist"><i class="fa-regular fa-heart"></i><b id="wishlistCount" style="display:none">0</b></button>
-      <button class="icon" onclick="openAccount()" aria-label="Account"><i class="fa-regular fa-user"></i></button>
       <button class="icon" onclick="openCart()" aria-label="Cart"><i class="fa-solid fa-bag-shopping"></i><b id="cartCount">0</b></button>
     </div>
   </div>
@@ -37,78 +59,116 @@
 <!-- Deliberately siblings of <header>, not nested inside it: header has
      backdrop-filter, and position:fixed descendants of a backdrop-filter
      ancestor are a known category of rendering bug (especially WebKit/
-     Safari) — the menu can render translucent regardless of its own
-     declared background. Moving them out of header removes the bug at
-     its source rather than only patching z-index around it. -->
+     Safari). -->
 <div class="menuScrim" id="menuScrim" onclick="closeMenu()"></div>
-<div id="mobileMenu">
-  <div class="menuTop"><img src="images/brand/jayvi-foods-logo.webp" alt="Jayvi Foods"><button class="menuClose" onclick="closeMenu()" aria-label="Close menu">×</button></div>
+<div id="mobileMenu" aria-label="Menu">
+  <div class="menuTop"><img src="images/brand/jayvi-foods-logo-160w.webp" width="49" height="44" alt="Jayvi Foods" data-brand-logo><button class="menuClose" onclick="closeMenu()" aria-label="Close menu">×</button></div>
   <div class="menuLinks">
-    <a href="#shop" onclick="closeMenu()"><i class="fa-solid fa-bag-shopping"></i>Shop</a>
-    <a href="#shopByCategory" onclick="closeMenu()"><i class="fa-solid fa-grip"></i>Categories</a>
-    <a href="#combos" onclick="closeMenu()"><i class="fa-solid fa-layer-group"></i>Combos</a>
-    <a href="#bestsellers" onclick="closeMenu()"><i class="fa-solid fa-star"></i>Best Sellers</a>
-    <a href="#" onclick="closeMenu();viewAllDiscovery('new')"><i class="fa-solid fa-bolt"></i>New Arrivals</a>
-    <a href="#offersSection" onclick="closeMenu()"><i class="fa-solid fa-gift"></i>Offers</a>
-    <a href="#" onclick="closeMenu();openWishlist()"><i class="fa-regular fa-heart"></i>My Favourites</a>
-    <a href="#reviews" onclick="closeMenu()"><i class="fa-solid fa-comment"></i>Reviews</a>
-    <a href="help.html"><i class="fa-solid fa-circle-question"></i>Help &amp; Shipping</a>
-    <a href="#" onclick="closeMenu();openTrackOrder()"><i class="fa-solid fa-location-dot"></i>Track Order</a>
+    <a href="#shop" onclick="closeMenu()"><i class="fa-solid fa-bag-shopping"></i>Shop all</a>
+    <a href="#categories" onclick="closeMenu()"><i class="fa-solid fa-grip"></i>Categories</a>
+    <a href="#best-sellers" onclick="closeMenu()"><i class="fa-solid fa-star"></i>Best Sellers</a>
+    <a href="#new-arrivals" onclick="closeMenu()"><i class="fa-solid fa-bolt"></i>New Arrivals</a>
+    <a href="#combos" onclick="closeMenu()"><i class="fa-solid fa-gift"></i>Combos</a>
+    <a href="#offers" onclick="closeMenu()"><i class="fa-solid fa-percent"></i>Offers</a>
   </div>
-  <div class="menuFoot">Need help now?<br><a href="https://wa.me/918861981003" target="_blank">Chat on WhatsApp →</a></div>
+  <div class="menuGroupTitle">Shop products</div>
+  <div class="menuLinks menuProducts" id="menuProducts"></div>
+  <div class="menuGroupTitle">Jayvi Foods</div>
+  <div class="menuLinks">
+    <a href="#story" onclick="closeMenu()"><i class="fa-solid fa-book-open"></i>Our Story</a>
+    <a href="#reviews" onclick="closeMenu()"><i class="fa-solid fa-comment"></i>Reviews</a>
+    <a href="#wishlist" onclick="closeMenu()"><i class="fa-regular fa-heart"></i>My Favourites</a>
+    <a href="help.html"><i class="fa-solid fa-circle-question"></i>Help &amp; Shipping</a>
+    <a href="#track" onclick="closeMenu()"><i class="fa-solid fa-location-dot"></i>Track Order</a>
+    <a href="#" data-wa-link data-wa-text="Hi Jayvi Foods, I have a question." target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i>Contact us</a>
+  </div>
+  <div class="menuFoot">Need help now?<br><a href="#" data-wa-link data-wa-text="Hi Jayvi Foods, I need help with my order." target="_blank" rel="noopener">Chat on WhatsApp →</a></div>
 </div>
 
 
 <main id="home">
 
-  <section class="hero"><div class="wrap heroGrid">
+  <section class="hero" id="heroSection" data-section="hero"><div class="wrap heroGrid">
     <div class="heroCopy">
-      <div class="eyebrow" id="heroLabel">BESTSELLER</div>
-      <h1 id="heroTitle">Peanut Chutney<br><em>for every meal.</em></h1>
-      <p id="heroDesc">Rich, nutty and comforting — the everyday favourite.</p>
-      <div class="heroBtns"><button id="heroShop" class="btn gold">Shop now <i class="fa-solid fa-arrow-right"></i></button><a href="#shop">Browse all</a></div>
+      <div class="eyebrow" id="heroLabel">Authentic Karnataka flavours</div>
+      <h1 id="heroTitle">Purely Traditional.<br><em>Simply Delicious.</em></h1>
+      <p id="heroDesc">Traditional favourites made for everyday moments.</p>
+      <div class="heroBtns"><button id="heroShop" class="btn primary">Shop now <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button><a id="heroSecondary" class="btn secondary" href="#best-sellers">Explore bestsellers</a></div>
+      <div class="heroTrust" id="heroTrust"></div>
       <div id="heroDots" class="dots"></div>
     </div>
-    <div class="heroImage">
-      <img id="heroImg" src="images/hero/jayvi-products.webp" alt="Jayvi Foods products">
+    <div class="heroImage" id="heroImageBox">
+      <img id="heroImg" src="images/brand/placeholder.svg" alt="Jayvi Foods products" fetchpriority="high" decoding="async">
       <video id="heroVideo" style="display:none" autoplay muted loop playsinline></video>
-      <div class="heroPrice"><b id="heroPrice">₹155</b><span>starting from</span></div>
+      <div class="heroPrice" style="display:none"><span>from</span><b id="heroPrice"></b></div>
     </div>
   </div></section>
 
-  <section class="lightSection" id="bestsellers"><div class="wrap">
-    <div class="sectionHead"><div><div class="eyebrow" id="discoveryEyebrow">SHOP JAYVI'S BESTSELLERS</div><h2 id="discoveryHeading">Bestsellers</h2></div><a href="#" onclick="viewAllDiscovery(discoveryTab);return false">View all →</a></div>
-    <div id="discoveryTabs" class="categoryTabs" style="display:none"></div>
-    <div id="bestGrid" class="productGrid"></div>
+  <section class="welcomeStrip" id="welcomeOffer" data-section="welcomeOffer" hidden><div class="wrap"><div class="welcomeCard" id="welcomeCard"></div></div></section>
+
+  <section class="v33Section bgWhite" id="bestsellers" data-section="loveThese"><div class="wrap">
+    <div class="sectionHead"><div><div class="eyebrow" id="discoveryEyebrow">Handpicked for you</div><h2 id="discoveryHeading">You'll love these ❤️</h2><div class="motif short"></div></div><div class="scrollHint"><button onclick="scrollRow('bestGrid',-1)" aria-label="Scroll left"><i class="fa-solid fa-chevron-left"></i></button><button onclick="scrollRow('bestGrid',1)" aria-label="Scroll right"><i class="fa-solid fa-chevron-right"></i></button></div></div>
+    <div id="discoveryTabs" class="pillTabs" role="tablist"></div>
+    <div id="bestGrid" class="hScroll"></div>
   </div></section>
 
-  <section class="lightSection" id="shopByCategory" style="display:none"><div class="wrap">
-    <div class="sectionHead"><div><div class="eyebrow">EXPLORE JAYVI</div><h2>Shop by category.</h2></div></div>
-    <div id="categoryCardsGrid" class="categoryCardsGrid"></div>
+  <section class="v33Section bgCream" id="shopByCategory" data-section="categories" style="display:none"><div class="wrap">
+    <div class="sectionHead"><div><div class="eyebrow" data-sec-eyebrow>Explore Jayvi</div><h2 data-sec-title>Shop by category</h2><div class="motif short"></div></div></div>
+    <div id="categoryCardsGrid" class="catGrid"></div>
   </div></section>
 
-  <section class="shopSection" id="occasionSection" style="display:none"><div class="wrap">
-    <div class="sectionHead"><div><div class="eyebrow">WHAT ARE YOU CRAVING TODAY?</div><h2>Shop by occasion.</h2></div></div>
-    <div id="occasionGrid" class="occasionGrid"></div>
+  <section class="v33Section bgSand" id="occasionSection" data-section="occasions" style="display:none"><div class="wrap">
+    <div class="sectionHead"><div><div class="eyebrow" data-sec-eyebrow>Shop by occasion</div><h2 data-sec-title>What are you craving today?</h2></div><div class="scrollHint"><button onclick="scrollRow('occasionGrid',-1)" aria-label="Scroll left"><i class="fa-solid fa-chevron-left"></i></button><button onclick="scrollRow('occasionGrid',1)" aria-label="Scroll right"><i class="fa-solid fa-chevron-right"></i></button></div></div>
+    <div id="occasionGrid" class="hScroll narrow five"></div>
   </div></section>
 
-  <section class="shopSection" id="shop"><div class="wrap">
-    <div class="sectionHead"><div><div class="eyebrow">SHOP JAYVI'S PRODUCTS</div><h2>Find your favourite.</h2></div><span id="shopResultCount" class="shopResultCount"></span></div>
+  <section class="v33Section promoBand" id="promoBanner" data-section="promo" hidden><div class="wrap promoGrid" id="promoGrid"></div></section>
+
+  <section class="v33Section bgCream" id="offersSection" data-section="offers" style="display:none"><div class="wrap">
+    <div class="sectionHead"><div><div class="eyebrow" data-sec-eyebrow>Don't miss out</div><h2 data-sec-title>Current offers</h2></div></div>
+    <div id="offersSectionGrid" class="offersSectionGrid"></div>
+  </div></section>
+
+  <section class="v33Section bgSand" id="whyJayvi" data-section="why"><div class="wrap">
+    <div class="sectionHead"><div><div class="eyebrow" data-sec-eyebrow>Our promise</div><h2 data-sec-title>Why Jayvi?</h2><div class="motif short"></div></div></div>
+    <div class="whyGrid" id="whyGrid"></div>
+  </div></section>
+
+  <section class="v33Section bgCream" id="howToEnjoy" data-section="howToEnjoy" hidden><div class="wrap">
+    <div class="sectionHead"><div><div class="eyebrow" data-sec-eyebrow>How to enjoy Jayvi</div><h2 data-sec-title>One product. So many ways.</h2></div><div class="scrollHint"><button onclick="scrollRow('enjoyGrid',-1)" aria-label="Scroll left"><i class="fa-solid fa-chevron-left"></i></button><button onclick="scrollRow('enjoyGrid',1)" aria-label="Scroll right"><i class="fa-solid fa-chevron-right"></i></button></div></div>
+    <div class="hScroll" id="enjoyGrid"></div>
+  </div></section>
+
+  <section class="v33Section comboSection" id="combos" data-section="combos"><div class="wrap">
+    <div class="sectionHead darkHead"><div><div class="eyebrow" data-sec-eyebrow>Jayvi combos</div><h2 data-sec-title>More to love 🎁</h2></div><span id="comboCount"></span></div>
+    <div id="comboGrid" class="comboGrid"></div>
+  </div></section>
+
+  <section class="v33Section heritage" id="heritageStory" data-section="heritage" hidden><div class="wrap heritageGrid" id="heritageGrid"></div></section>
+
+  <section class="v33Section bgWhite reviewSection" id="reviews" data-section="reviews"><div class="wrap">
+    <div class="sectionHead"><div><div class="eyebrow" data-sec-eyebrow>Customer love</div><h2 data-sec-title>Loved by Jayvi customers ❤️</h2><div class="reviewSummary" id="reviewSummary"></div></div><div class="scrollHint"><button onclick="scrollRow('reviewGrid',-1)" aria-label="Scroll left"><i class="fa-solid fa-chevron-left"></i></button><button onclick="scrollRow('reviewGrid',1)" aria-label="Scroll right"><i class="fa-solid fa-chevron-right"></i></button></div></div>
+    <div id="reviewGrid" class="hScroll wide"></div>
+    <div class="reviewActions"><a href="#" onclick="openAllReviews();return false">View all reviews →</a><a href="#" onclick="openReviewForm();return false">Write a review →</a><a class="googleLink" id="googleReviewsTop" target="_blank" rel="noopener">Google reviews →</a></div>
+  </div></section>
+
+  <section class="v33Section shopSection" id="shop" data-section="shop"><div class="wrap">
+    <div class="sectionHead"><div><div class="eyebrow" data-sec-eyebrow>All products</div><h2 data-sec-title>Find your favourite</h2></div><span id="shopResultCount" class="shopResultCount"></span></div>
     <div class="shopBar">
-      <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input id="productSearch" placeholder="Search products..." oninput="renderProducts()"></div>
+      <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input id="productSearch" placeholder="Search peanut, pudi, rajamudi, chakli…" oninput="renderProducts()" aria-label="Search products"></div>
       <div class="shopBarControls desktopOnly">
-        <select id="sortSelect" onchange="setSortValue(this.value)">
+        <select id="sortSelect" onchange="setSortValue(this.value)" aria-label="Sort">
           <option value="featured">Featured</option>
           <option value="newest">Newest</option>
           <option value="priceLow">Price: low to high</option>
           <option value="priceHigh">Price: high to low</option>
           <option value="rating">Top rated</option>
         </select>
-        <select id="availabilitySelect" onchange="setAvailabilityFilter(this.value)">
+        <select id="availabilitySelect" onchange="setAvailabilityFilter(this.value)" aria-label="Availability">
           <option value="all">All products</option>
           <option value="inStock">In stock only</option>
         </select>
-        <select id="priceBucketSelect" onchange="setPriceBucket(this.value)">
+        <select id="priceBucketSelect" onchange="setPriceBucket(this.value)" aria-label="Price">
           <option value="all">Any price</option>
           <option value="under200">Under ₹200</option>
           <option value="under500">Under ₹500</option>
@@ -125,71 +185,46 @@
     <div id="productGrid" class="productGrid"></div>
   </div></section>
 
-  <section class="comboSection" id="combos"><div class="wrap">
-    <div class="sectionHead darkHead"><div><div class="eyebrow">JAYVI'S COMBOS</div><h2>More to love.</h2></div><span id="comboCount"></span></div>
-    <div id="comboGrid" class="comboGrid"></div>
-  </div></section>
+  <section class="v33Section bgCream" id="socialSection" data-section="social" hidden><div class="wrap" id="socialInner"></div></section>
 
-  <section class="lightSection" id="offersSection" style="display:none"><div class="wrap">
-    <div class="sectionHead"><div><div class="eyebrow">DON'T MISS OUT</div><h2>Current offers.</h2></div></div>
-    <div id="offersSectionGrid" class="offersSectionGrid"></div>
-  </div></section>
-
-  <section class="mealSection"><div class="wrap">
-    <div class="eyebrow">FIND YOUR MATCH</div>
-    <h2>Made for every meal.</h2>
-    <p class="muted intro">Choose a meal and see the Jayvi's flavours that go with it.</p>
-    <div id="mealTabs" class="mealTabs"></div>
-    <div id="mealRecommendations" class="mealRecommendations"></div>
-  </div></section>
-
-  <section class="trust" id="whyJayvi"><div class="wrap trustGrid">
-    <div><i class="fa-solid fa-seedling"></i><b>Purely Traditional</b><small>Traditional flavours inspired by Karnataka.</small></div>
-    <div><i class="fa-solid fa-box-open"></i><b>Freshly Packed</b><small>Carefully packed to preserve freshness and taste.</small></div>
-    <div><i class="fa-solid fa-bowl-rice"></i><b>Made for Everyday Meals</b><small>Perfect with idli, dosa, rice and more.</small></div>
-    <div><i class="fa-solid fa-map-location-dot"></i><b>Made in Karnataka</b><small>A brand rooted in traditional flavours.</small></div>
-  </div></section>
-
-  <section class="reviewSection" id="reviews"><div class="wrap">
-    <div class="sectionHead"><div><div class="eyebrow">CUSTOMER LOVE</div><h2>4.8 <span class="starsBig">★★★★★</span></h2><p class="muted">Real feedback from Jayvi customers.</p></div><a class="googleLink" id="googleReviewsTop" target="_blank">View Google reviews →</a></div>
-    <div id="reviewGrid" class="reviewGrid"></div>
-  </div></section>
-
-  <section class="gallerySection" id="brandGallery" style="display:none">
+  <section class="gallerySection" id="brandGallery" data-section="gallery" style="display:none">
     <div class="galleryStage">
       <div class="gallerySlides" id="gallerySlides"></div>
     </div>
     <div class="galleryDots" id="galleryDots"></div>
   </section>
 
-  <section class="smallAbout" id="about"><div class="wrap">
-    <div><div class="eyebrow">ABOUT JAYVI</div><h2>Traditional flavour.<br><em>Made for today.</em></h2></div>
-    <div><p>Jayvi Foods brings traditional Indian flavours into everyday modern eating. What started with chutney powders and podi — made the way families have always made them, in small batches, nothing shortcut for shelf life and nothing added for show — is the foundation for a wider range of everyday foods to come.</p><a href="#reviews">See what customers say →</a></div>
-  </div></section>
+  <section class="v33Section bgWhite" id="about" data-section="about"><div class="wrap aboutGrid" id="aboutInner"></div></section>
 
-  <section class="finalCta"><div class="wrap"><h2>Pick your favourites.</h2><a href="#bestsellers" class="btn gold">Shop now →</a></div></section>
+  <section class="v33Section newsBand" id="newsletter" data-section="newsletter" hidden><div class="wrap" id="newsInner"></div></section>
+
+  <section class="v33Section mealSection" id="mealMatch" data-section="mealMatch" hidden><div class="wrap">
+    <div class="eyebrow" data-sec-eyebrow>Find your match</div>
+    <h2 data-sec-title>Made for every meal</h2>
+    <p class="muted intro">Choose a meal and see the Jayvi flavours that go with it.</p>
+    <div id="mealTabs" class="mealTabs"></div>
+    <div id="mealRecommendations" class="mealRecommendations"></div>
+  </div></section>
 
 </main>
 
 <footer><div class="wrap footerGrid">
-  <div class="footerBrand"><a class="footerLogo" href="#home"><img src="images/brand/jayvi-foods-logo.webp" alt="Jayvi Foods"></a><p>Purely Traditional.<br>Simply Delicious.</p></div>
-  <div><b>Shop</b><a href="#shop">All Products</a><a href="#shopByCategory">Categories</a><a href="#bestsellers">Best Sellers</a><a href="#combos">Combos</a><a href="#offersSection">Offers</a></div>
-  <div><b>Customer Care</b><a href="https://wa.me/918861981003" target="_blank">Contact</a><a href="help.html">Shipping</a><a href="legal.html#returns">Returns</a><a href="help.html">FAQs</a><a href="#" onclick="openTrackOrder();return false">Track Order</a><a href="legal.html#privacy">Privacy</a><a href="legal.html#terms">Terms</a></div>
-  <div><b>About Jayvi</b><a href="#about">Our Story</a><a href="#whyJayvi">Quality Promise</a><a href="#shop">Our Products</a></div>
-  <div><b>Connect</b><span id="footerSocialLinks"><a href="https://wa.me/918861981003" target="_blank">WhatsApp</a><a href="https://instagram.com/jayvifoods" target="_blank">Instagram</a></span><a href="mailto:jayvifoods@gmail.com">jayvifoods@gmail.com</a><a href="tel:+918861981003">+91 88619 81003</a></div>
-  <div class="footerCompliance"><b>Food Safety &amp; Business</b><div class="fssaiBadge" aria-label="FSSAI"><img src="images/compliance/fssai-logo.png" alt="FSSAI"></div><p>FSSAI Lic. No. <strong>21226177001087</strong></p><p>UDYAM Registered MSME</p><p>UDYAM-KR-03-0681597</p></div>
+  <div class="footerBrand"><a class="footerLogo" href="#home"><img src="images/brand/jayvi-foods-logo-160w.webp" srcset="images/brand/jayvi-foods-logo-160w.webp 1x, images/brand/jayvi-foods-logo-320w.webp 2x" width="71" height="64" alt="Jayvi Foods" loading="lazy" data-brand-logo></a><p class="footerTag" data-brand-tagline>Purely Traditional. Simply Delicious.</p></div>
+  <div><b>Shop</b><a href="#shop">All Products</a><span id="footerCategoryLinks"></span><a href="#best-sellers">Best Sellers</a><a href="#combos">Combos</a><a href="#offers">Offers</a></div>
+  <div><b>Help</b><a href="#" data-wa-link data-wa-text="Hi Jayvi Foods, I have a question." target="_blank" rel="noopener">Contact</a><a href="help.html">Shipping</a><a href="legal.html#returns">Returns</a><a href="help.html">FAQs</a><a href="#track">Track Order</a><a href="legal.html#privacy">Privacy</a><a href="legal.html#terms">Terms</a></div>
+  <div><b>About</b><a href="#story">Our Story</a><a href="#whyJayvi">Quality Promise</a><a href="#reviews">Reviews</a></div>
+  <div><b>Connect</b><span id="footerSocialLinks"><a href="#" data-wa-link target="_blank" rel="noopener">WhatsApp</a><a href="https://instagram.com/jayvifoods" target="_blank" rel="noopener" data-ig-link>Instagram</a></span><a href="mailto:jayvifoods@gmail.com" data-brand-email>jayvifoods@gmail.com</a><a href="tel:+918861981003" data-brand-phone>+91 88619 81003</a></div>
+  <div class="footerCompliance"><b>Food Safety &amp; Business</b><div class="fssaiBadge" aria-label="FSSAI"><img src="images/compliance/fssai-logo.png" alt="FSSAI" loading="lazy"></div><p>FSSAI Lic. No. <strong data-brand-fssai>21226177001087</strong></p><p>UDYAM Registered MSME</p><p data-brand-udyam>UDYAM-KR-03-0681597</p><div class="footerBadges"><span>FSSAI Registered</span><span>Udyam MSME</span></div></div>
 </div>
-<div class="wrap copyright">© 2026 Jayvi Foods <span>Delivered across India · Jayvi Foods</span><span class="siteVersion" id="siteVersion">Website v32.14</span></div></footer>
+<div class="wrap copyright"><span>© <span id="copyYear">2026</span> Jayvi Foods</span><span>Delivered across India</span><span class="siteVersion" id="siteVersion">Website v33.0</span></div></footer>
 
-<a class="whatsappFloat" href="https://wa.me/918861981003?text=Hi%20Jayvi%20Foods%2C%20I%20need%20help%20with%20my%20order." target="_blank" aria-label="Chat with Jayvi's team"><i class="fa-brands fa-whatsapp"></i><span>Chat with us</span></a>
+<a class="whatsappFloat" href="#" data-wa-link data-wa-text="Hi Jayvi Foods, I need help with my order." target="_blank" rel="noopener" aria-label="Chat with Jayvi's team on WhatsApp"><i class="fa-brands fa-whatsapp"></i><span>Chat with us</span></a>
 
-<!-- Workstream 1.2: floating customer-facing offer indicator. Hidden by
-     default and only ever shown by JS (renderFloatingOffer() in app.js)
-     once at least one active, customer-eligible offer is confirmed from
-     Supabase — never hard-coded, never shown "just in case". -->
+<!-- Floating offer indicator — only ever shown once at least one active,
+     public offer is confirmed from Supabase (renderFloatingOffer()). -->
 <button id="offerFloatBtn" class="offerFloat" style="display:none" onclick="openOffersPanel()" aria-label="View current offers"><i class="fa-solid fa-gift"></i><span id="offerFloatLabel">Offers</span></button>
 
-<button id="mobileCartBar" onclick="openCart()"><span>Your bag <b id="mobileCartCount">0</b> item(s)</span><strong id="mobileCartTotal">₹0</strong><span>View cart →</span></button>
+<button id="mobileCartBar" onclick="openCart()"><span>Your basket <b id="mobileCartCount">0</b> item(s)</span><strong id="mobileCartTotal">₹0</strong><span>View cart →</span></button>
 
 <nav class="bottomNav" aria-label="Primary">
   <a href="#home" class="bnActive"><i class="fa-solid fa-house"></i>Home</a>
@@ -199,17 +234,17 @@
   <button onclick="openCart()" style="position:relative"><i class="fa-solid fa-cart-shopping"></i>Cart<b id="bottomNavCartBadge" style="display:none">0</b></button>
 </nav>
 
-<div class="overlay" id="searchOverlay"><div class="searchPanel"><button class="close" onclick="closeSearch()">×</button><div class="eyebrow">SEARCH</div><h2>Find your favourite.</h2><input id="searchBox" placeholder="Peanut, flaxseed, pudi..." oninput="renderSearch()"><div id="searchResults"></div></div></div>
-<div class="overlay drawerOverlay" id="cartOverlay"><aside class="drawer"><div class="drawerHead"><div><div class="eyebrow">YOUR BAG</div><h2>Cart</h2></div><button class="close drawerClose" onclick="closeCart()" aria-label="Close cart">×</button></div><div id="cartItems" class="cartItems"></div><div id="cartRecs" class="cartRecs"></div><div class="cartFoot"><div class="line"><span>Subtotal</span><b id="cartSubtotal">₹0</b></div><div class="line muted" id="cartShipping"></div><div class="line total"><span>Total</span><b id="cartTotal">₹0</b></div><small id="cartHint"></small><button class="btn gold full" onclick="openCheckout()">Continue to checkout <i class="fa-solid fa-arrow-right"></i></button></div></aside></div>
-<div class="overlay" id="accountOverlay"><div class="modal"><button class="close" onclick="closeAccount()">×</button><div id="accountContent"></div></div></div>
-<div class="overlay" id="productOverlay"><div class="modal productModal"><button class="close" onclick="closeProduct()">×</button><div id="productContent"></div></div></div>
-<div class="overlay" id="checkoutOverlay"><div class="modal checkoutModal"><button class="close" onclick="closeCheckout()">×</button><div id="checkoutContent"></div></div></div>
-<div class="overlay" id="offersOverlay"><div class="modal offersModal"><button class="close" onclick="closeOffersPanel()">×</button><div class="eyebrow">AVAILABLE OFFERS</div><h2>Current offers.</h2><div id="offersPanelList"></div></div></div>
-<!-- Phase 2: mobile-only Filter/Sort drawer (item 4) — same
-     overlay/drawer pattern as cart/search above; desktop keeps the
-     inline .shopBarControls instead (see style.css min-width:960px). -->
+<div class="overlay" id="searchOverlay"><div class="searchPanel"><button class="close" onclick="closeSearch()" aria-label="Close search">×</button><div class="eyebrow">Search</div><h2>Find your favourite.</h2><input id="searchBox" placeholder="Peanut, pudi, rajamudi, chakli…" oninput="renderSearch()" aria-label="Search products" autocomplete="off"><div id="searchResults"></div></div></div>
+<div class="overlay drawerOverlay" id="cartOverlay"><aside class="drawer"><div class="drawerHead"><div><div class="eyebrow">Your basket</div><h2>Your Jayvi basket 🛒</h2></div><button class="close drawerClose" onclick="closeCart()" aria-label="Close cart">×</button></div><div id="shipProgress" class="shipProgress" hidden></div><div id="cartItems" class="cartItems"></div><div id="cartRecs" class="cartRecs"></div><div class="cartFoot"><div class="line"><span>Subtotal</span><b id="cartSubtotal">₹0</b></div><div class="line muted" id="cartShipping"></div><div class="line total"><span>Total</span><b id="cartTotal">₹0</b></div><small id="cartHint"></small><button class="btn gold full" onclick="openCheckout()">Continue to checkout <i class="fa-solid fa-arrow-right"></i></button></div></aside></div>
+<div class="overlay" id="accountOverlay"><div class="modal"><button class="close" onclick="closeAccount()" aria-label="Close">×</button><div id="accountContent"></div></div></div>
+<div class="overlay" id="productOverlay"><div class="modal productModal"><button class="close" onclick="closeProduct()" aria-label="Close product">×</button><div id="productContent"></div></div></div>
+<div class="overlay" id="checkoutOverlay"><div class="modal checkoutModal"><button class="close" onclick="closeCheckout()" aria-label="Close checkout">×</button><div id="checkoutContent"></div></div></div>
+<div class="overlay" id="offersOverlay"><div class="modal offersModal"><button class="close" onclick="closeOffersPanel()" aria-label="Close offers">×</button><div class="eyebrow">Available offers</div><h2>Current offers.</h2><div id="offersPanelList"></div></div></div>
+<div class="overlay" id="welcomeOverlay"><div class="modal welcomeModal" role="dialog" aria-modal="true" aria-labelledby="wmTitle"><button class="close" onclick="closeWelcomePopup(true)" aria-label="Close offer">×</button><div id="welcomeContent"></div></div></div>
+<div class="overlay" id="storyOverlay"><div class="modal"><button class="close" onclick="closeStory()" aria-label="Close story">×</button><div id="storyContent"></div></div></div>
+<!-- Mobile-only Filter/Sort drawer — desktop keeps the inline .shopBarControls -->
 <div class="overlay drawerOverlay" id="shopFilterOverlay"><aside class="drawer">
-  <div class="drawerHead"><div><div class="eyebrow">FILTER &amp; SORT</div><h2>Refine results</h2></div><button class="close drawerClose" onclick="closeShopFilterDrawer()" aria-label="Close">×</button></div>
+  <div class="drawerHead"><div><div class="eyebrow">Filter &amp; sort</div><h2>Refine results</h2></div><button class="close drawerClose" onclick="closeShopFilterDrawer()" aria-label="Close">×</button></div>
   <div class="filterDrawerBody">
     <label>Sort by<select id="sortSelectMobile" onchange="setSortValue(this.value)">
       <option value="featured">Featured</option>
@@ -231,10 +266,11 @@
   </div>
   <button class="btn gold full" onclick="closeShopFilterDrawer()">Show <span id="shopResultCountDrawer"></span> results</button>
 </aside></div>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="supabase-config.js?v=32.14"></script>
-<script src="app.js?v=32.14"></script>
+<script src="supabase-config.js?v=33.0"></script>
+<script src="site-content-defaults.js?v=33.0"></script>
+<script src="app.js?v=33.0"></script>
 </body>
 </html>

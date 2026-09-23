@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Jayvi Foods">
+  <rect width="400" height="400" fill="#F3E5CF"/>
+  <path d="M110 300V190a90 90 0 0 1 180 0v110z" fill="none" stroke="#D6A63A" stroke-width="3"/>
+  <path d="M124 300V192a76 76 0 0 1 152 0v108z" fill="#FFF7E8"/>
+  <text x="200" y="228" text-anchor="middle" font-family="Georgia,serif" font-style="italic" font-size="44" fill="#9E1B32">Jayvi</text>
+  <text x="200" y="262" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" letter-spacing="6" font-size="14" fill="#1F6B3A">FOODS</text>
+</svg>
