@@ -1,5 +1,6 @@
 /* =========================================================
-   Jayvi Foods — v32.5 storefront logic
+   Jayvi Foods — v33.0 storefront logic (V33 brand/content layer: see
+   the 'V33 — Site content' block below)
    Data model and localStorage keys are unchanged from v27/28
    so existing Admin-entered data keeps working after this
    upgrade. All UI/interaction code has been rewritten as a
@@ -116,7 +117,7 @@ const EMBEDDED_CONFIG = {
       "category": "chutney",
       "active": true,
       "best": true,
-      "image": "images/hero/jayvi-products.webp",
+      "image": "images/products/flaxseed/hero.webp",
       "imageClass": "flaxseed",
       "variants": [
         {
@@ -155,7 +156,7 @@ const EMBEDDED_CONFIG = {
       "category": "pudi",
       "active": true,
       "best": true,
-      "image": "images/hero/jayvi-products.webp",
+      "image": "images/products/pudi/hero.webp",
       "imageClass": "pudi",
       "variants": [
         {
@@ -194,7 +195,7 @@ const EMBEDDED_CONFIG = {
       "category": "snacks",
       "active": true,
       "best": true,
-      "image": "images/hero/jayvi-products.webp",
+      "image": "images/products/puffora/hero.webp",
       "imageClass": "puffora",
       "variants": [
         {
@@ -210,59 +211,6 @@ const EMBEDDED_CONFIG = {
       "mealTags": [],
       "rating": 4.7,
       "reviewCount": 4
-    },
-    {
-      "id": "Jamun",
-      "sku": "JF-TAR-CLS-SWT",
-      "name": "Jamun",
-      "short": "",
-      "description": "Test",
-      "category": "snacks",
-      "categories": [
-        "snacks"
-      ],
-      "mealTags": [
-        "vada"
-      ],
-      "image": "images/products/Jamun/hero.webp",
-      "mediaFolder": "images/products/Jamun/",
-      "media": [
-        {
-          "type": "hero",
-          "file": "hero.webp",
-          "path": "images/products/Jamun/hero.webp"
-        },
-        {
-          "type": "packaging",
-          "file": "front-back.webp",
-          "path": "images/products/Jamun/front-back.webp"
-        },
-        {
-          "type": "ingredients",
-          "file": "ingredients.webp",
-          "path": "images/products/Jamun/ingredients.webp"
-        },
-        {
-          "type": "serving",
-          "file": "serving.webp",
-          "path": "images/products/Jamun/serving.webp"
-        }
-      ],
-      "active": true,
-      "best": false,
-      "variants": [
-        {
-          "id": "200g",
-          "label": "200g",
-          "weight": "200g",
-          "sku": "Jamun",
-          "price": 199,
-          "mrp": 299,
-          "active": true
-        }
-      ],
-      "rating": 0,
-      "reviewCount": 0
     }
   ],
   "combos": [
@@ -273,7 +221,7 @@ const EMBEDDED_CONFIG = {
       "active": true,
       "price": 289,
       "mrp": 310,
-      "image": "images/hero/jayvi-products.webp",
+      "image": "images/combos/traditional-duo/hero.webp",
       "items": [
         {
           "productId": "peanut",
@@ -409,7 +357,7 @@ const EMBEDDED_CONFIG = {
 // media of its own now shows an explicit placeholder, never another
 // product's (or a generic marketing) image. Product media is now
 // sourced from Supabase's product_media table (see loadCatalogFromSupabase()).
-const PLACEHOLDER_MEDIA=[{type:'image',path:'images/hero/jayvi-products.webp'}];
+const PLACEHOLDER_MEDIA=[{type:'image',path:'images/brand/placeholder.svg'}];
 
 // V32.7 — performance fix (spec items 6 & 9): product photos are shipped
 // as "images/products/<slug>/<name>.webp" masters. V32.8 extended the
@@ -496,7 +444,12 @@ const SEARCH_SYNONYMS = {
   'idli dosa pudi':['idli dosa chutney powder','idli/dosa pudi'],
   'idli/dosa pudi':['idli dosa pudi'],
   'rajam':['rajamudi','rajmudi rice'],
-  'rajamudi':['rajam','rajmudi rice']
+  'rajamudi':['rajam','rajmudi rice'],
+  'podi':['pudi'],
+  'chakkuli':['chakli'],
+  'chakli':['chakkuli'],
+  'kodbale':['kodubale'],
+  'kodubale':['kodbale']
 };
 function expandSearchQuery(q){
   q=(q||'').trim().toLowerCase();
@@ -510,6 +463,7 @@ function expandSearchQuery(q){
 }
 function matchesSearch(p,q){
   if(!q) return true;
+  if(!p||!p.name) return false;
   const mealTagNames=(p.mealTags||[]).map(m=>mealTagList.find(t=>t.id===m)?.name||'').join(' ');
   const haystack=`${p.name} ${catName(p.category)} ${p.short||''} ${p.description||''} ${mealTagNames}`.toLowerCase();
   return expandSearchQuery(q).some(term=>haystack.includes(term));
@@ -525,7 +479,7 @@ function loadConfig(){
     const baseById=Object.fromEntries((d.products||[]).map(p=>[p.id,p]));
     d.products=(u.products||d.products).map(p=>{
       const base=baseById[p.id]||{};
-      const badImage=!p.image||String(p.image).includes('jayvi-products.webp')||String(p.image).includes('v22-demo');
+      const badImage=!p.image||String(p.image).includes('jayvi-products.webp')||String(p.image).includes('placeholder.svg')||String(p.image).includes('v22-demo');
       return {...base,...p,image:badImage?base.image:p.image,media:p.media?.length?p.media:(base.media||[])};
     });
     d.categories=u.categories||d.categories;
@@ -596,7 +550,10 @@ async function loadCatalogFromSupabase(){
         // existing `select('*')` below — it just wasn't mapped before.
         // No migration needed; this is what makes a real "Newest" sort
         // possible without inventing data.
-        createdAt:p.created_at||null
+        createdAt:p.created_at||null,
+        // V33 merchandising/relationships/SEO (supabase_migration_v33_brand_upgrade.sql) — all optional.
+        isPopular:!!p.is_popular, isHealthy:!!p.is_healthy, relatedProducts:p.related_products||[],
+        howToEnjoyText:p.how_to_enjoy||'', seoTitle:p.seo_title||'', seoDescription:p.seo_description||''
       };
     });
 
@@ -631,7 +588,8 @@ async function loadCategoriesAndMealTagsFromSupabase(){
     if(!dbCategories || !dbMealTags) throw new Error('No category/meal-tag data returned');
 
     CONFIG.categories=[...dbCategories].sort((a,b)=>(a.display_order||0)-(b.display_order||0)).map(c=>({
-      id:c.id, name:c.name, enabled:c.enabled, order:c.display_order||0
+      id:c.id, name:c.name, enabled:c.enabled, order:c.display_order||0,
+      description:c.description||'', imageUrl:c.image_url||''
     }));
     CONFIG.mealTags=[...dbMealTags].sort((a,b)=>(a.display_order||0)-(b.display_order||0)).map(t=>({
       id:t.id, name:t.name, enabled:t.enabled, order:t.display_order||0
@@ -681,6 +639,7 @@ async function loadSettingsAnnouncementsReviewsFromSupabase(){
       id:a.id, label:a.label, title:a.title, em:a.em, text:a.text,
       image:a.image, mediaType:a.media_type||'image', posterUrl:a.poster_url||'',
       showPrice:a.show_price,
+      ctaLabel:a.cta_label||'', secondaryLabel:a.secondary_cta_label||'', secondaryTarget:a.secondary_cta_target||'',
       // V32.3 (spec 3): the explicit product/combo ASSOCIATION, separate
       // from actionType/actionTarget (only the click destination for a
       // General announcement's optional CTA — see heroShow() below).
@@ -932,7 +891,7 @@ function productGalleryMarkup(p){
   const media=(p.media||[]).filter(x=>x.type!=='video'&&(x.path||x.file));
   const items=media.length?media:[{path:p.image}];
   const main=responsiveImgAttrs(items[0].path,'(max-width:600px) 92vw, 480px');
-  return `<div class="productGallery"><div class="galleryMain"><img id="galleryMainImg" src="${escapeHtml(main.src)}"${main.srcset?` srcset="${escapeHtml(main.srcset)}" sizes="${escapeHtml(main.sizes)}"`:''} data-full="${escapeHtml(items[0].path)}" alt="${escapeHtml(p.name)}" decoding="async" onerror="this.removeAttribute('srcset');this.src='images/hero/jayvi-products.webp'"></div><div class="galleryThumbs">${items.map((m,i)=>{const t=responsiveImgAttrs(m.path,'80px');return `<button type="button" class="${i===0?'active':''}" onclick="setGalleryImage('${escapeHtml(m.path)}',this)"><img src="${escapeHtml(t.src)}"${t.srcset?` srcset="${escapeHtml(t.srcset)}" sizes="${escapeHtml(t.sizes)}"`:''} loading="lazy" decoding="async" alt=""></button>`}).join('')}</div></div>`;
+  return `<div class="productGallery"><div class="galleryMain"><img id="galleryMainImg" src="${escapeHtml(main.src)}"${main.srcset?` srcset="${escapeHtml(main.srcset)}" sizes="${escapeHtml(main.sizes)}"`:''} data-full="${escapeHtml(items[0].path)}" alt="${escapeHtml(p.name)}" decoding="async" onerror="this.removeAttribute('srcset');this.src='images/brand/placeholder.svg'"></div><div class="galleryThumbs">${items.map((m,i)=>{const t=responsiveImgAttrs(m.path,'80px');return `<button type="button" class="${i===0?'active':''}" onclick="setGalleryImage('${escapeHtml(m.path)}',this)"><img src="${escapeHtml(t.src)}"${t.srcset?` srcset="${escapeHtml(t.srcset)}" sizes="${escapeHtml(t.sizes)}"`:''} loading="lazy" decoding="async" alt=""></button>`}).join('')}</div></div>`;
 }
 function setGalleryImage(path,btn){
   const img=$('galleryMainImg');
@@ -941,32 +900,46 @@ function setGalleryImage(path,btn){
     img.src=a.src;
     if(a.srcset){img.srcset=a.srcset;img.sizes=a.sizes} else img.removeAttribute('srcset');
     img.dataset.full=path;
-    img.onerror=()=>{img.removeAttribute('srcset');img.src='images/hero/jayvi-products.webp'};
+    img.onerror=()=>{img.removeAttribute('srcset');img.src='images/brand/placeholder.svg'};
   }
   document.querySelectorAll('.galleryThumbs button').forEach(x=>x.classList.remove('active'));
   btn?.classList.add('active');
 }
 
 /* ---------- Product card / grids ---------- */
+// V33: one text badge per card (priority below), real star rating only when
+// reviews exist, a single full-width Add to cart ("quick add") action.
+function productTag(p){
+  if(isProductSoldOut(p)) return '<span class="pcTag soldout">Sold out</span>';
+  if(isProductNew(p)) return '<span class="pcTag new">New</span>';
+  if(p.best) return '<span class="pcTag">Bestseller</span>';
+  if(p.isPopular) return '<span class="pcTag popular">Popular</span>';
+  if(p.isHealthy) return '<span class="pcTag healthy">Healthy</span>';
+  if(productHasActiveOffer(p)) return '<span class="pcTag offer">Offer</span>';
+  return '';
+}
+function starsMarkup(r){ const n=Math.max(0,Math.min(5,Math.round(Number(r)||0))); return '★'.repeat(n)+'☆'.repeat(5-n); }
 function productCard(p){
   const v=getVariant(p,variantKey(p.id));
   if(!v) return ''; // defensive: should never happen post-sync(), but never crash the grid if it does
   const soldOut=isProductSoldOut(p);
   const off=v.mrp-v.price,q=soldOut?0:cartQtyFor(p.id,v.id);
+  const rated=Number(p.reviewCount)>0&&Number(p.rating)>0;
+  const activeVariants=(p.variants||[]).filter(x=>x.active);
   const actions=soldOut
     ?`<div class="pcActions"><button class="soldOutBtn" disabled>Sold out</button></div>`
     :q
     ?`<div class="pcActions hasQty"><div class="inlineQty"><button onclick="changeProductQty('${p.id}','${v.id}',-1)" aria-label="Decrease quantity"><i class="fa-solid fa-minus"></i></button><b>${q}</b><button onclick="changeProductQty('${p.id}','${v.id}',1)" aria-label="Increase quantity"><i class="fa-solid fa-plus"></i></button></div><button class="viewCartBtn" onclick="openCart()" aria-label="View cart"><i class="fa-solid fa-bag-shopping"></i></button></div>`
-    :`<div class="pcActions"><button onclick="addToCart('${p.id}','${v.id}')">Add to cart</button><button onclick="buyNow('${p.id}','${v.id}')">Buy now</button></div>`;
+    :`<div class="pcActions single"><button onclick="addToCart('${p.id}','${v.id}')" aria-label="Add ${escapeHtml(p.name)} to cart"><i class="fa-solid fa-plus" aria-hidden="true"></i>Add to cart</button></div>`;
   return `<article class="productCard${soldOut?' isSoldOut':''}" data-product-id="${p.id}">
-    <div class="visualWrap" onclick="openProduct('${p.id}')">${cardMediaMarkup(p)}${productBadges(p)}<button class="heart ${wishlist.includes(p.id)?'isWish':''}" onclick="event.stopPropagation();toggleWishlist('${p.id}')" aria-label="Favourite ${escapeHtml(p.name)}"><i class="${wishlist.includes(p.id)?'fa-solid':'fa-regular'} fa-heart"></i></button></div>
+    <div class="visualWrap" onclick="openProduct('${p.id}')">${cardMediaMarkup(p)}${productTag(p)}<button class="heart ${wishlist.includes(p.id)?'isWish':''}" onclick="event.stopPropagation();toggleWishlist('${p.id}')" aria-label="Favourite ${escapeHtml(p.name)}"><i class="${wishlist.includes(p.id)?'fa-solid':'fa-regular'} fa-heart"></i></button></div>
     <div class="pcBody">
       <small>${escapeHtml(catName(p.category))}</small>
       <h3 onclick="openProduct('${p.id}')">${escapeHtml(p.name)}</h3>
-      <div class="stars">★★★★★ <span>${p.rating} · ${p.reviewCount} reviews</span></div>
-      <p>${escapeHtml(p.short)}</p>
-      ${soldOut?'':`<div class="sizes">${p.variants.filter(x=>x.active).map(x=>`<button class="${x.id===v.id?'active':''}" onclick="event.stopPropagation();setVariant('${p.id}','${x.id}')">${escapeHtml(x.label)}</button>`).join('')}</div>`}
-      <div class="price"><b>${money(v.price)}</b><del>${money(v.mrp)}</del>${!soldOut&&off>0?`<em>Save ${money(off)}</em>`:''}</div>
+      <div class="stars${rated?'':' noRating'}"${rated?` aria-label="Rated ${p.rating} out of 5"`:' aria-hidden="true"'}>${starsMarkup(p.rating)} <span>${rated?`${p.rating} (${p.reviewCount})`:''}</span></div>
+      <p>${escapeHtml(p.short||'')}</p>
+      ${!soldOut&&activeVariants.length>1?`<div class="sizes">${activeVariants.map(x=>`<button class="${x.id===v.id?'active':''}" onclick="event.stopPropagation();setVariant('${p.id}','${x.id}')">${escapeHtml(x.label)}</button>`).join('')}</div>`:''}
+      <div class="price"><b>${money(v.price)}</b>${v.mrp>v.price?`<del>${money(v.mrp)}</del>${!soldOut&&off>0?`<em>Save ${money(off)}</em>`:''}`:''}</div>
       ${actions}
     </div>
   </article>`;
@@ -977,33 +950,33 @@ function productCard(p){
 // tab row only appears at all when there's at least one new product to
 // show, so sites with no New items yet look exactly as before.
 let discoveryTab='best';
-function setDiscoveryTab(t){ discoveryTab=t; renderBest(); }
+function setDiscoveryTab(t){ discoveryTab=t; renderBest(); track('view_item_list',{item_list_id:'home_'+t}); }
+// V33 "You'll love these": tabs come from Admin (Site content → Homepage →
+// You'll love these); each tab is backed by a product flag Admin sets per
+// product (Bestseller / New / Popular / Healthy). A tab with no products
+// is hidden automatically.
+const DISCOVERY_FILTERS={best:p=>p.best,new:p=>isProductNew(p),popular:p=>p.isPopular,healthy:p=>p.isHealthy};
+function discoveryList(id){ const f=DISCOVERY_FILTERS[id]; return f?products.filter(f):[]; }
 function renderBest(){
   if(!$('bestGrid')) return;
-  const newArrivals=products.filter(isProductNew);
-  const tabs=$('discoveryTabs');
-  if(tabs){
-    if(newArrivals.length){
-      tabs.style.display='flex';
-      tabs.innerHTML=`<button class="${discoveryTab==='best'?'active':''}" onclick="setDiscoveryTab('best')">Bestsellers</button><button class="${discoveryTab==='new'?'active':''}" onclick="setDiscoveryTab('new')">New Arrivals</button>`;
-    } else {
-      tabs.style.display='none'; discoveryTab='best';
-    }
+  const cfg=sec('loveThese');
+  const tabs=(cfg.tabs||[]).filter(t=>t&&t.enabled!==false&&discoveryList(t.id).length);
+  if(tabs.length && !tabs.some(t=>t.id===discoveryTab)) discoveryTab=tabs[0].id;
+  const box=$('discoveryTabs');
+  if(box){
+    box.style.display=tabs.length>1?'flex':'none';
+    box.innerHTML=tabs.map(t=>`<button role="tab" aria-selected="${t.id===discoveryTab}" class="${t.id===discoveryTab?'active':''}" onclick="setDiscoveryTab('${t.id}')">${escapeHtml(t.label)}</button>`).join('');
   }
-  const showingNew = discoveryTab==='new' && newArrivals.length>0;
-  // Heading/eyebrow follow the selected tab, not just the grid contents
-  // — previously these stayed fixed on "Bestsellers" even after
-  // switching to New Arrivals.
-  if($('discoveryEyebrow')) $('discoveryEyebrow').textContent = showingNew ? "WHAT'S NEW AT JAYVI" : "SHOP JAYVI'S BESTSELLERS";
-  if($('discoveryHeading')) $('discoveryHeading').textContent = showingNew ? 'New Arrivals' : 'Bestsellers';
-  const list = showingNew ? newArrivals.slice(0,4) : products.filter(p=>p.best).slice(0,4);
-  $('bestGrid').innerHTML = list.map(productCard).join('') || '<div class="empty smallEmpty">Nothing here yet.</div>';
+  if($('discoveryEyebrow')) $('discoveryEyebrow').textContent=cfg.eyebrow||'';
+  if($('discoveryHeading')) $('discoveryHeading').textContent=cfg.title||'';
+  const list=(tabs.length?discoveryList(discoveryTab):products).slice(0,Number(cfg.maxItems)||8);
+  $('bestGrid').innerHTML=list.map(productCard).join('')||'<div class="empty smallEmpty">Nothing here yet.</div>';
   bindGalleryScrollers();
 }
 function renderCategories(){
   if(!$('categoryTabs'))return;
   $('categoryTabs').innerHTML=`<button class="${cat==='all'?'active':''}" onclick="setCat('all',this)">All</button>`+
-    categories.map(c=>`<button class="${cat===c.id?'active':''}" onclick="setCat('${c.id}',this)">${escapeHtml(c.name)}</button>`).join('');
+    categories.filter(c=>products.some(p=>p.category===c.id||(p.categories||[]).includes(c.id))).map(c=>`<button class="${cat===c.id?'active':''}" onclick="setCat('${c.id}',this)">${escapeHtml(c.name)}</button>`).join('');
   renderCategoryCards();
 }
 // Phase 2 — deterministic colour accent for any category/meal-tag id:
@@ -1019,15 +992,28 @@ function categoryAccentClass(id){
 // the same `categories`/`products` arrays the category tabs already
 // use; a category with zero active products simply doesn't get a
 // card, so this scales to 100+ products without any code changes.
+// V33 "Shop by category": arch-framed cards. Image/description come from
+// Admin → Categories; if unset, a product pack image and the default copy
+// from site-content-defaults.js are used. A combos-type category with no
+// products still gets a card that jumps to the combos section.
+function categoryCopy(c){
+  if(c.description) return c.description;
+  const key=(c.id+' '+c.name).toLowerCase();
+  return ((sec('categories').fallbackCopy)||[]).find(f=>f&&f.match&&key.includes(String(f.match).toLowerCase()))?.text||'';
+}
 function renderCategoryCards(){
   const box=$('categoryCardsGrid'); if(!box) return;
+  const combos=(CONFIG.combos||[]).filter(c=>c.active);
   const cards=categories.map(c=>{
     const inCat=products.filter(p=>p.category===c.id||(p.categories||[]).includes(c.id));
-    if(!inCat.length) return '';
-    const sample=inCat[0];
-    return `<button class="categoryCard ${categoryAccentClass(c.id)}" onclick="filterByCategory('${c.id}')">
-      <div class="categoryCardImg">${sample?.image?`<img src="${escapeHtml(sample.image)}" alt="${escapeHtml(c.name)}" loading="lazy" decoding="async">`:''}</div>
-      <div class="categoryCardBody"><h3>${escapeHtml(c.name)}</h3><span>${inCat.length} product${inCat.length>1?'s':''}</span></div>
+    const isComboCat=/combo/i.test(c.id+' '+c.name);
+    if(!inCat.length && !(isComboCat&&combos.length)) return '';
+    const img=c.imageUrl||firstRealImage(inCat)||(isComboCat?firstRealImage(combos):'')||'';
+    const count=inCat.length?`${inCat.length} product${inCat.length>1?'s':''}`:`${combos.length} combo${combos.length>1?'s':''}`;
+    const action=inCat.length?`filterByCategory('${c.id}')`:`navigate('#combos')`;
+    return `<button class="catCard" type="button" onclick="${action}">
+      <div class="catImg${c.imageUrl?'':' contain'}">${imgTag(img,'(max-width:767px) 45vw, 280px',c.name)}</div>
+      <h3>${escapeHtml(c.name)}</h3><p>${escapeHtml(categoryCopy(c)||count)}</p><span class="catLink">Shop now →</span>
     </button>`;
   }).filter(Boolean).join('');
   const section=$('shopByCategory');
@@ -1038,27 +1024,40 @@ function renderCategoryCards(){
 // stored/managed in Admin; a tag with zero matching products doesn't
 // get a card, and the whole section hides if there's no meal-tag data
 // at all yet.
+// V33 "What are you craving today?": cards come from Admin (Site content →
+// Homepage → Shop by occasion), each resolving to explicit product ids or
+// name keywords. A card with no matching products is hidden. If Admin has
+// removed every card, falls back to the pre-V33 meal-tag cards.
+let occasionItems=[];
 function renderOccasionCards(){
-  const box=$('occasionGrid'); const section=$('occasionSection');
+  const box=$('occasionGrid'), section=$('occasionSection');
   if(!box||!section) return;
-  const cards=mealTagList.map(t=>{
-    const matches=products.filter(p=>(p.mealTags||[]).includes(t.id));
-    if(!matches.length) return '';
-    // Prefer a real product photo (existing product imagery, no new
-    // table) — falls back to the original colourful icon treatment
-    // only when nothing has an image yet.
-    const sample=matches.find(p=>p.image);
-    const accent=categoryAccentClass(t.id);
-    const media=sample
-      ?`<div class="occasionCardImg"><img src="${escapeHtml(sample.image)}" alt="${escapeHtml(t.name)}" loading="lazy" decoding="async"></div>`
-      :`<div class="occasionCardImg occasionIconFallback ${accent}"><span class="occasionIcon"><i class="fa-solid fa-utensils" aria-hidden="true"></i></span></div>`;
-    return `<button class="occasionCard ${accent}" onclick="setMealFilter('${t.id}')">
-      ${media}
-      <div class="occasionCardBody"><h3>${escapeHtml(t.name)}</h3><span class="occasionCount">${matches.length} product${matches.length>1?'s':''} →</span></div>
-    </button>`;
-  }).filter(Boolean).join('');
+  const combos=(CONFIG.combos||[]).filter(c=>c.active);
+  occasionItems=(sec('occasions').items||[]).filter(Boolean)
+    .map(it=>({...it,list:it.target==='combos'?[]:resolveProducts(it.productIds,it.keywords)}))
+    .filter(it=>it.target==='combos'?combos.length:it.list.length);
+  let cards='';
+  if(occasionItems.length){
+    cards=occasionItems.map((it,i)=>{
+      const img=it.image||(it.target==='combos'?firstRealImage(combos):firstRealImage(it.list))||'';
+      const sub=(it.target==='combos'?combos.map(c=>c.name):it.list.map(p=>p.name)).slice(0,3).join(' · ');
+      return `<button class="occCard" type="button" onclick="setOccasion(${i})"><div class="occImg${it.image?' cover':''}">${imgTag(img,'(max-width:767px) 45vw, 220px',it.title)}${it.emoji?`<span class="occEmoji" aria-hidden="true">${escapeHtml(it.emoji)}</span>`:''}</div><div class="occBody"><h3>${escapeHtml(it.title)}</h3><p>${escapeHtml(sub)}</p></div></button>`;
+    }).join('');
+  } else {
+    cards=mealTagList.map(t=>{
+      const m=products.filter(p=>(p.mealTags||[]).includes(t.id)); if(!m.length) return '';
+      return `<button class="occCard" type="button" onclick="setMealFilter('${t.id}')"><div class="occImg">${imgTag(m.find(p=>p.image)?.image,'(max-width:767px) 45vw, 220px',t.name)}</div><div class="occBody"><h3>${escapeHtml(t.name)}</h3><p>${m.length} product${m.length>1?'s':''}</p></div></button>`;
+    }).filter(Boolean).join('');
+  }
   section.style.display=cards?'':'none';
   box.innerHTML=cards;
+}
+function setOccasion(i){
+  const it=occasionItems[i]; if(!it) return;
+  if(it.target==='combos'){ navigate('#combos'); return; }
+  occasionFilter={label:it.title,ids:it.list.map(p=>p.id)}; mealFilter=null; discoveryFilter=null; cat='all';
+  renderCategories(); renderProducts(); scrollToSection('shop');
+  track('view_item_list',{item_list_id:'occasion_'+it.id,item_list_name:it.title});
 }
 // Offers homepage section — reads the SAME activeOffers array already
 // fetched for the floating offer button/announcement (fetchActiveOffers()),
@@ -1096,7 +1095,7 @@ function renderOffersSection(){
     </article>`;
   }).join('');
 }
-function setCat(c,b){cat=c;mealFilter=null;discoveryFilter=null;document.querySelectorAll('.categoryTabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderProducts()}
+function setCat(c,b){cat=c;mealFilter=null;discoveryFilter=null;occasionFilter=null;document.querySelectorAll('.categoryTabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderProducts()}
 // Client-side filters (no migration): availability reuses
 // isProductSoldOut(); price buckets read each product's already-loaded
 // variant price. Both apply on top of category/meal/discovery/search.
@@ -1114,8 +1113,8 @@ function renderProducts(){
     const v=getVariant(p,variantKey(p.id));
     return (cat==='all'||p.category===cat)
       &&(!mealFilter||(p.mealTags||[]).includes(mealFilter))
-      &&(discoveryFilter!=='best'||p.best)
-      &&(discoveryFilter!=='new'||isProductNew(p))
+      &&(!discoveryFilter||(DISCOVERY_FILTERS[discoveryFilter]||(()=>true))(p))
+      &&(!occasionFilter||occasionFilter.ids.includes(p.id))
       &&(availabilityFilter!=='inStock'||!isProductSoldOut(p))
       &&priceMatchesBucket(v,priceBucket)
       &&matchesSearch(p,q);
@@ -1167,30 +1166,31 @@ function updateShopResultCount(n){
 // New Arrivals "View all" destinations, all funnel into this ONE chip +
 // this ONE product grid rather than separate pages/components.
 function setMealFilter(tagId){
-  mealFilter=tagId; discoveryFilter=null; cat='all';
+  mealFilter=tagId; discoveryFilter=null; occasionFilter=null; cat='all';
   renderCategories(); renderProducts();
-  $('shop')?.scrollIntoView({behavior:'smooth',block:'start'});
+  scrollToSection('shop');
 }
-function viewAllDiscovery(which){ // which: 'best' | 'new'
-  discoveryFilter=which; mealFilter=null; cat='all';
+function viewAllDiscovery(which){ // which: 'best' | 'new' | 'popular' | 'healthy'
+  discoveryFilter=which; mealFilter=null; occasionFilter=null; cat='all';
   renderCategories(); renderProducts();
-  $('shop')?.scrollIntoView({behavior:'smooth',block:'start'});
+  scrollToSection('shop');
 }
-function clearActiveFilter(){ mealFilter=null; discoveryFilter=null; renderProducts(); }
+function clearActiveFilter(){ mealFilter=null; discoveryFilter=null; occasionFilter=null; renderProducts(); }
 function renderActiveFilterChip(){
   const box=$('mealFilterChip'); if(!box) return;
   let label=null;
-  if(discoveryFilter==='best') label='Bestsellers';
-  else if(discoveryFilter==='new') label='New Arrivals';
+  if(discoveryFilter) label=(sec('loveThese').tabs||[]).find(t=>t&&t.id===discoveryFilter)?.label||discoveryFilter;
+  else if(occasionFilter) label=occasionFilter.label;
   else if(mealFilter) label=mealTagList.find(t=>t.id===mealFilter)?.name||CONFIG.mealLabels?.[mealFilter]||mealFilter;
   if(!label){ box.style.display='none'; return; }
   box.style.display='flex';
   box.querySelector('b').textContent=label;
 }
 function filterByCategory(catId){
-  mealFilter=null; discoveryFilter=null; cat=catId;
+  mealFilter=null; discoveryFilter=null; occasionFilter=null; cat=catId;
   renderCategories(); renderProducts();
-  $('shop')?.scrollIntoView({behavior:'smooth',block:'start'});
+  scrollToSection('shop');
+  track('view_item_list',{item_list_id:'category_'+catId,item_list_name:catName(catId)});
 }
 function comboMediaMarkup(c){
   // V32.6: combos now follow the exact same product_media architecture
@@ -1240,7 +1240,7 @@ function comboCard(c){
   return `<article class="comboCard">
   <div class="comboImage">${comboMediaMarkup(c)}</div>
   <div class="comboBody">
-    <div class="eyebrow comboEyebrow" style="color:#e8d9b6"><i class="fa-solid fa-gift" aria-hidden="true"></i>Jayvi Combo</div>
+    <div class="eyebrow comboEyebrow"><i class="fa-solid fa-gift" aria-hidden="true"></i>Jayvi Combo</div>
     <h3>${escapeHtml(c.name)}</h3><p>${escapeHtml(c.short)}</p>
     <div class="comboItemsRow">${itemRow}</div>
     <div class="comboValueBlock">
@@ -1255,12 +1255,13 @@ function renderCombos(){
   if(!$('comboGrid'))return;
   const cs=(CONFIG.combos||[]).filter(c=>c.active);
   $('comboCount').textContent=cs.length?`${cs.length} combo${cs.length>1?'s':''}`:'';
-  $('comboGrid').innerHTML=cs.length?cs.map(comboCard).join(''):'<div class="empty" style="color:#cbbca8">No active combos yet.</div>';
+  $('comboGrid').innerHTML=cs.length?cs.map(comboCard).join(''):'<div class="empty" style="color:var(--jayvi-on-dark-soft)">No active combos yet.</div>';
   bindComboGalleryScrollers();
 }
 function addCombo(id){
   const c=getCombo(id);if(!c)return;const key='combo:'+id;const x=cart.find(i=>i.key===key);
   if(x)x.qty++; else cart.push({key,type:'combo',comboId:id,qty:1});
+  track('add_to_cart',{currency:'INR',value:c.price,items:[{item_id:'combo:'+c.id,item_name:c.name,item_category:'Combo',price:c.price,quantity:1}]});
   saveCart();renderCart();refreshProductViews();
   // V32.5 fix (Priority 2, item 5): must match addToCart()'s UX exactly —
   // stay on the page and show a toast, never auto-open the cart drawer.
@@ -1309,6 +1310,8 @@ async function renderFooterSocialLinks(){
   try{
     const {data,error}=await sb.from('social_links').select('*').eq('enabled',true).order('display_order',{ascending:true});
     if(error||!data) throw error||new Error('empty');
+    data.forEach(x=>{ if(x.platform&&!socialLinkUrls[x.platform]) socialLinkUrls[x.platform]=x.url; });
+    applyContactLinks(); renderSocialSection();
     if(!data.length) return; // keep the two hardcoded fallback links already in the HTML rather than showing nothing
     box.innerHTML=data.map(s=>`<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.label||SOCIAL_LABELS[s.platform]||s.platform)}</a>`).join('');
   }catch(err){
@@ -1409,27 +1412,37 @@ function gallerySetIndex(i){
 /* ---------- Reviews ---------- */
 async function renderReviews(){
   if(!$('reviewGrid'))return;
-  // Two separate, independently-sourced pipelines rendered into the same
-  // grid: curated Google-linked testimonials (Admin-JSON, unchanged) and
-  // live customer-submitted reviews (Supabase, approved only). They are
-  // never mixed into one workflow — Admin manages Google Reviews content
-  // as before, and approves/rejects website reviews separately.
-  // Item O: homepage shows a small curated/recent set only, with a
-  // dedicated "View all reviews" action for the full paginated list —
-  // never renders the whole review table directly here.
+  // V33: horizontal review cards + a rating summary. Only REAL reviews are
+  // shown: curated customer testimonials (Admin → Reviews) and approved
+  // website reviews. The headline score is either the rating Admin enters
+  // (e.g. the public Google rating, labelled with its source) or the
+  // computed average of approved website reviews — never invented.
+  const cfg=sec('reviews');
   const curated=(CONFIG.reviews||[]).filter(r=>r.active&&r.source==='customer').slice(0,3);
-  let live=[], liveCount=0;
+  let live=[], liveCount=0, avg=null, ratedCount=0;
   try{
     const {data, count} = await sb.from('website_reviews').select('customer_name,rating,review_text,created_at,featured',{count:'exact'}).eq('status','approved').order('featured',{ascending:false}).order('created_at',{ascending:false}).limit(CONFIG.store.homepageReviewCount||6);
     live = data||[]; liveCount = count||0;
   }catch{}
-  const curatedCards = curated.map(r=>`<article><div class="stars">${'★'.repeat(r.rating)}</div><p>“${escapeHtml(r.text)}”</p><b>${escapeHtml(r.name)}</b><small>Customer review</small></article>`).join('');
-  const liveCards = live.map(r=>`<article>${r.featured?'<span class="typeTag" style="background:var(--gold-soft);color:#8a6a1a">FEATURED</span>':''}<div class="stars">${'★'.repeat(r.rating)}</div><p>“${escapeHtml(r.review_text)}”</p><b>${escapeHtml(r.customer_name)}</b><small>Verified Jayvi customer</small></article>`).join('');
-  const writeReviewCard = `<article class="googleCard" style="background:var(--brand-soft)!important"><i class="fa-regular fa-pen-to-square"></i><h3>Bought something recently?</h3><p>Tell other customers what you thought.</p><a href="#" onclick="openReviewForm();return false">Write a review →</a></article>`;
-  const viewAllCard = liveCount>live.length ? `<article class="googleCard"><i class="fa-solid fa-list"></i><h3>${liveCount} customer reviews</h3><p>See every approved review from Jayvi customers.</p><a href="#" onclick="openAllReviews();return false">View all reviews →</a></article>` : '';
-  $('reviewGrid').innerHTML = curatedCards + liveCards + writeReviewCard + viewAllCard +
-    `<article class="googleCard"><i class="fa-brands fa-google"></i><h3>More reviews on Google</h3><p>See the latest customer feedback directly on Google.</p><a href="${CONFIG.store.googleReviewsUrl}" target="_blank">View Google reviews →</a></article>`;
-  if($('googleReviewsTop'))$('googleReviewsTop').href=CONFIG.store.googleReviewsUrl;
+  try{
+    const {data} = await sb.from('website_reviews').select('rating').eq('status','approved').limit(1000);
+    if(data?.length){ ratedCount=data.length; avg=data.reduce((t,r)=>t+Number(r.rating||0),0)/data.length; }
+  }catch{}
+  const card=(rating,text,name,meta,featured)=>`<article class="reviewCard">${featured?'<span class="pcTag popular" style="position:static;align-self:flex-start">Featured</span>':''}<div class="stars" aria-label="${Number(rating)||0} out of 5">${starsMarkup(rating)}</div><p>“${escapeHtml(text)}”</p><b>${escapeHtml(name)}</b><small>${escapeHtml(meta)}</small></article>`;
+  let cards = curated.map(r=>card(r.rating,r.text,r.name,r.verifiedPurchase?'Verified purchase':'Customer review')).join('')
+    + live.map(r=>card(r.rating,r.review_text,r.customer_name,'Verified Jayvi customer',r.featured)).join('');
+  if(liveCount>live.length) cards += `<article class="reviewCard action"><i class="fa-solid fa-list" aria-hidden="true"></i><p>${liveCount} customer reviews</p><a href="#" onclick="openAllReviews();return false">View all reviews →</a></article>`;
+  if(!cards) cards = `<article class="reviewCard action"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i><p>Tried Jayvi? Be the first to share what you thought.</p><a href="#" onclick="openReviewForm();return false">Write a review →</a></article>`;
+  $('reviewGrid').innerHTML = cards;
+  const sum=$('reviewSummary');
+  if(sum){
+    const manual=parseFloat(cfg.ratingValue);
+    if(manual>0 && manual<=5) sum.innerHTML=`<span class="reviewScore">${manual.toFixed(1)}<small>/5</small></span><span class="starsBig" aria-hidden="true">${starsMarkup(manual)}</span><span class="src">${escapeHtml(cfg.ratingSource?cfg.ratingSource+' rating':'Customer rating')}</span>`;
+    else if(avg) sum.innerHTML=`<span class="reviewScore">${avg.toFixed(1)}<small>/5</small></span><span class="starsBig" aria-hidden="true">${starsMarkup(avg)}</span><span class="src">Based on ${ratedCount} review${ratedCount===1?'':'s'}</span>`;
+    else sum.innerHTML='';
+  }
+  const g=$('googleReviewsTop');
+  if(g){ if(CONFIG.store.googleReviewsUrl){ g.href=CONFIG.store.googleReviewsUrl; g.hidden=false; } else g.hidden=true; }
 }
 let _allReviewsOffset = 0;
 const ALL_REVIEWS_PAGE_SIZE = 10;
@@ -1444,7 +1457,7 @@ async function openAllReviews(reset=true){
   if(error){ showToast('Could not load reviews'); return; }
   const rows = data||[];
   $('accountContent').innerHTML = `<div class="eyebrow">CUSTOMER REVIEWS</div><h2>${count||0} reviews</h2>
-    <div class="reviewGrid" style="grid-template-columns:1fr;margin-top:14px">${rows.map(r=>`<article>${r.featured?'<span class="typeTag" style="background:var(--gold-soft);color:#8a6a1a">FEATURED</span>':''}<div class="stars">${'★'.repeat(r.rating)}</div><p>“${escapeHtml(r.review_text)}”</p><b>${escapeHtml(r.customer_name)}</b><small>${new Date(r.created_at).toLocaleDateString('en-IN')}</small></article>`).join('')||'<div class="empty">No reviews yet.</div>'}</div>
+    <div class="reviewGrid" style="grid-template-columns:1fr;margin-top:14px">${rows.map(r=>`<article>${r.featured?'<span class="typeTag" style="background:var(--gold-soft);color:var(--jayvi-gold-dark)">FEATURED</span>':''}<div class="stars">${'★'.repeat(r.rating)}</div><p>“${escapeHtml(r.review_text)}”</p><b>${escapeHtml(r.customer_name)}</b><small>${new Date(r.created_at).toLocaleDateString('en-IN')}</small></article>`).join('')||'<div class="empty">No reviews yet.</div>'}</div>
     ${count>_allReviewsOffset+ALL_REVIEWS_PAGE_SIZE?`<button class="btn light full" style="margin-top:14px" onclick="_allReviewsOffset+=${ALL_REVIEWS_PAGE_SIZE};openAllReviews(false)">Load more</button>`:''}`;
 }
 function openReviewForm(){
@@ -1481,83 +1494,77 @@ async function submitReview(e){
 }
 
 /* ---------- Hero ---------- */
-function heroShow(){
+function heroSlides(){
   const a=(CONFIG.announcements||[]).filter(x=>x.active).sort((x,y)=>x.order-y.order);
-  if(!a.length||!$('heroLabel'))return;
-  const s=a[heroIndex%a.length];
-  // V32.3 (spec 3/8/9): announcementType/targetType is the explicit
-  // "does this belong to a product?" relationship — separate from the
-  // old actionType/actionTarget click-action columns, which now only
-  // describe a General announcement's optional CTA. isProductAnn drives
-  // the price badge, the media fallback, and the click destination;
-  // a General announcement never shows a price and never silently
-  // opens a product it isn't actually linked to.
+  if(a.length) return a;
+  // V33: no active hero slide → the brand slide from Site content → Homepage → Hero.
+  const f=sec('hero').fallback||{};
+  return [{id:'fallback',label:f.eyebrow||'',title:f.title||'',em:f.em||'',text:f.text||'',image:f.image||'',mediaType:'image',announcementType:'general',actionType:'hash',actionTarget:f.ctaTarget||'#shop',ctaLabel:f.ctaLabel||'',showPrice:false,active:true}];
+}
+function heroShow(){
+  if(!$('heroLabel'))return;
+  const a=heroSlides();
+  const s=a[heroIndex%a.length], h=sec('hero');
+  // announcementType/targetType = explicit product/combo association (V32.3),
+  // separate from actionType/actionTarget (a General slide's optional CTA).
   const isProductAnn = s.announcementType==='product';
   const p = isProductAnn && s.targetType!=='combo' && s.productId ? getProduct(s.productId) : null;
   const combo = isProductAnn && s.targetType==='combo' && s.comboId ? getCombo(s.comboId) : null;
-  // Spec 9: "Associated product deleted/deactivated — handle
-  // gracefully, don't leave a broken link" — getProduct()/getCombo()
-  // already only return active, existing items, so p/combo end up
-  // null here exactly when the link is stale; everything below treats
-  // that the same as "no association" rather than erroring.
   const linkBroken = isProductAnn && !p && !combo;
-  $('heroLabel').textContent=s.label;
-  $('heroTitle').innerHTML=`${escapeHtml(s.title)}<br><em>${escapeHtml(s.em)}</em>`;
-  $('heroDesc').textContent=s.text;
-  const priceEl=$('heroPrice')?.closest('.heroPrice')||$('heroPrice');
+  $('heroLabel').textContent=s.label||'';
+  $('heroTitle').innerHTML=`${escapeHtml(s.title||'')}${s.em?`<em>${escapeHtml(s.em)}</em>`:''}`;
+  $('heroDesc').textContent=s.text||'';
+  const priceEl=$('heroPrice')?.closest('.heroPrice');
   if(isProductAnn && !linkBroken && s.showPrice!==false){
-    $('heroPrice').textContent=money(p?getVariant(p,variantKey(p.id)).price:combo?.price||0);
+    const pv=p?getVariant(p,variantKey(p.id)):null;
+    $('heroPrice').textContent=money(pv?pv.price:combo?.price||0);
     if(priceEl) priceEl.style.display='';
-  } else if(priceEl){
-    // General announcement, or a Product announcement whose showPrice
-    // is off, or whose link is broken: no price badge to show at all.
-    priceEl.style.display='none';
-  }
-  // Spec 8: custom media (if any) always takes priority. With none,
-  // a Product announcement falls back to its linked product/combo's
-  // own image; a General announcement (or a broken product link) just
-  // renders the same graceful default image everything else already
-  // uses — never a half-broken <img>.
-  const heroImgEl=$('heroImg'), heroVideoEl=$('heroVideo');
-  const usingUploadedVideo = !!s.image && s.mediaType==='video';
-  if(usingUploadedVideo){
-    heroVideoEl.src=s.image;
-    if(s.posterUrl) heroVideoEl.poster=s.posterUrl;
+  } else if(priceEl) priceEl.style.display='none';
+  // Media: uploaded slide media (photography → cover) wins; otherwise the
+  // linked product/combo pack, else the first bestseller pack (contained,
+  // never cropped — packaging is always shown whole and unaltered).
+  const heroImgEl=$('heroImg'), heroVideoEl=$('heroVideo'), box=$('heroImageBox');
+  if(s.image && s.mediaType==='video'){
+    heroVideoEl.src=s.image; if(s.posterUrl) heroVideoEl.poster=s.posterUrl;
     heroVideoEl.style.display='block'; heroImgEl.style.display='none';
     heroVideoEl.play?.().catch(()=>{});
+    box?.classList.remove('contain');
   } else {
     heroVideoEl.style.display='none'; heroImgEl.style.display='block';
-    heroImgEl.src = s.image || p?.image || combo?.image || 'images/hero/jayvi-products.webp';
+    const fallbackImg=p?.image||combo?.image||firstRealImage(products.filter(x=>x.best))||firstRealImage(products)||'images/brand/placeholder.svg';
+    const src=s.image||fallbackImg;
+    const attrs=responsiveImgAttrs(src,'(max-width:767px) 92vw, 520px');
+    heroImgEl.src=attrs.src;
+    if(attrs.srcset){ heroImgEl.srcset=attrs.srcset; heroImgEl.sizes=attrs.sizes; } else heroImgEl.removeAttribute('srcset');
+    heroImgEl.alt=[s.title,s.em].filter(Boolean).join(' ')||'Jayvi Foods';
+    heroImgEl.onerror=()=>{ heroImgEl.onerror=null; heroImgEl.removeAttribute('srcset'); heroImgEl.src='images/brand/placeholder.svg'; };
+    box?.classList.toggle('contain',!s.image);
   }
-  const heroShopBtn=$('heroShop');
-  if(heroShopBtn){
+  const btn=$('heroShop');
+  if(btn){
+    const arrow=' <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>';
+    let action=null, label=s.ctaLabel||'';
     if(isProductAnn){
-      // Spec 9: clicking a Product announcement opens its associated
-      // product/combo directly — no separate "click action" choice.
-      if(linkBroken){ heroShopBtn.style.display='none'; }
-      else{
-        heroShopBtn.style.display='';
-        heroShopBtn.textContent = combo ? 'Shop combo' : 'Shop now';
-        heroShopBtn.onclick=()=>{ if(p) openProduct(p.id); else if(combo) $('combos')?.scrollIntoView({behavior:'smooth'}); };
-      }
+      if(!linkBroken){ label=label||(combo?'Shop combo':'Shop now'); action=()=>{ if(p) openProduct(p.id); else navigate('#combos'); }; }
     } else {
-      // Spec 9: General announcement — optional CTA only.
       const cta=s.actionType||'none';
-      if(cta==='none'||( cta==='url' && !s.actionTarget)){ heroShopBtn.style.display='none'; }
-      else{
-        heroShopBtn.style.display='';
-        heroShopBtn.textContent='Shop now';
-        heroShopBtn.onclick=()=>{
-          if(cta==='shop') $('shop')?.scrollIntoView({behavior:'smooth'});
-          else if(cta==='reviews') $('reviews')?.scrollIntoView({behavior:'smooth'});
-          else if(cta==='url' && s.actionTarget) window.location.href=s.actionTarget;
-        };
-      }
+      if(cta==='shop') action=()=>navigate('#shop');
+      else if(cta==='reviews') action=()=>navigate('#reviews');
+      else if((cta==='url'||cta==='hash') && s.actionTarget) action=()=>{ const t=s.actionTarget; if(t.startsWith('#')) navigate(t); else location.href=safeHref(t); };
+      label=label||'Shop now';
     }
+    if(action){ btn.style.display=''; btn.innerHTML=escapeHtml(label)+arrow; btn.onclick=action; } else btn.style.display='none';
   }
-  $('heroDots').innerHTML=a.map((_,i)=>`<button class="${i===heroIndex?'active':''}" onclick="heroIndex=${i};heroShow();restartHero()"></button>`).join('');
+  const sec2=$('heroSecondary');
+  if(sec2){
+    const l=s.secondaryLabel||h.secondaryLabel, t=s.secondaryTarget||h.secondaryTarget;
+    if(l&&t){ sec2.hidden=false; sec2.textContent=l; sec2.setAttribute('href',safeHref(t)); } else sec2.hidden=true;
+  }
+  const trust=$('heroTrust');
+  if(trust && !trust.dataset.done){ trust.dataset.done='1'; trust.innerHTML=(h.trust||[]).map(x=>`<span><i class="fa-solid fa-check" aria-hidden="true"></i>${escapeHtml(x)}</span>`).join(''); }
+  $('heroDots').innerHTML=a.length>1?a.map((_,i)=>`<button class="${i===heroIndex%a.length?'active':''}" aria-label="Show slide ${i+1}" onclick="heroIndex=${i};heroShow();restartHero()"></button>`).join(''):'';
   const g=document.querySelector('.heroGrid');
-  g.classList.remove('heroChange'); void g.offsetWidth; g.classList.add('heroChange');
+  if(g){ g.classList.remove('heroChange'); void g.offsetWidth; g.classList.add('heroChange'); }
 }
 function restartHero(){clearInterval(heroTimer);startHero()}
 function startHero(){
@@ -1636,15 +1643,7 @@ function openOffersPanel(){
   $('offersOverlay').classList.add('open'); document.body.classList.add('modalOpen');
 }
 function closeOffersPanel(){ $('offersOverlay').classList.remove('open'); document.body.classList.remove('modalOpen'); }
-function renderOfferAnnouncement(){
-  const a=$('topOffer'), b=$('topOfferDup');
-  if(!a||!b)return;
-  if(!activeOffers.length){ a.style.display='none'; b.style.display='none'; return; }
-  const text = activeOffers.length===1
-    ? `🎉 Get ${offerLabel(activeOffers[0])} on orders${activeOffers[0].min_order_value?` above ${money(activeOffers[0].min_order_value)}`:''} – Use code ${activeOffers[0].code}`
-    : `🎉 Offers available: ${activeOffers.map(offerLabel).join(' | ')}`;
-  a.textContent=text; b.textContent=text; a.style.display='inline'; b.style.display='inline';
-}
+function renderOfferAnnouncement(){ renderAnnouncementBar(); } // V33: live offers are an optional feed into the Admin-configured announcement bar
 // Cart "Apply coupon" — client calls validate_coupon() for immediate,
 // responsive feedback (spec 1.5: "the customer UI can calculate/display
 // the offer for responsiveness"), but this is only ever a PREVIEW.
@@ -1681,6 +1680,7 @@ async function applyCouponFromCart(code){
   const row = Array.isArray(data)?data[0]:data;
   if(error || !row || !row.valid){
     showToast(row?.reason || error?.message || 'This coupon could not be applied.');
+    track('coupon_rejected',{coupon:String(code).toUpperCase(),reason:row?.reason||error?.message||''});
     return;
   }
   const meta = eligibleCartOffers.find(o=>o.code.toUpperCase()===code.toUpperCase()) || activeOffers.find(o=>o.code.toUpperCase()===code.toUpperCase());
@@ -1699,6 +1699,7 @@ async function applyCouponFromCart(code){
   saveCoupon(appliedCoupon);
   renderCart(); updateCheckoutSummary();
   showToast(`Coupon applied: ${appliedCoupon.code} — Discount ${money(appliedCoupon.discountAmount)}`);
+  track('coupon_applied',{coupon:appliedCoupon.code,value:appliedCoupon.discountAmount,currency:'INR'});
 }
 function removeAppliedCoupon(){
   appliedCoupon=null; saveCoupon(null);
@@ -1819,11 +1820,14 @@ function couponSectionMarkup(){
       nudge = `<div class="offerNudge">🎁 ${offerLabel(near)} available!<br>Add ${remaining} more to unlock this offer. <button type="button" class="linkBtn" onclick="openOffersPanel()">View all active offers</button></div>`;
     }
   }
-  return `<div class="couponSection">${nudge}<label><b>Apply coupon</b>
+  const wc=welcomeState().code;
+  const welcomeHint=wc?`<div class="welcomeCodeHint"><span>Your welcome code <b>${escapeHtml(wc)}</b></span><button type="button" onclick="applyCouponFromCart('${escapeHtml(wc)}')">Apply</button></div>`:'';
+  const codeEntry=`<div class="codeEntry"><input id="couponCodeInput" placeholder="Have a code? Enter it here" maxlength="30" aria-label="Coupon code" onkeydown="if(event.key==='Enter'){event.preventDefault();applyTypedCoupon()}"><button type="button" onclick="applyTypedCoupon()">Apply</button></div>`;
+  return `<div class="couponSection">${welcomeHint}${nudge}<label><b>Apply coupon</b>
     <select id="couponSelect" onchange="this.value&&applyCouponFromCart(this.value)">
       <option value="">${eligible.length?'Select an offer…':(activeOffers.length?'No offers eligible for the items in your cart':'No offers available right now')}</option>
       ${eligible.map(o=>`<option value="${escapeHtml(o.code)}">${escapeHtml(o.code)} – ${offerLabel(o)}</option>`).join('')}
-    </select></label>${activeOffers.length?`<button type="button" class="linkBtn offersLink" onclick="openOffersPanel()">View all active offers</button>`:''}</div>`;
+    </select></label>${codeEntry}${activeOffers.length?`<button type="button" class="linkBtn offersLink" onclick="openOffersPanel()">View all active offers</button>`:''}</div>`;
 }
 
 /* ---------- Cart ---------- */
@@ -1859,6 +1863,7 @@ function addToCart(pid,vid,opts){
   const key='product:'+pid+':'+v.id, x=cart.find(i=>i.key===key);
   if(x)x.qty++; else cart.push({key,type:'product',productId:pid,variantId:v.id,qty:1});
   saveCart();
+  track('add_to_cart',{currency:'INR',value:v.price,items:[gaItem(p,v,1)]});
   if(opts?.silent) return; // caller refreshes the UI once, itself, after the whole batch
   renderCart();refreshProductViews();refreshOpenProductDetail(pid);
   // Item S (approved spec): Add to Cart must NOT open the cart drawer —
@@ -1878,16 +1883,19 @@ function buyNow(pid,vid){
   const p=getProduct(pid),v=getVariant(p,vid); if(!p||!v)return;
   const key='product:'+pid+':'+v.id, x=cart.find(i=>i.key===key);
   if(x)x.qty++; else cart.push({key,type:'product',productId:pid,variantId:v.id,qty:1});
+  track('add_to_cart',{currency:'INR',value:v.price,items:[gaItem(p,v,1)]});
   saveCart();renderCart();refreshProductViews();openCheckout();
 }
 function changeQty(key,d){
   const x=cart.find(i=>i.key===key); if(!x)return;
+  if(d<0){ const det=cartItemDetails(x); track('remove_from_cart',{currency:'INR',value:det.price,items:[{item_id:x.productId||('combo:'+x.comboId),item_name:det.name,price:det.price,quantity:1}]}); }
   x.qty+=d; if(x.qty<1)cart=cart.filter(i=>i!==x);
   saveCart();renderCart();refreshProductViews();
   if(x.type==='product') refreshOpenProductDetail(x.productId);
 }
 function removeCart(key){
   const x=cart.find(i=>i.key===key);
+  if(x){ const d=cartItemDetails(x); track('remove_from_cart',{currency:'INR',value:d.price*x.qty,items:[{item_id:x.productId||('combo:'+x.comboId),item_name:d.name,price:d.price,quantity:x.qty}]}); }
   cart=cart.filter(i=>i.key!==key);saveCart();renderCart();refreshProductViews();showToast('Removed from cart');
   if(x?.type==='product') refreshOpenProductDetail(x.productId);
 }
@@ -1906,7 +1914,8 @@ function renderCart(){
   $('cartSubtotal').textContent=money(t.sub);
   $('cartTotal').textContent=money(Math.max(0,t.total-discount));
   $('cartShipping').innerHTML=t.sub===0?'':t.ship===0?'<span class="free">FREE DELIVERY</span>':`Delivery ${money(t.ship)}`;
-  $('cartHint').textContent=t.sub&&t.ship?`Add ${money(t.remaining)} more for free delivery.`:'';
+  $('cartHint').textContent=''; // V33: replaced by the free-shipping progress bar
+  renderShipProgress(t);
   const foot=document.querySelector('.cartFoot');
   if(foot){
     let discLine = document.getElementById('cartDiscountLine');
@@ -1941,23 +1950,29 @@ function renderCart(){
 // a network call, so it's instant and works fully offline/from the
 // in-memory catalogue like everything else in this section.
 function cartRecommendations(){
+  // Deterministic, instant (no network): Admin-set "Goes great with"
+  // relationships of cart items first, then shared category/meal tags,
+  // bestseller as a tie-breaker, and — per V33 — cheaper items first on a
+  // tie, so the nudge is an easy add-on rather than a second big purchase.
   if(!cart.length) return [];
-  const inCart = new Set();
-  cart.forEach(x=>{ if(x.type==='product') inCart.add(x.productId); else if(x.type==='combo'){ const c=getCombo(x.comboId); (c?.items||[]).forEach(it=>inCart.add(it.productId)); } });
+  const inCart = new Set(), related = new Set();
   const cartCategories = new Set(), cartMealTags = new Set();
+  const note = p=>{ if(!p) return; inCart.add(p.id); if(p.category)cartCategories.add(p.category); (p.mealTags||[]).forEach(m=>cartMealTags.add(m)); (p.relatedProducts||[]).forEach(r=>related.add(r)); };
   cart.forEach(x=>{
-    if(x.type==='combo'){ const c=getCombo(x.comboId); (c?.items||[]).forEach(it=>{ const p=getProduct(it.productId); if(p){ if(p.category)cartCategories.add(p.category); (p.mealTags||[]).forEach(m=>cartMealTags.add(m)); } }); }
-    else { const p=getProduct(x.productId); if(p){ if(p.category)cartCategories.add(p.category); (p.mealTags||[]).forEach(m=>cartMealTags.add(m)); } }
+    if(x.type==='combo'){ const c=getCombo(x.comboId); (c?.items||[]).forEach(it=>note(getProduct(it.productId))); }
+    else note(getProduct(x.productId));
   });
-  const candidates = products.filter(p=>!inCart.has(p.id));
+  const price = p=>getVariant(p,variantKey(p.id))?.price||0;
   const score = p=>{
     let s=0;
-    if(p.category && cartCategories.has(p.category)) s+=2; // same category — likely complementary (e.g. another chutney)
-    s += (p.mealTags||[]).filter(m=>cartMealTags.has(m)).length; // shared meal occasion (breakfast/lunch/dinner pairing)
-    if(p.best) s+=1; // mild bestseller nudge as a tiebreaker/fallback, never the primary signal
+    if(related.has(p.id)) s+=4;
+    if(p.category && cartCategories.has(p.category)) s+=2;
+    s += (p.mealTags||[]).filter(m=>cartMealTags.has(m)).length;
+    if(p.best) s+=1;
     return s;
   };
-  return candidates.map(p=>({p,s:score(p)})).sort((a,b)=>b.s-a.s).slice(0,3).map(x=>x.p);
+  return products.filter(p=>!inCart.has(p.id)&&!isProductSoldOut(p))
+    .map(p=>({p,s:score(p),pr:price(p)})).sort((a,b)=>b.s-a.s||a.pr-b.pr).slice(0,3).map(x=>x.p);
 }
 function cartRecsMarkup(){
   const recs = cartRecommendations();
@@ -1984,13 +1999,32 @@ function updateBottomNavBadge(count){
 }
 
 /* ---------- Search ---------- */
-function openSearch(){$('searchOverlay').classList.add('open');document.body.classList.add('modalOpen');setTimeout(()=>$('searchBox').focus(),80)}
+function openSearch(){$('searchOverlay').classList.add('open');document.body.classList.add('modalOpen');renderSearch();setTimeout(()=>$('searchBox').focus(),80)}
 function closeSearch(){$('searchOverlay').classList.remove('open');document.body.classList.remove('modalOpen')}
+let _searchTrackTimer=null;
+function searchResultItem(p){
+  const v=getVariant(p,variantKey(p.id));
+  return `<button class="srItem" onclick="closeSearch();openProduct('${p.id}')">${imgTag(p.image,'52px','')}<span><b>${escapeHtml(p.name)}</b><small>${escapeHtml(catName(p.category))}${v?.label?' · '+escapeHtml(v.label):''}</small></span><strong>${v?money(v.price):''}</strong></button>`;
+}
 function renderSearch(){
-  const q=$('searchBox').value.toLowerCase();
-  $('searchResults').innerHTML=products.filter(p=>matchesSearch(p,q))
-    .map(p=>`<button onclick="closeSearch();openProduct('${p.id}')"><b>${escapeHtml(p.name)}</b><span>${money(getVariant(p,variantKey(p.id)).price)}</span></button>`).join('')
-    ||'<div class="empty">No products found.</div>';
+  const raw=$('searchBox').value.trim(), q=raw.toLowerCase();
+  const box=$('searchResults');
+  if(!q){
+    // Suggestion chips derived from the live catalogue (category + product names).
+    const words=[...new Set([...categories.map(c=>c.name.split(' ')[0]),...products.map(p=>p.name.split(' ')[0])].map(w=>w.toLowerCase()).filter(w=>w.length>2))].slice(0,10);
+    const top=products.filter(p=>p.best).slice(0,4);
+    box.innerHTML=(words.length?`<div class="searchChips">${words.map(w=>`<button type="button" onclick="$('searchBox').value='${escapeHtml(w)}';renderSearch()">${escapeHtml(w)}</button>`).join('')}</div>`:'')
+      +(top.length?`<div class="eyebrow" style="margin:6px 0 4px">Popular right now</div>${top.map(searchResultItem).join('')}`:'');
+    return;
+  }
+  // Name matches first, then category/meal-tag/synonym matches.
+  const list=products.filter(p=>matchesSearch(p,q)).sort((a,b)=>(expandSearchQuery(q).some(t=>b.name.toLowerCase().includes(t))?1:0)-(expandSearchQuery(q).some(t=>a.name.toLowerCase().includes(t))?1:0));
+  const combos=(CONFIG.combos||[]).filter(c=>c.active&&(`${c.name} ${c.short||''}`.toLowerCase().includes(q)||(c.items||[]).some(i=>matchesSearch(getProduct(i.productId),q))));
+  box.innerHTML=list.map(searchResultItem).join('')
+    +combos.map(c=>`<button class="srItem" onclick="closeSearch();navigate('#combos')">${imgTag(c.image,'52px','')}<span><b>${escapeHtml(c.name)}</b><small>Combo</small></span><strong>${money(c.price)}</strong></button>`).join('')
+    ||'<div class="empty">No products found. Try "chutney", "rice" or "snacks".</div>';
+  clearTimeout(_searchTrackTimer);
+  _searchTrackTimer=setTimeout(()=>track('search',{search_term:raw,results:list.length+combos.length}),900);
 }
 
 /* ---------- Customers / auth ---------- */
@@ -2387,8 +2421,10 @@ async function openCheckout(){
   // the block here, not get all the way to the payment form first.
   if(await checkoutIsBlockedByLiveConfig()) return;
   closeCart();
+  closeWelcomePopup();
   checkoutPinInfo = null;
   const t=cartTotals();
+  track('begin_checkout',{currency:'INR',value:t.sub,coupon:appliedCoupon?.code||undefined,items:cart.map(x=>{const d=cartItemDetails(x);return {item_id:x.productId||('combo:'+x.comboId),item_name:d.name,price:d.price,quantity:x.qty}})});
   const u = currentUser ? currentProfile : null;
   let savedAddr = null;
   if(currentUser){
@@ -2602,6 +2638,9 @@ async function placeOrder(e){
   }
 
   const phone = $('coPhone').value.trim(), name = $('coName').value.trim();
+  // V33 analytics: 'purchase' = order successfully created (UPI payment is
+  // still verified manually afterwards — see the Admin order workflow).
+  track('purchase',{transaction_id:orderNumber,currency:'INR',value:Number(total)||0,payment_type:method,coupon:appliedCoupon?.code||undefined,items:cart.map(x=>{const d=cartItemDetails(x);return {item_id:x.productId||('combo:'+x.comboId),item_name:d.name,price:d.price,quantity:x.qty}})});
   cart=[]; saveCart();
   appliedCoupon=null; saveCoupon(null);
   closeCheckout();
@@ -2829,6 +2868,9 @@ function sectionIngredients(p){
   return accordion('Ingredients', `<p>${escapeHtml(p.ingredients)}</p>`);
 }
 function sectionHowToEnjoy(p){
+  // V33: Admin free-text serving ideas (one per line) take priority.
+  const lines=String(p.howToEnjoyText||'').split('\n').map(x=>x.trim()).filter(Boolean);
+  if(lines.length) return accordion('How to enjoy', `<div class="pillRow">${lines.map(n=>`<span class="pill">${escapeHtml(n)}</span>`).join('')}</div>`);
   // Reuses mealTags — the exact same data already shown as "Works well
   // with" in the old modal — rather than a separate how-to-enjoy field.
   const names=(p.mealTags||[]).map(m=>escapeHtml(mealTagList.find(t=>t.id===m)?.name||CONFIG.mealLabels?.[m]||m)).filter(Boolean);
@@ -2859,10 +2901,11 @@ function sectionFaq(p){
 // mealTags, category) rather than a new recommendation engine.
 function relatedSectionsMarkup(p){
   const combosWithProduct=(CONFIG.combos||[]).filter(c=>c.active&&(c.items||[]).some(it=>it.productId===p.id)).slice(0,2);
-  const sameCategory=products.filter(x=>x.id!==p.id&&x.category===p.category).slice(0,4);
+  const rel=new Set(p.relatedProducts||[]);
+  const sameCategory=products.filter(x=>x.id!==p.id&&!rel.has(x.id)&&x.category===p.category).slice(0,4);
   const usedIds=new Set(sameCategory.map(x=>x.id));
   const pTags=p.mealTags||[];
-  const sameMeal=products.filter(x=>x.id!==p.id&&!usedIds.has(x.id)&&(x.mealTags||[]).some(t=>pTags.includes(t)));
+  const sameMeal=products.filter(x=>x.id!==p.id&&!usedIds.has(x.id)&&!rel.has(x.id)&&(x.mealTags||[]).some(t=>pTags.includes(t)));
   const block=(title,gridClass,items,cardFn)=>items.length?`<div class="relatedBlock"><h3>${escapeHtml(title)}</h3><div class="${gridClass} relatedGrid">${items.map(cardFn).join('')}</div></div>`:'';
   // Phase 2 item 8: when an actual combo already contains this product,
   // that combo (with its own one-tap "Add combo") IS the strongest
@@ -2981,29 +3024,33 @@ function openProduct(id){
   // with nothing entered yet renders identically to before.
   const infoSections=[
     sectionHighlights(p), sectionIngredients(p), sectionHowToEnjoy(p),
-    sectionNutritionAllergens(p), sectionStorage(p), sectionFaq(p)
+    sectionNutritionAllergens(p), sectionStorage(p), sectionShipping(p), sectionFaq(p)
   ].filter(Boolean).join('');
   const reviewsSection=accordion(`Customer reviews (${p.reviewCount||0})`, `<div id="prodReviews-${p.id}" class="prodReviewGrid"><div class="empty smallEmpty">Loading reviews…</div></div>`, false, 'prodReviewsAccordion');
-  const relatedHtml=relatedSectionsMarkup(p);
+  const relatedHtml=goesGreatWithMarkup(p)+relatedSectionsMarkup(p);
 
   $('productContent').innerHTML=`<div class="detailGrid">
     <div class="detailImage">${productGalleryMarkup(p)}</div>
     <div class="detailCopy">
       <div class="detailTopRow"><div class="eyebrow">${escapeHtml(catName(p.category))}</div>${detailBadges(p)}</div>
       <h2>${escapeHtml(p.name)}</h2>
-      <div class="stars ratingLink" onclick="goToProductReviews()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();goToProductReviews()}" role="button" tabindex="0"><span class="starsIcon">★★★★★</span> <span>${p.rating} · ${p.reviewCount} reviews</span></div>
+      ${Number(p.reviewCount)>0&&Number(p.rating)>0?`<div class="stars ratingLink" onclick="goToProductReviews()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();goToProductReviews()}" role="button" tabindex="0" aria-label="Rated ${p.rating} out of 5 from ${p.reviewCount} reviews"><span class="starsIcon">${starsMarkup(p.rating)}</span> <span>${p.rating} · ${p.reviewCount} reviews</span></div>`:''}
       <p>${escapeHtml(p.short)}</p>
       ${soldOut?'':`<div class="detailVariants">${p.variants.filter(x=>x.active).map(x=>`<button class="${x.id===v.id?'active':''}" onclick="selectedVariants['${p.id}']='${x.id}';openProduct('${p.id}')">${escapeHtml(x.label)}<small>${money(x.price)}</small></button>`).join('')}</div>`}
       <div class="detailPrice"><b>${money(v.price)}</b><del>${money(v.mrp)}</del>${v.mrp>v.price?`<em>Save ${money(v.mrp-v.price)}</em>`:''}</div>
+      ${v.weight&&v.weight!==v.label?`<div class="detailWeight">Net weight: ${escapeHtml(v.weight)}</div>`:''}
       ${detailActions}
+      ${productTrustMarkup(p)}
     </div></div>
     <div class="detailInfoStack">${infoSections}${reviewsSection}</div>
     ${relatedHtml ? `<div class="detailRelated">${relatedHtml}</div>` : ''}`;
   $('productOverlay').classList.add('open');document.body.classList.add('modalOpen');
   bindGalleryScrollers(); bindComboGalleryScrollers();
   loadProductReviews(p.id);
+  setProductSeo(p,v);
+  track('view_item',{currency:'INR',value:v.price,items:[gaItem(p,v,1)]});
 }
-function closeProduct(){openProductId=null;$('productOverlay').classList.remove('open');document.body.classList.remove('modalOpen')}
+function closeProduct(){const wasOpen=$('productOverlay').classList.contains('open');openProductId=null;$('productOverlay').classList.remove('open');document.body.classList.remove('modalOpen');if(wasOpen)clearProductSeo()}
 
 /* ---------- Back-button / history sync (item 12) ---------- */
 // Not a routing framework — deliberately kept small per the spec. Every
@@ -3021,7 +3068,7 @@ function closeProduct(){openProductId=null;$('productOverlay').classList.remove(
 // exactly like closing it any other way — instead of leaving the site
 // or losing where the customer was.
 function initBackNavigation(){
-  const overlayIds=['cartOverlay','productOverlay','searchOverlay','accountOverlay','checkoutOverlay','mobileMenu'];
+  const overlayIds=['cartOverlay','productOverlay','searchOverlay','accountOverlay','checkoutOverlay','mobileMenu','welcomeOverlay','storyOverlay'];
   let pushedForOverlay=false;
   const anyOverlayOpen=()=>overlayIds.some(id=>$(id)?.classList.contains('open'));
   const observer=new MutationObserver(()=>{
@@ -3030,11 +3077,19 @@ function initBackNavigation(){
       pushedForOverlay=true;
       history.pushState({jayviOverlay:true}, '', location.href);
     }else if(!isOpen && pushedForOverlay){
-      pushedForOverlay=false;
       // Closed via a UI action (not Back) while our entry is still the
       // current one — consume it so a later Back press doesn't land on
       // a dead, already-dismissed overlay state.
-      if(history.state?.jayviOverlay) history.back();
+      // V33 fix: deferred one tick, because closing one overlay and
+      // opening the next can happen in two separate click listeners
+      // (e.g. mobile menu link → product). Without the deferral,
+      // history.back() fired between them and its popstate then closed
+      // the newly opened overlay.
+      setTimeout(()=>{
+        if(anyOverlayOpen()||!pushedForOverlay) return;
+        pushedForOverlay=false;
+        if(history.state?.jayviOverlay) history.back();
+      },0);
     }
   });
   overlayIds.forEach(id=>{ const el=$(id); if(el) observer.observe(el,{attributes:true,attributeFilter:['class']}); });
@@ -3043,7 +3098,7 @@ function initBackNavigation(){
     // means Back itself is what should close it (the case above already
     // handled UI-driven closes and won't still show anything open here).
     if(anyOverlayOpen()){
-      closeCart();closeProduct();closeSearch();closeAccount();closeCheckout();closeMenu();
+      closeCart();closeProduct();closeSearch();closeAccount();closeCheckout();closeMenu();closeWelcomePopup(true);closeStory();
       pushedForOverlay=false;
     }
   });
@@ -3060,10 +3115,13 @@ function initOverlayDismissal(){
     else if(o.id==='searchOverlay')closeSearch();
     else if(o.id==='accountOverlay')closeAccount();
     else if(o.id==='checkoutOverlay')closeCheckout();
+    else if(o.id==='welcomeOverlay')closeWelcomePopup(true);
+    else if(o.id==='storyOverlay')closeStory();
+    else if(o.id==='offersOverlay')closeOffersPanel();
   }));
   document.addEventListener('keydown',e=>{
     if(e.key!=='Escape')return;
-    closeCart();closeProduct();closeSearch();closeAccount();closeCheckout();closeMenu();
+    closeCart();closeProduct();closeSearch();closeAccount();closeCheckout();closeMenu();closeWelcomePopup(true);closeStory();toggleMegaMenu(false);
   });
 }
 let toastTimer;
@@ -3087,15 +3145,554 @@ function applyVacation(){
     document.querySelectorAll('.pcActions button,.comboActions button').forEach(b=>{b.disabled=true;b.textContent='Orders paused'});
   }else if(banner){banner.style.display='none'}
 }
-function setupAnnouncementTicker(){
-  const viewport=document.querySelector('.announcementViewport');
-  if(!viewport)return;
-  let resume;
-  const pause=()=>viewport.closest('.topbar').classList.add('paused');
-  const play=()=>{clearTimeout(resume);resume=setTimeout(()=>viewport.closest('.topbar').classList.remove('paused'),1800)};
-  viewport.addEventListener('pointerdown',pause,{passive:true});
-  viewport.addEventListener('pointerup',play,{passive:true});
-  viewport.addEventListener('pointerleave',play,{passive:true});
+function setupAnnouncementTicker(){ /* V33: replaced by renderAnnouncementBar() (rotating, Admin-configured) */ }
+
+
+/* =========================================================================
+   V33 — Site content, brand theme, navigation, homepage sections,
+   welcome popup, analytics. Everything below reads Admin-managed data
+   (SITE ← public.site_content, merged over JAYVI_SITE_DEFAULTS from
+   site-content-defaults.js) or existing catalogue/store data. No
+   prices, thresholds or coupon codes are hard-coded here.
+   ========================================================================= */
+if(typeof JAYVI_SITE_DEFAULTS==='undefined'){ window.JAYVI_SITE_DEFAULTS={announcement_bar:{enabled:false,messages:[]},welcome_popup:{enabled:false},brand:{},homepage:{sectionOrder:[],sections:{}}}; }
+if(typeof jayviDeepMerge==='undefined'){ window.jayviDeepMerge=(a,b)=>structuredClone(b??a); }
+let SITE=structuredClone(JAYVI_SITE_DEFAULTS);
+let siteContentLive=false;      // true only when site_content was actually read from Supabase
+const socialLinkUrls={};        // platform -> url, from public.social_links
+let occasionFilter=null;        // {label, ids[]} — set by "Shop by occasion" cards
+
+async function loadSiteContent(){
+  try{
+    const {data,error}=await sb.from('site_content').select('id,data');
+    if(error) throw error;
+    (data||[]).forEach(r=>{ if(JAYVI_SITE_DEFAULTS[r.id]) SITE[r.id]=jayviDeepMerge(JAYVI_SITE_DEFAULTS[r.id], r.data||{}); });
+    siteContentLive=true;
+    return true;
+  }catch(err){
+    console.warn('Site content: using built-in defaults (Supabase site_content fetch failed — has supabase_migration_v33_brand_upgrade.sql been run?):', err?.message||err);
+    return false;
+  }
+}
+function sec(id){ return (SITE.homepage&&SITE.homepage.sections&&SITE.homepage.sections[id])||{}; }
+const prefersReducedMotion=()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function safeHref(u){
+  const s=String(u||'').trim();
+  if(!s) return '#';
+  if(/^(#|\/|\.\/|https?:\/\/|mailto:|tel:)/i.test(s) || /^[a-z0-9_-]+\.html(#.*)?$/i.test(s)) return s;
+  return '#';
+}
+function safeIcon(i){ return /^fa-[a-z0-9-]+$/.test(String(i||''))?i:'fa-leaf'; }
+function imgTag(path,sizes,alt,extra=''){
+  if(!path) return '';
+  const a=responsiveImgAttrs(path,sizes);
+  return `<img src="${escapeHtml(a.src)}"${a.srcset?` srcset="${escapeHtml(a.srcset)}" sizes="${escapeHtml(a.sizes)}"`:''} alt="${escapeHtml(alt||'')}" loading="lazy" decoding="async" onerror="this.onerror=null;this.removeAttribute('srcset');this.src='images/brand/placeholder.svg'" ${extra}>`;
+}
+function fmtDate(d){ try{ return new Date(d+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short'}); }catch{ return d; } }
+function scrollToSection(id){
+  const el=$(id); if(!el) return;
+  if(el.hidden && (el.dataset.section==='shop')) el.hidden=false;
+  el.scrollIntoView({behavior:prefersReducedMotion()?'auto':'smooth',block:'start'});
+}
+function scrollRow(id,dir){ const el=$(id); if(el) el.scrollBy({left:dir*el.clientWidth*0.85,behavior:prefersReducedMotion()?'auto':'smooth'}); }
+
+/* ---------- Analytics (GA4 via gtag if configured, else dataLayer) ---------- */
+function gaItem(p,v,qty=1){ return {item_id:v?.sku||p?.id, item_name:p?.name, item_category:p?catName(p.category):'', item_variant:v?.label||'', price:Number(v?.price||0), quantity:qty}; }
+function track(event,params={}){
+  try{
+    if(typeof window.gtag==='function') window.gtag('event',event,params);
+    else { window.dataLayer=window.dataLayer||[]; window.dataLayer.push({event,...params}); }
+    if(/[?&]debug=analytics/.test(location.search)) console.info('[analytics]',event,params);
+  }catch{}
+}
+function initAnalytics(){
+  const id=String((SITE.brand&&SITE.brand.analytics&&SITE.brand.analytics.ga4Id)||'').trim();
+  if(!/^G-[A-Z0-9]{4,}$/i.test(id)) return;
+  const s=document.createElement('script'); s.async=true; s.src='https://www.googletagmanager.com/gtag/js?id='+encodeURIComponent(id);
+  document.head.appendChild(s);
+  window.dataLayer=window.dataLayer||[];
+  window.gtag=function(){ window.dataLayer.push(arguments); };
+  window.gtag('js',new Date()); window.gtag('config',id);
+}
+function initOutboundTracking(){
+  document.addEventListener('click',e=>{
+    const a=e.target.closest('a[href]'); if(!a) return;
+    const h=a.getAttribute('href')||'';
+    if(/wa\.me|whatsapp\.com/i.test(h)) track('whatsapp_click',{link_url:h.split('?')[0]});
+    else if(/instagram\.com/i.test(h)) track('instagram_click',{link_url:h});
+  },{capture:true});
+}
+
+/* ---------- Brand theme / contact / SEO ---------- */
+let BASE_SEO={title:document.title,desc:''};
+function setMeta(attr,key,val){
+  let m=document.querySelector(`meta[${attr}="${key}"]`);
+  if(!m){ m=document.createElement('meta'); m.setAttribute(attr,key); document.head.appendChild(m); }
+  m.setAttribute('content',val);
+}
+function applyBrandTheme(){
+  const b=SITE.brand||{}, c=b.colors||{};
+  const map={maroon:'--jayvi-maroon',green:'--jayvi-green',gold:'--jayvi-gold',cream:'--jayvi-cream',sand:'--jayvi-sand',text:'--jayvi-text'};
+  Object.entries(map).forEach(([k,v])=>{ if(/^#[0-9a-f]{6}$/i.test(c[k]||'')) document.documentElement.style.setProperty(v,c[k]); });
+  if(/^#[0-9a-f]{6}$/i.test(c.maroon||'')) setMeta('name','theme-color',c.maroon);
+  if(b.logoUrl) document.querySelectorAll('[data-brand-logo]').forEach(img=>{ img.removeAttribute('srcset'); img.src=b.logoUrl; });
+  const seo=b.seo||{};
+  if(seo.homeTitle){ document.title=seo.homeTitle; setMeta('property','og:title',seo.homeTitle); }
+  if(seo.homeDescription){ setMeta('name','description',seo.homeDescription); setMeta('property','og:description',seo.homeDescription); }
+  if(seo.ogImage) setMeta('property','og:image',seo.ogImage);
+  BASE_SEO={title:document.title, desc:document.querySelector('meta[name="description"]')?.getAttribute('content')||''};
+}
+function waUrl(text){
+  const n=String(CONFIG.store.whatsapp||'').replace(/\D/g,'');
+  if(!n) return '';
+  return `https://wa.me/${n}${text?`?text=${encodeURIComponent(text)}`:''}`;
+}
+function instagramUrl(){ return sec('social').profileUrl || socialLinkUrls.instagram || CONFIG.store.instagram || ''; }
+function applyContactLinks(){
+  const b=SITE.brand||{};
+  document.querySelectorAll('[data-wa-link]').forEach(a=>{ const u=waUrl(a.dataset.waText||''); if(u){ a.href=u; a.hidden=false; } else a.hidden=true; });
+  document.querySelectorAll('[data-ig-link]').forEach(a=>{ const u=instagramUrl(); if(u){ a.href=u; a.hidden=false; } else a.hidden=true; });
+  document.querySelectorAll('[data-brand-email]').forEach(a=>{ if(b.contactEmail){ a.href='mailto:'+b.contactEmail; a.textContent=b.contactEmail; a.hidden=false; } else a.hidden=true; });
+  document.querySelectorAll('[data-brand-phone]').forEach(a=>{ if(b.contactPhone){ a.href='tel:'+b.contactPhone.replace(/[^\d+]/g,''); a.textContent=b.contactPhone; a.hidden=false; } else a.hidden=true; });
+  document.querySelectorAll('[data-brand-tagline]').forEach(el=>{ if(b.footerTagline) el.textContent=b.footerTagline; });
+  document.querySelectorAll('[data-brand-fssai]').forEach(el=>{ if(b.fssai) el.textContent=b.fssai; });
+  document.querySelectorAll('[data-brand-udyam]').forEach(el=>{ if(b.udyam) el.textContent=b.udyam; });
+  if($('copyYear')) $('copyYear').textContent=new Date().getFullYear();
+}
+
+/* ---------- Homepage section visibility / order / titles ---------- */
+const SELF_MANAGED_SECTIONS=new Set(['welcomeOffer','promo','howToEnjoy','heritage','social','newsletter','mealMatch']);
+function applySectionConfig(){
+  const order=[...(SITE.homepage.sectionOrder||[])];
+  Object.keys(JAYVI_SITE_DEFAULTS.homepage.sections||{}).forEach(k=>{ if(!order.includes(k)) order.push(k); });
+  document.querySelectorAll('main#home>[data-section]').forEach(el=>{
+    const id=el.dataset.section, c=sec(id);
+    const idx=order.indexOf(id);
+    el.style.order=String(idx>=0?idx:99);
+    if(c.enabled===false) el.hidden=true;
+    else if(!SELF_MANAGED_SECTIONS.has(id)) el.hidden=false;
+    const t=el.querySelector('[data-sec-title]'); if(t&&c.title) t.textContent=c.title;
+    const e=el.querySelector('[data-sec-eyebrow]'); if(e&&typeof c.eyebrow==='string') e.textContent=c.eyebrow;
+  });
+}
+
+/* ---------- Announcement bar ---------- */
+let annTimer=null, annIndex=0;
+function annMessages(){
+  const cfg=SITE.announcement_bar||{};
+  const fill=t=>String(t||'').replace(/\{freeShippingThreshold\}/g,money(CONFIG.store.freeShippingThreshold)).replace(/\{shippingFlat\}/g,money(CONFIG.store.shippingFlat));
+  let msgs=(cfg.messages||[]).filter(m=>m&&m.enabled!==false&&m.text).map(m=>({text:fill(m.text),link:m.link||''}));
+  // Never advertise the welcome offer when the popup that delivers it is off.
+  if(!welcomeEnabled()) msgs=msgs.filter(m=>m.link!=='#welcome');
+  if(!(Number(CONFIG.store.freeShippingThreshold)>0)) msgs=msgs.filter(m=>!/free shipping/i.test(m.text));
+  if(cfg.includeLiveOffers) (activeOffers||[]).forEach(o=>msgs.push({text:`🎉 ${offerLabel(o)}${o.min_order_value?` on orders above ${money(o.min_order_value)}`:''} — use code ${o.code}`,link:'#offers'}));
+  return msgs;
+}
+function renderAnnouncementBar(){
+  const bar=$('annBar'); if(!bar) return;
+  clearInterval(annTimer);
+  const cfg=SITE.announcement_bar||{};
+  const msgs=annMessages();
+  if(cfg.enabled===false||!msgs.length){ bar.hidden=true; bar.innerHTML=''; return; }
+  bar.hidden=false;
+  const item=(m,cls)=>m.link
+    ?`<a class="annMsg ${cls}" href="${escapeHtml(safeHref(m.link))}"${/^https?:/i.test(m.link)?' target="_blank" rel="noopener"':''}>${escapeHtml(m.text)}</a>`
+    :`<span class="annMsg ${cls}">${escapeHtml(m.text)}</span>`;
+  if(cfg.mode==='marquee'){
+    bar.classList.add('marquee');
+    const once=msgs.map(m=>item(m,'')).join('');
+    bar.innerHTML=`<div class="annTrack">${once}<span aria-hidden="true" style="display:contents">${once}</span></div>`;
+    return;
+  }
+  bar.classList.remove('marquee');
+  annIndex=0;
+  bar.innerHTML=msgs.map((m,i)=>item(m,i===0?'on':'')).join('')+(msgs.length>1?`<button class="annNav annPrev" onclick="annStep(-1)" aria-label="Previous announcement"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button><button class="annNav annNext" onclick="annStep(1)" aria-label="Next announcement"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>`:'');
+  if(msgs.length>1){
+    const ms=Math.max(2,Number(cfg.intervalSeconds)||4)*1000;
+    annTimer=setInterval(()=>{ if(!bar.matches(':hover')&&!document.hidden) annStep(1); },ms);
+  }
+}
+function annStep(d){
+  const els=[...document.querySelectorAll('#annBar .annMsg')]; if(!els.length) return;
+  els[annIndex%els.length]?.classList.remove('on');
+  annIndex=(annIndex+d+els.length)%els.length;
+  els[annIndex].classList.add('on');
+}
+
+/* ---------- Navigation: mega menu, mobile product groups, footer ---------- */
+function productGroups(){
+  return categories.map(c=>({c,items:products.filter(p=>p.category===c.id||(p.categories||[]).includes(c.id))})).filter(g=>g.items.length);
+}
+function renderNavigation(){
+  const groups=productGroups();
+  const combos=(CONFIG.combos||[]).filter(c=>c.active);
+  const hasNew=products.some(isProductNew);
+  const mega=$('megaMenu');
+  if(mega){
+    mega.innerHTML=groups.map(g=>`<div class="megaCol"><b><a href="#category/${encodeURIComponent(g.c.id)}">${escapeHtml(g.c.name)}</a></b>${g.items.map(p=>`<a href="#product/${encodeURIComponent(p.id)}">${escapeHtml(p.name)}</a>`).join('')}</div>`).join('')
+      +(combos.length?`<div class="megaCol"><b><a href="#combos">Combos</a></b>${combos.slice(0,6).map(c=>`<a href="#combos">${escapeHtml(c.name)}</a>`).join('')}</div>`:'')
+      +`<div class="megaCol explore"><b>Explore</b><a href="#best-sellers">Best Sellers</a>${hasNew?'<a href="#new-arrivals">New Arrivals</a>':''}<a href="#offers">Offers</a><a href="#shop">All products</a></div>`;
+  }
+  const mm=$('menuProducts');
+  if(mm){
+    mm.innerHTML=groups.map(g=>`<a class="menuCat" href="#category/${encodeURIComponent(g.c.id)}" onclick="closeMenu()">${escapeHtml(g.c.name)}</a>${g.items.map(p=>`<a href="#product/${encodeURIComponent(p.id)}" onclick="closeMenu()">${escapeHtml(p.name)}</a>`).join('')}`).join('')
+      +(combos.length?`<a class="menuCat" href="#combos" onclick="closeMenu()">Combos</a>`:'');
+  }
+  const fl=$('footerCategoryLinks');
+  if(fl) fl.innerHTML=groups.slice(0,5).map(g=>`<a href="#category/${encodeURIComponent(g.c.id)}">${escapeHtml(g.c.name)}</a>`).join('');
+  // New Arrivals nav entry only when there is something new.
+  document.querySelectorAll('a[href="#new-arrivals"]').forEach(a=>{ if(!a.closest('.megaCol')) a.hidden=!hasNew; });
+}
+function toggleMegaMenu(force){
+  const d=$('catDrop'); if(!d) return;
+  const open=force!==undefined?force:!d.classList.contains('open');
+  d.classList.toggle('open',open);
+  d.querySelector('button')?.setAttribute('aria-expanded',String(open));
+}
+function initMegaMenu(){
+  const d=$('catDrop'); if(!d) return;
+  let t;
+  d.addEventListener('mouseenter',()=>{ if(window.matchMedia('(hover:hover)').matches){ clearTimeout(t); toggleMegaMenu(true); } });
+  d.addEventListener('mouseleave',()=>{ if(window.matchMedia('(hover:hover)').matches){ t=setTimeout(()=>toggleMegaMenu(false),180); } });
+  document.addEventListener('click',e=>{ if(!e.target.closest('#catDrop')) toggleMegaMenu(false); });
+}
+
+/* ---------- Hash router (#shop, #best-sellers, #category/x, #product/x …) ---------- */
+function goToOffers(){
+  const vis=id=>{ const el=$(id); return el && !el.hidden && el.style.display!=='none'; };
+  if(vis('offersSection')) return scrollToSection('offersSection');
+  if(vis('promoBanner')) return scrollToSection('promoBanner');
+  if(vis('welcomeOffer')) return scrollToSection('welcomeOffer');
+  openOffersPanel();
+}
+const ROUTES={
+  home:()=>window.scrollTo({top:0,behavior:prefersReducedMotion()?'auto':'smooth'}),
+  shop:()=>{ mealFilter=null; discoveryFilter=null; occasionFilter=null; cat='all'; renderCategories(); renderProducts(); scrollToSection('shop'); },
+  categories:()=>scrollToSection('shopByCategory'),
+  'best-sellers':()=>viewAllDiscovery('best'),
+  'new-arrivals':()=>viewAllDiscovery('new'),
+  popular:()=>viewAllDiscovery('popular'),
+  healthy:()=>viewAllDiscovery('healthy'),
+  combos:()=>scrollToSection('combos'),
+  offers:()=>goToOffers(),
+  track:()=>openTrackOrder(),
+  wishlist:()=>openWishlist(),
+  account:()=>openAccount(),
+  cart:()=>openCart(),
+  search:()=>openSearch(),
+  welcome:()=>openWelcomePopup('link'),
+  story:()=>openStory(),
+  reviews:()=>scrollToSection('reviews')
+};
+function navigate(hash){
+  const h=String(hash||'').replace(/^#/,'');
+  if(!h) return false;
+  const [key,...rest]=h.split('/'); const arg=rest.join('/');
+  closeMenu(); toggleMegaMenu(false);
+  if(key==='product'&&arg){ closeSearch(); openProduct(decodeURIComponent(arg)); return true; }
+  if(key==='category'&&arg){ filterByCategory(decodeURIComponent(arg)); return true; }
+  if(ROUTES[key]){ ROUTES[key](); return true; }
+  if(document.getElementById(h)){ scrollToSection(h); return true; }
+  return false;
+}
+function initRouter(){
+  document.addEventListener('click',e=>{
+    const a=e.target.closest('a[href^="#"]'); if(!a) return;
+    const href=a.getAttribute('href');
+    if(href==='#'){ if(a.hasAttribute('data-wa-link')) e.preventDefault(); return; }
+    if(navigate(href)) e.preventDefault();
+  });
+  const handle=()=>{ const h=location.hash; if(h.length>1){ history.replaceState(history.state,'',location.pathname+location.search); navigate(h); } };
+  window.addEventListener('hashchange',handle);
+  if(location.hash.length>1) setTimeout(handle,60);
+}
+
+/* ---------- Homepage sections ---------- */
+function resolveProducts(ids,keywords){
+  if(ids&&ids.length) return ids.map(getProduct).filter(Boolean);
+  const kws=(keywords||[]).map(k=>String(k).toLowerCase().trim()).filter(Boolean);
+  const seen=new Set(), out=[];
+  kws.forEach(k=>products.forEach(p=>{ if(!seen.has(p.id)&&String(p.name).toLowerCase().includes(k)){ seen.add(p.id); out.push(p); } }));
+  return out;
+}
+const isRealImg=u=>!!u&&!/placeholder\.svg/.test(u);
+function firstRealImage(list){ return (list||[]).map(x=>x&&x.image).find(isRealImg)||(list||[]).map(x=>x&&x.image).find(Boolean)||''; }
+function findProduct(id,keyword){
+  if(id){ const p=getProduct(id); if(p) return p; }
+  return keyword?(resolveProducts([],[keyword])[0]||null):null;
+}
+function renderWelcomeStrip(){
+  const el=$('welcomeOffer'), box=$('welcomeCard'); if(!el||!box) return;
+  const c=sec('welcomeOffer'), usesPopup=c.action!=='link', st=welcomeState();
+  if(c.enabled===false || (usesPopup && !welcomeEnabled() && c.hideWhenPopupDisabled!==false) || (!usesPopup && !c.link)){ el.hidden=true; return; }
+  el.hidden=false;
+  if(usesPopup && st.code){
+    box.innerHTML=`<div><div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2>Your welcome code is ready</h2><p>Use <b>${escapeHtml(st.code)}</b> at checkout.</p></div><a class="btn onDark" href="#shop">Shop now <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>`;
+    return;
+  }
+  const label=escapeHtml(c.ctaLabel||'Shop now');
+  const btn=usesPopup?`<button class="btn onDark" onclick="openWelcomePopup('strip')">${label}</button>`:`<a class="btn onDark" href="${escapeHtml(safeHref(c.link))}">${label}</a>`;
+  box.innerHTML=`<div><div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2>${escapeHtml(c.title||'')}</h2>${c.text?`<p>${escapeHtml(c.text)}</p>`:''}</div>${btn}`;
+}
+function inDateRange(start,end){
+  const now=new Date();
+  if(start && now<new Date(start+'T00:00:00')) return false;
+  if(end && now>new Date(end+'T23:59:59')) return false;
+  return true;
+}
+function renderPromo(){
+  const el=$('promoBanner'), box=$('promoGrid'), c=sec('promo'); if(!el||!box) return;
+  if(c.enabled===false||!c.title||!inDateRange(c.startDate,c.endDate)){ el.hidden=true; return; }
+  const items=(c.productIds||[]).map(getProduct).filter(Boolean);
+  el.hidden=false;
+  box.innerHTML=`<div><div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2>${escapeHtml(c.title)}</h2>${c.text?`<p>${escapeHtml(c.text)}</p>`:''}
+    ${items.length?`<div class="pairings" style="margin-top:14px">${items.map(p=>`<span>${escapeHtml(p.name)}</span>`).join('')}</div>`:''}
+    ${c.ctaLabel&&c.ctaTarget?`<div class="heroBtns"><a class="btn onDark" href="${escapeHtml(safeHref(c.ctaTarget))}">${escapeHtml(c.ctaLabel)} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></div>`:''}
+    ${c.endDate?`<div class="promoDates">Offer ends ${escapeHtml(fmtDate(c.endDate))}</div>`:''}</div>
+    ${c.image?`<div class="promoImg">${imgTag(c.image,'(max-width:767px) 92vw, 560px',c.title)}</div>`:''}`;
+}
+function renderWhy(){
+  const box=$('whyGrid'); if(!box) return;
+  const items=(sec('why').items||[]).filter(i=>i&&i.title);
+  box.innerHTML=items.map(i=>`<div class="whyItem"><i class="fa-solid ${safeIcon(i.icon)}" aria-hidden="true"></i><b>${escapeHtml(i.title)}</b>${i.text?`<small>${escapeHtml(i.text)}</small>`:''}</div>`).join('');
+  if(!items.length && $('whyJayvi')) $('whyJayvi').hidden=true;
+}
+function renderHowToEnjoy(){
+  const el=$('howToEnjoy'), box=$('enjoyGrid'), c=sec('howToEnjoy'); if(!el||!box) return;
+  const cards=(c.items||[]).map(it=>{
+    const p=findProduct(it.productId,it.keyword);
+    if(!p && !it.image) return '';
+    const img=it.image||p?.image||'';
+    const pair=(Array.isArray(it.pairings)?it.pairings:String(it.pairings||'').split(',')).map(s=>String(s).trim()).filter(Boolean);
+    return `<button class="enjoyCard" type="button"${p?` onclick="openProduct('${p.id}')"`:''}><div class="enjoyImg${it.image?'':' contain'}">${imgTag(img,'(max-width:767px) 72vw, 300px',it.title||p?.name)}</div><div class="enjoyBody"><h3>${escapeHtml(it.title||p?.name||'')}</h3><div class="pairings">${pair.map(x=>`<span>${escapeHtml(x)}</span>`).join('')}</div></div></button>`;
+  }).filter(Boolean).join('');
+  el.hidden=c.enabled===false||!cards;
+  box.innerHTML=cards;
+}
+function renderHeritage(){
+  const el=$('heritageStory'), box=$('heritageGrid'), c=sec('heritage'); if(!el||!box) return;
+  const p=findProduct(c.productId,c.productKeyword);
+  const target=c.ctaTarget||(p?`#product/${encodeURIComponent(p.id)}`:'');
+  if(c.enabled===false||!target){ el.hidden=true; return; }
+  el.hidden=false;
+  const img=c.image||p?.image||'';
+  box.innerHTML=`<div class="heritageImg${c.image?'':' contain'}">${imgTag(img,'(max-width:767px) 92vw, 440px',c.title)}</div>
+    <div class="heritageCopy"><div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2>${escapeHtml(c.title||'')}</h2>${c.text?`<p>${escapeHtml(c.text)}</p>`:''}
+    ${c.ctaLabel?`<a class="btn primary" href="${escapeHtml(safeHref(target))}">${escapeHtml(c.ctaLabel)} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>`:''}</div>`;
+}
+function renderSocialSection(){
+  const el=$('socialSection'), box=$('socialInner'), c=sec('social'); if(!el||!box) return;
+  const url=instagramUrl();
+  const tiles=(c.tiles||[]).filter(t=>t&&t.image);
+  if(c.enabled===false||(!url&&!tiles.length)){ el.hidden=true; return; }
+  el.hidden=false;
+  box.innerHTML=`<div class="socialHead"><div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2 style="font-size:clamp(26px,5.6vw,38px)">${escapeHtml(c.title||'')}</h2>${c.handle?`<span class="handle">${escapeHtml(c.handle)}</span>`:''}</div>
+    ${tiles.length?`<div class="socialGrid">${tiles.map(t=>`<a href="${escapeHtml(safeHref(t.link||url))}" target="_blank" rel="noopener" aria-label="${escapeHtml(t.caption||'Instagram post')}">${imgTag(t.image,'(max-width:767px) 33vw, 300px',t.caption||'')}</a>`).join('')}</div>`:''}
+    ${url?`<div class="socialCta"><a class="btn primary" href="${escapeHtml(safeHref(url))}" target="_blank" rel="noopener"><i class="fa-brands fa-instagram" aria-hidden="true"></i> ${escapeHtml(c.ctaLabel||'Follow us')}</a></div>`:''}`;
+}
+function renderAbout(){
+  const el=$('about'), box=$('aboutInner'), c=sec('about'); if(!el||!box) return;
+  box.innerHTML=`<div><div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2>${escapeHtml(c.title||'')}</h2>${c.text?`<p class="lead">${escapeHtml(c.text)}</p>`:''}${c.body?`<p>${escapeHtml(c.body)}</p>`:''}
+    ${c.ctaLabel&&c.story?`<div class="heroBtns"><a class="btn secondary" href="#story">${escapeHtml(c.ctaLabel)} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></div>`:''}</div>
+    ${c.image?`<div class="aboutImg">${imgTag(c.image,'(max-width:767px) 92vw, 560px',c.title)}</div>`:''}`;
+}
+function renderNewsletter(){
+  const el=$('newsletter'), box=$('newsInner'), c=sec('newsletter'); if(!el||!box) return;
+  const wa=waUrl('Hi Jayvi Foods, please share your latest launches and offers.');
+  const pop=welcomeEnabled()&&!welcomeState().code;
+  if(c.enabled===false||(!wa&&!pop)){ el.hidden=true; return; }
+  el.hidden=false;
+  box.innerHTML=`<div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2>${escapeHtml(c.title||'')}</h2>${c.text?`<p>${escapeHtml(c.text)}</p>`:''}
+    <div class="newsBtns">${wa?`<a class="btn wa" href="${escapeHtml(wa)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i> ${escapeHtml(c.whatsappLabel||'WhatsApp')}</a>`:''}${pop?`<button class="btn ghost" onclick="openWelcomePopup('newsletter')">${escapeHtml(c.offerLabel||'Get my welcome offer')}</button>`:''}</div>`;
+}
+function renderV33Sections(){
+  [renderWelcomeStrip,renderPromo,renderWhy,renderHowToEnjoy,renderHeritage,renderSocialSection,renderAbout,renderNewsletter].forEach(fn=>{
+    try{ fn(); }catch(err){ console.error(`${fn.name} failed to render:`, err); }
+  });
+  const mm=$('mealMatch'); if(mm) mm.hidden=sec('mealMatch').enabled!==true;
+}
+
+/* ---------- Story modal ---------- */
+function openStory(){
+  const c=sec('about');
+  const paras=String(c.story||c.body||'').split(/\n{2,}/).map(s=>s.trim()).filter(Boolean);
+  $('storyContent').innerHTML=`<div class="eyebrow">${escapeHtml(c.eyebrow||'Our story')}</div><h2>${escapeHtml(c.title||'')}</h2><div class="storyBody" style="margin-top:14px">${paras.map(p=>`<p>${escapeHtml(p)}</p>`).join('')}</div><a class="btn primary full" href="#shop" onclick="closeStory()">Shop Jayvi favourites</a>`;
+  $('storyOverlay').classList.add('open'); document.body.classList.add('modalOpen');
+}
+function closeStory(){ $('storyOverlay')?.classList.remove('open'); if(!document.querySelector('.overlay.open')) document.body.classList.remove('modalOpen'); }
+
+/* ---------- First-visit welcome popup (lead capture) ---------- */
+const WELCOME_KEY='jayviWelcomeV1';
+function welcomeState(){ try{ return JSON.parse(localStorage.getItem(WELCOME_KEY)||'{}')||{}; }catch{ return {}; } }
+function saveWelcomeState(s){ try{ localStorage.setItem(WELCOME_KEY,JSON.stringify(s)); }catch{} }
+// Popup only runs when Admin enabled it AND the config genuinely came from
+// Supabase — never from built-in defaults, because submitting needs the
+// live submit_welcome_lead() RPC to issue the code.
+function welcomeEnabled(){ return !!(SITE.welcome_popup&&SITE.welcome_popup.enabled) && siteContentLive; }
+function initWelcomePopup(){
+  if(!welcomeEnabled()) return;
+  const st=welcomeState();
+  if(st.code) return;
+  if(st.dismissedAt){
+    const days=Number(SITE.welcome_popup.reshowAfterDays)||0;
+    if(!days || Date.now()-st.dismissedAt < days*864e5) return;
+  }
+  try{ if(sessionStorage.getItem('jayviWelcomeShown')) return; }catch{}
+  const delay=Math.max(0,Number(SITE.welcome_popup.delaySeconds)||0)*1000;
+  const tryShow=(attempt)=>{
+    // Never interrupt an open cart/checkout/product/menu — wait and retry.
+    if(document.querySelector('.overlay.open')||$('mobileMenu')?.classList.contains('open')){ if(attempt<6) setTimeout(()=>tryShow(attempt+1),5000); return; }
+    openWelcomePopup('auto');
+  };
+  setTimeout(()=>tryShow(0),delay);
+}
+function welcomeFormMarkup(){
+  const c=SITE.welcome_popup, f=c.fields||{};
+  const field=(key,label,type,attrs)=>f[key]?.show===false?'':`<label for="wm_${key}">${label}${f[key]?.required?' *':''}<input id="wm_${key}" name="${key}" type="${type}" ${attrs}${f[key]?.required?' required':''}></label>`;
+  return `${c.image?`<img class="wmImg" src="${escapeHtml(c.image)}" alt="" decoding="async">`:''}<div class="wmTop"><div class="wmEyebrow">${escapeHtml(c.eyebrow||'')}</div>${c.discountLabel?`<div class="wmDiscount">${escapeHtml(c.discountLabel)}</div>`:''}<h2 id="wmTitle">${escapeHtml(c.title||'')}</h2></div>
+  <form class="wmBody" onsubmit="submitWelcomeLead(event)" novalidate>${c.description?`<p>${escapeHtml(c.description)}</p>`:''}
+    ${field('name','Name','text','autocomplete="name" maxlength="120"')}
+    ${field('mobile','Mobile number','tel','inputmode="numeric" autocomplete="tel-national" maxlength="10" placeholder="10-digit mobile"')}
+    ${field('email','Email','email','autocomplete="email" maxlength="200" placeholder="you@example.com"')}
+    <div class="wmErr" id="wmErr" role="alert"></div>
+    <button class="btn primary full" type="submit" id="wmSubmit">${escapeHtml(c.ctaLabel||'Get my offer')}</button>
+    ${c.expiryText?`<p class="wmFine">${escapeHtml(c.expiryText)}</p>`:''}
+    <p class="wmFine">We use your details only to share Jayvi offers and updates. <a href="legal.html#privacy" style="text-decoration:underline">Privacy</a></p>
+  </form>`;
+}
+function welcomeSuccessMarkup(code){
+  const c=SITE.welcome_popup;
+  const cta=cart.length?`<button class="btn primary full" onclick="closeWelcomePopup();applyCouponFromCart('${escapeHtml(code)}');openCart()">Apply to my basket</button>`:`<a class="btn primary full" href="#shop" onclick="closeWelcomePopup()">Start shopping</a>`;
+  return `<div class="wmTop"><div class="wmEyebrow">🎉</div><h2 id="wmTitle">${escapeHtml(c.successTitle||'Your offer is ready')}</h2></div>
+  <div class="wmBody">${c.successText?`<p>${escapeHtml(c.successText)}</p>`:''}<div class="wmCode"><b>${escapeHtml(code)}</b><button type="button" onclick="copyWelcomeCode('${escapeHtml(code)}')">Copy code</button></div>${c.expiryText?`<p class="wmFine">${escapeHtml(c.expiryText)}</p>`:''}${cta}</div>`;
+}
+function openWelcomePopup(source='manual'){
+  if(!welcomeEnabled()){ if(source!=='auto') goToOffers(); return; }
+  if(source==='auto' && $('checkoutOverlay')?.classList.contains('open')) return;
+  try{ sessionStorage.setItem('jayviWelcomeShown','1'); }catch{}
+  const st=welcomeState();
+  $('welcomeContent').innerHTML=st.code?welcomeSuccessMarkup(st.code):welcomeFormMarkup();
+  $('welcomeOverlay').classList.add('open'); document.body.classList.add('modalOpen');
+  if(!st.code) setTimeout(()=>$('welcomeContent').querySelector('input')?.focus({preventScroll:true}),120);
+  track('popup_view',{source});
+}
+function closeWelcomePopup(dismissed=false){
+  const o=$('welcomeOverlay'); if(!o||!o.classList.contains('open')) return;
+  o.classList.remove('open');
+  if(!document.querySelector('.overlay.open')) document.body.classList.remove('modalOpen');
+  if(dismissed && !welcomeState().code){ saveWelcomeState({dismissedAt:Date.now()}); track('popup_dismiss',{}); }
+}
+function copyWelcomeCode(code){
+  (navigator.clipboard?.writeText(code)||Promise.reject()).then(()=>showToast(`Copied ${code}`)).catch(()=>showToast(`Your code: ${code}`));
+}
+async function submitWelcomeLead(e){
+  e.preventDefault();
+  const f=SITE.welcome_popup.fields||{};
+  const val=k=>($('wm_'+k)?.value||'').trim();
+  const name=val('name'), mobile=val('mobile').replace(/\D/g,'').replace(/^91(?=\d{10}$)/,''), email=val('email');
+  const errEl=$('wmErr'), err=m=>{ errEl.textContent=m; return false; };
+  for(const [k,label] of [['name','your name'],['mobile','your mobile number'],['email','your email']]){
+    if(f[k]?.show!==false && f[k]?.required && !val(k)) return err(`Please enter ${label}.`);
+  }
+  if(mobile && !/^[6-9]\d{9}$/.test(mobile)) return err('Please enter a valid 10-digit mobile number.');
+  if(email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return err('Please enter a valid email address.');
+  if(!mobile && !email) return err('Please enter your mobile number or email.');
+  errEl.textContent='';
+  const btn=$('wmSubmit'), label=btn.textContent;
+  btn.disabled=true; btn.textContent='Unlocking your offer…';
+  try{
+    const {data,error}=await sb.rpc('submit_welcome_lead',{p_name:name||null,p_mobile:mobile||null,p_email:email||null,p_source_page:(location.pathname+location.search).slice(0,300)});
+    if(error) throw error;
+    const row=Array.isArray(data)?data[0]:data;
+    if(!row?.ok || !row.coupon_code){ err(row?.message||'Could not unlock the offer. Please try again.'); btn.disabled=false; btn.textContent=label; return; }
+    saveWelcomeState({code:row.coupon_code,at:Date.now()});
+    $('welcomeContent').innerHTML=welcomeSuccessMarkup(row.coupon_code);
+    track('generate_lead',{source:'welcome_popup'}); track('popup_submit',{});
+    renderWelcomeStrip(); renderNewsletter(); renderCart();
+  }catch(ex){
+    console.warn('Welcome lead submit failed:', ex?.message||ex);
+    err('We could not connect just now. Please check your connection and try again.');
+    btn.disabled=false; btn.textContent=label;
+  }
+}
+
+/* ---------- Cart: free-shipping progress + typed coupon ---------- */
+function renderShipProgress(t){
+  const box=$('shipProgress'); if(!box) return;
+  const th=Number(CONFIG.store.freeShippingThreshold)||0;
+  if(!cart.length||th<=0){ box.hidden=true; box.innerHTML=''; return; }
+  const s=(SITE.brand&&SITE.brand.shipping)||{};
+  const done=t.sub>=th, pct=Math.min(100,Math.round(t.sub*100/th));
+  const msg=done
+    ?escapeHtml(s.unlockedMessage||'Free shipping unlocked')
+    :escapeHtml(s.progressMessage||"You're {amount} away from free shipping").replace('{amount}',`<b>${money(t.remaining)}</b>`);
+  box.hidden=false; box.className='shipProgress'+(done?' done':'');
+  box.innerHTML=`<p>${msg}</p><div class="shipBar" role="progressbar" aria-label="Progress to free shipping" aria-valuemin="0" aria-valuemax="${th}" aria-valuenow="${Math.min(t.sub,th)}"><i style="width:${pct}%"></i></div><div class="shipScale"><span>₹0</span><span>${money(th)}</span></div>`;
+}
+function applyTypedCoupon(){
+  const code=($('couponCodeInput')?.value||'').trim().toUpperCase();
+  if(!code){ showToast('Enter a coupon code first'); return; }
+  applyCouponFromCart(code);
+}
+
+/* ---------- Product page helpers ---------- */
+function productTrustMarkup(){
+  let pin=''; try{ pin=localStorage.getItem('jayviPinV1')||''; }catch{}
+  const items=(SITE.brand&&SITE.brand.productTrust)||[];
+  return `<div class="pinCheck"><b><i class="fa-solid fa-truck-fast" aria-hidden="true"></i> Check delivery to your PIN code</b><div class="pinCheckRow"><input id="pdPin" inputmode="numeric" maxlength="6" placeholder="6-digit PIN" aria-label="PIN code" value="${escapeHtml(pin)}" onkeydown="if(event.key==='Enter')checkProductPin()"><button type="button" onclick="checkProductPin()">Check</button></div><div id="pdPinStatus" class="pinStatus" aria-live="polite"></div></div>
+  ${items.length?`<div class="detailTrust">${items.map(i=>`<div><i class="fa-solid ${safeIcon(i.icon)}" aria-hidden="true"></i>${escapeHtml(i.text||'')}</div>`).join('')}</div>`:''}`;
+}
+async function checkProductPin(){
+  const pin=($('pdPin')?.value||'').trim(), st=$('pdPinStatus'); if(!st) return;
+  if(!/^\d{6}$/.test(pin)){ st.className='pinStatus bad'; st.textContent='Enter a 6-digit Indian PIN code.'; return; }
+  try{ localStorage.setItem('jayviPinV1',pin); }catch{}
+  if(CONFIG.store.deliveryMode!=='india'){ st.className='pinStatus bad'; st.textContent='Delivery is currently unavailable. Please try again later.'; return; }
+  st.className='pinStatus'; st.textContent='Checking…';
+  try{
+    const {data,error}=await sb.rpc('check_pincode',{p_pincode:pin});
+    if(error) throw error;
+    const row=data?.[0];
+    if(!row||!row.found||!row.effective_serviceable){ st.className='pinStatus bad'; st.textContent=PIN_NOT_SERVICEABLE_MSG; return; }
+    const min=row.min_eta_days||CONFIG.store.deliveryMinDays||4, max=row.max_eta_days||CONFIG.store.deliveryMaxDays||8;
+    st.className='pinStatus good'; st.textContent=`Delivers to ${pin} in about ${min}–${max} days.`;
+  }catch(err){
+    st.className='pinStatus'; st.textContent=`We couldn't check right now. Delivery is usually ${CONFIG.store.deliveryMinDays||4}–${CONFIG.store.deliveryMaxDays||8} days; your PIN is confirmed at checkout.`;
+  }
+}
+function sectionShipping(){
+  const s=CONFIG.store, th=Number(s.freeShippingThreshold)||0;
+  const note=(SITE.brand&&SITE.brand.shipping&&SITE.brand.shipping.deliveryNote)||'';
+  const rows=[
+    `<div class="kvRow"><b>Delivery time</b><span>${s.deliveryMinDays||4}–${s.deliveryMaxDays||8} days, depending on PIN code</span></div>`,
+    th>0?`<div class="kvRow"><b>Free shipping</b><span>On orders of ${money(th)} or more</span></div>`:'',
+    Number(s.shippingFlat)>0?`<div class="kvRow"><b>Delivery charge</b><span>${money(s.shippingFlat)}${th>0?` below ${money(th)}`:''} (may vary by PIN)</span></div>`:'',
+    `<div class="kvRow"><b>Cash on delivery</b><span>${s.codEnabled?'Available':'Not available right now'}</span></div>`,
+    note?`<p style="margin-top:8px">${escapeHtml(note)}</p>`:''
+  ].join('');
+  return accordion('Shipping & delivery', rows);
+}
+function goesGreatWithMarkup(p){
+  const items=(p.relatedProducts||[]).map(getProduct).filter(x=>x&&x.id!==p.id);
+  if(!items.length) return '';
+  return `<div class="relatedBlock goesGreat"><h3>Goes great with this ❤️</h3><div class="hScroll">${items.map(productCard).join('')}</div></div>`;
+}
+function setProductSeo(p,v){
+  document.title=p.seoTitle||`${p.name} | ${CONFIG.store.name||'Jayvi Foods'}`;
+  const desc=p.seoDescription||p.short||String(p.description||'').slice(0,160);
+  if(desc) setMeta('name','description',desc);
+  const abs=u=>{ try{ return new URL(u,location.href).href; }catch{ return u; } };
+  const imgs=(p.media||[]).filter(m=>m.type!=='video'&&m.path).map(m=>abs(m.path)).slice(0,5);
+  const ld={'@context':'https://schema.org','@type':'Product',name:p.name,sku:v?.sku||p.sku||p.id,description:desc||undefined,image:imgs.length?imgs:undefined,brand:{'@type':'Brand',name:CONFIG.store.name||'Jayvi Foods'},
+    offers:{'@type':'Offer',priceCurrency:'INR',price:String(v?.price||''),availability:isProductSoldOut(p)?'https://schema.org/OutOfStock':'https://schema.org/InStock',url:location.origin+location.pathname+'#product/'+encodeURIComponent(p.id)}};
+  if(Number(p.reviewCount)>0&&Number(p.rating)>0) ld.aggregateRating={'@type':'AggregateRating',ratingValue:String(p.rating),reviewCount:String(p.reviewCount)};
+  const put=(id,obj)=>{ let s=document.getElementById(id); if(!obj){ s?.remove(); return; } if(!s){ s=document.createElement('script'); s.type='application/ld+json'; s.id=id; document.head.appendChild(s); } s.textContent=JSON.stringify(obj); };
+  put('productLd',ld);
+  put('faqLd',p.faq?.length?{'@context':'https://schema.org','@type':'FAQPage',mainEntity:p.faq.map(f=>({'@type':'Question',name:f.question,acceptedAnswer:{'@type':'Answer',text:f.answer}}))}:null);
+}
+function clearProductSeo(){
+  document.title=BASE_SEO.title;
+  if(BASE_SEO.desc) setMeta('name','description',BASE_SEO.desc);
+  document.getElementById('productLd')?.remove(); document.getElementById('faqLd')?.remove();
 }
 
 /* ---------- Boot ---------- */
@@ -3115,8 +3712,12 @@ async function init(){
   // Reviews — see loadSettingsAnnouncementsReviewsFromSupabase() above.
   // All three fetches run in parallel; a failure in any one has no
   // effect on the others.
-  await Promise.all([loadCatalogFromSupabase(), loadCategoriesAndMealTagsFromSupabase(), loadSettingsAnnouncementsReviewsFromSupabase(), fetchActiveOffers()]);
+  await Promise.all([loadCatalogFromSupabase(), loadCategoriesAndMealTagsFromSupabase(), loadSettingsAnnouncementsReviewsFromSupabase(), fetchActiveOffers(), loadSiteContent()]);
   sync();
+  // V33: brand theme, contact links, analytics, section order/visibility,
+  // navigation and the announcement bar — all from Admin-managed data.
+  applyBrandTheme(); applyContactLinks(); initAnalytics(); initOutboundTracking();
+  applySectionConfig(); renderNavigation(); initMegaMenu(); renderAnnouncementBar();
   renderFloatingOffer(); renderOfferAnnouncement(); renderOffersSection();
   if(CONFIG.store.vacationMode){
     const b=$('vacationBanner');
@@ -3128,7 +3729,11 @@ async function init(){
   renderFooterSocialLinks();
   renderBrandGallery();
   heroShow();startHero();enableHeroSwipe();setupAnnouncementTicker();
+  renderV33Sections();
   applyVacation();
+  initRouter();
+  initWelcomePopup();
+  track('homepage_view',{page_location:location.href});
 
   // Restore a persistent Supabase session (works across devices in the
   // sense that signing in on any device authenticates against the same

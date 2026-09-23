@@ -489,6 +489,9 @@ async function fetchProducts(){
     storageInstructions:p.storage_instructions||'', shelfLife:p.shelf_life||'',
     allergens:p.allergens||'', nutrition:p.nutrition||[], faq:p.faq||[],
     isNew:!!p.is_new, newUntil:p.new_until||'',
+    // V33 merchandising / relationships / SEO
+    isPopular:!!p.is_popular, isHealthy:!!p.is_healthy, relatedProducts:p.related_products||[],
+    howToEnjoy:p.how_to_enjoy||'', seoTitle:p.seo_title||'', seoDescription:p.seo_description||'',
   }));
   products.forEach(p=>{p.image=(p.media.find(m=>m.isPrimary)||p.media[0])?.path||''});
   data.products=products;
@@ -515,12 +518,12 @@ async function fetchCombos(){
 async function fetchCategories(){
   const {data:rows,error}=await sb.from('categories').select('*').order('display_order',{ascending:true});
   if(error){ toast('Could not load categories: '+error.message); return []; }
-  const categories=(rows||[]).map(c=>({id:c.id, name:c.name||'', enabled:c.enabled, order:c.display_order||0}));
+  const categories=(rows||[]).map(c=>({id:c.id, name:c.name||'', enabled:c.enabled, order:c.display_order||0, description:c.description||'', imageUrl:c.image_url||''}));
   data.categories=categories;
   return categories;
 }
 async function saveCategoryToSupabase(c){
-  const {error}=await sb.from('categories').upsert({id:c.id, name:c.name, enabled:c.enabled, display_order:c.order});
+  const {error}=await upsertWithV33Fallback('categories',{id:c.id, name:c.name, enabled:c.enabled, display_order:c.order, description:c.description||null, image_url:c.imageUrl||null},['description','image_url']);
   if(error){ toast('Could not save category: '+error.message); return false; }
   return true;
 }
@@ -594,20 +597,22 @@ async function fetchAnnouncements(){
     announcementType:a.announcement_type||(a.product_id?'product':a.combo_id?'product':'general'),
     targetType:a.target_type||(a.product_id?'product':a.combo_id?'combo':''),
     actionType:a.action_type||'product', actionTarget:a.action_target||'',
-    productId:a.product_id||'', comboId:a.combo_id||'', active:a.active, order:a.display_order||0
+    productId:a.product_id||'', comboId:a.combo_id||'', active:a.active, order:a.display_order||0,
+    ctaLabel:a.cta_label||'', secondaryLabel:a.secondary_cta_label||'', secondaryTarget:a.secondary_cta_target||''
   }));
   data.announcements=announcements;
   return announcements;
 }
 async function saveAnnouncementToSupabase(a){
-  const {error}=await sb.from('announcements').upsert({
+  const {error}=await upsertWithV33Fallback('announcements',{
     id:a.id, label:a.label, title:a.title, em:a.em, text:a.text, image:a.image||'',
     media_type:a.mediaType||'image', poster_url:a.posterUrl||'',
     show_price:a.showPrice!==false,
     announcement_type:a.announcementType||'general', target_type:a.targetType||null,
     action_type:a.actionType, action_target:a.actionTarget,
-    product_id:a.productId||null, combo_id:a.comboId||null, active:a.active, display_order:a.order
-  });
+    product_id:a.productId||null, combo_id:a.comboId||null, active:a.active, display_order:a.order,
+    cta_label:a.ctaLabel||null, secondary_cta_label:a.secondaryLabel||null, secondary_cta_target:a.secondaryTarget||null
+  },['cta_label','secondary_cta_label','secondary_cta_target']);
   if(error){ toast('Could not save announcement: '+error.message); return false; }
   return true;
 }
@@ -675,8 +680,9 @@ async function deleteCuratedReviewFromSupabase(id){
 // Upserts a product row + fully replaces its product_media rows from
 // the given media draft array (simplest safe way to persist reordering
 // and deletions without tracking per-row diffs).
+const V33_PRODUCT_COLS=['is_popular','is_healthy','related_products','how_to_enjoy','seo_title','seo_description'];
 async function saveProductToSupabase(p, mediaDraft){
-  const {error:pErr}=await sb.from('products').upsert({
+  const {error:pErr}=await upsertWithV33Fallback('products',{
     id:p.id, sku:p.sku, name:p.name, short_description:p.short, description:p.description,
     category:p.category, categories:p.categories, meal_tags:p.mealTags,
     active:p.active, best:p.best, variants:p.variants, rating:p.rating||0, review_count:p.reviewCount||0,
@@ -684,8 +690,10 @@ async function saveProductToSupabase(p, mediaDraft){
     highlights:p.highlights||[], ingredients:p.ingredients||null,
     storage_instructions:p.storageInstructions||null, shelf_life:p.shelfLife||null,
     allergens:p.allergens||null, nutrition:p.nutrition||[], faq:p.faq||[],
-    is_new:!!p.isNew, new_until:p.newUntil||null
-  });
+    is_new:!!p.isNew, new_until:p.newUntil||null,
+    is_popular:!!p.isPopular, is_healthy:!!p.isHealthy, related_products:p.relatedProducts||[],
+    how_to_enjoy:p.howToEnjoy||null, seo_title:p.seoTitle||null, seo_description:p.seoDescription||null
+  }, V33_PRODUCT_COLS);
   if(pErr){ toast('Could not save product: '+pErr.message); return false; }
   const {error:delErr}=await sb.from('product_media').delete().eq('product_id',p.id);
   if(delErr){ toast('Product saved, but could not update media: '+delErr.message); return false; }
@@ -815,7 +823,7 @@ async function markAllNotificationsRead(){
   closeModal(); refreshNotifBadge(); toast('All notifications marked read');
 }
 
-async function render(){title.textContent=tab==='variants'?'Variants & sizes':tab==='mealtags'?'Meal tags':tab==='settings'?'Store settings':tab==='pincodes'?'Delivery / Pincodes':tab[0].toUpperCase()+tab.slice(1);document.getElementById('headerContext').innerHTML=tab==='dashboard'?'<span class="livePill">Connected to Supabase</span>':'';
+async function render(){title.textContent=tab==='variants'?'Variants & sizes':tab==='mealtags'?'Meal tags':tab==='settings'?'Store settings':tab==='pincodes'?'Delivery / Pincodes':tab==='sitecontent'?'Site content':tab==='homepage'?'Hero slides':tab[0].toUpperCase()+tab.slice(1);document.getElementById('headerContext').innerHTML=tab==='dashboard'?'<span class="livePill">Connected to Supabase</span>':'';
  refreshNotifBadge();
  app.innerHTML = '<div class="empty">Loading…</div>';
  let h='';
@@ -834,6 +842,8 @@ async function render(){title.textContent=tab==='variants'?'Variants & sizes':ta
  if(tab==='social')h=await socialLinksPage();
  if(tab==='reviews')h=await reviewsPage();
  if(tab==='settings')h=await settingsPage();
+ if(tab==='sitecontent')h=await siteContentPage();
+ if(tab==='leads')h=await leadsPage();
  app.innerHTML=h;
 }
 // V32.6 (item 11): one single, documented definition of "counts as a
@@ -1118,10 +1128,10 @@ async function promptResetPassword(phone){
 
 async function productsPage(){
  await fetchProducts(); await fetchCategories(); await fetchMealTags();
- return `<section class="panel">${liveCatalogNote()}<div class="panelHead"><div><h2>Products</h2><p>Product catalogue, merchandising, multiple categories and media — stored in Supabase.</p></div><button class="gold" onclick="productForm()">+ Add product</button></div><div class="productAdminGrid">${data.products.map(p=>`<article class="productAdminCard"><div class="thumb"><img src="${esc(p.image||'')}" alt=""></div><div class="productInfo"><span class="typeTag">${p.best?'BESTSELLER':'PRODUCT'}</span><h3>${esc(p.name)}</h3><p>${esc(p.short||'')}</p><small>${(p.categories?.length?p.categories:[p.category]).map(catName).join(' · ')} · ${p.variants?.length||0} variants · ${p.media?.length||0} media</small><div class="cardActions"><button class="outline" onclick="productForm('${esc(p.id)}')">Edit</button><button class="outline dangerBtn" onclick="deleteProduct('${esc(p.id)}')">Delete</button></div></div></article>`).join('')}</div></section>`;
+ return `<section class="panel">${liveCatalogNote()}<div class="panelHead"><div><h2>Products</h2><p>Product catalogue, merchandising, multiple categories and media — stored in Supabase.</p></div><button class="gold" onclick="productForm()">+ Add product</button></div><div class="productAdminGrid">${data.products.map(p=>`<article class="productAdminCard"><div class="thumb"><img src="${esc(p.image||'')}" alt=""></div><div class="productInfo"><span class="typeTag">${p.best?'BESTSELLER':'PRODUCT'}</span>${p.isNew?'<span class="typeTag">NEW</span>':''}${p.isPopular?'<span class="typeTag">POPULAR</span>':''}${p.isHealthy?'<span class="typeTag">HEALTHY</span>':''}<h3>${esc(p.name)}</h3><p>${esc(p.short||'')}</p><small>${(p.categories?.length?p.categories:[p.category]).map(catName).join(' · ')} · ${p.variants?.length||0} variants · ${p.media?.length||0} media</small><div class="cardActions"><button class="outline" onclick="productForm('${esc(p.id)}')">Edit</button><button class="outline dangerBtn" onclick="deleteProduct('${esc(p.id)}')">Delete</button></div></div></article>`).join('')}</div></section>`;
 }
 function productForm(id=null){
- const p=id?product(id):{id:'',sku:'',name:'',short:'',description:'',category:data.categories[0]?.id||'',categories:[],active:true,best:false,media:[],mealTags:[],rating:0,reviewCount:0,variants:[],highlights:[],ingredients:'',storageInstructions:'',shelfLife:'',allergens:'',nutrition:[],faq:[],isNew:false,newUntil:''};
+ const p=id?product(id):{id:'',sku:'',name:'',short:'',description:'',category:data.categories[0]?.id||'',categories:[],active:true,best:false,media:[],mealTags:[],rating:0,reviewCount:0,variants:[],highlights:[],ingredients:'',storageInstructions:'',shelfLife:'',allergens:'',nutrition:[],faq:[],isNew:false,newUntil:'',isPopular:false,isHealthy:false,relatedProducts:[],howToEnjoy:'',seoTitle:'',seoDescription:''};
  const selected=p.categories?.length?p.categories:[p.category].filter(Boolean);
  window._mediaDraft=structuredClone(p.media||[]).map(m=>({type:m.type,path:m.path,poster:m.poster||'',primary:!!m.isPrimary}));
  window._mediaOwnerId=p.id||'new-product';
@@ -1155,8 +1165,18 @@ function productForm(id=null){
    <label>Show until (optional)<input type="date" id="pNewUntil" value="${esc(p.newUntil||'')}"></label>
    <small class="fieldHint">Leave blank to keep showing the badge until you untick it above.</small>
  </div>
+ <div class="formSection"><h3>Merchandising</h3><p>Controls which homepage tabs ("You'll love these") and badges this product appears in.</p>
+   <label class="checkOnly"><input type="checkbox" id="pBest" ${p.best?'checked':''}> Bestseller</label>
+   <label class="checkOnly"><input type="checkbox" id="pPopular" ${p.isPopular?'checked':''}> Popular</label>
+   <label class="checkOnly"><input type="checkbox" id="pHealthy" ${p.isHealthy?'checked':''}> Healthy choice <small class="fieldHint">Only tick if the product genuinely supports the claim.</small></label>
+ </div>
+ <div class="formSection"><h3>Goes great with (related products)</h3><p>Shown on this product's page and used first for cart suggestions. Order follows the list order.</p><div class="checkGrid">${data.products.filter(x=>x.id!==p.id).map(x=>`<label><input type="checkbox" class="pRelated" value="${esc(x.id)}" ${(p.relatedProducts||[]).includes(x.id)?'checked':''}> ${esc(x.name)}</label>`).join('')||'<span class="tiny">Add more products first.</span>'}</div></div>
+ <div class="formSection"><h3>How to enjoy &amp; SEO</h3>
+   <label class="fullLabel">How to enjoy<textarea id="pHowToEnjoy" rows="3" placeholder="One idea per line, e.g.&#10;Hot rice + ghee&#10;Idli&#10;Dosa">${esc(p.howToEnjoy||'')}</textarea><small class="fieldHint">Blank = the product's meal tags are used instead.</small></label>
+   <label class="fullLabel">SEO title<input id="pSeoTitle" maxlength="70" value="${esc(p.seoTitle||'')}" placeholder="e.g. Jayvi Taranga Peanut Chutney | Traditional Karnataka Chutney Powder"></label>
+   <label class="fullLabel">SEO description<textarea id="pSeoDesc" rows="2" maxlength="170" placeholder="Up to ~160 characters for search results.">${esc(p.seoDescription||'')}</textarea></label>
+ </div>
  <label class="checkOnly"><input type="checkbox" id="pActive" ${p.active?'checked':''}> Product visible</label>
- <label class="checkOnly"><input type="checkbox" id="pBest" ${p.best?'checked':''}> Bestseller</label>
  <button class="gold full" onclick="saveProduct('${id?esc(id):''}')">Save product</button>`);
  renderNutritionRows(); renderFaqRows();
 }
@@ -1193,7 +1213,13 @@ async function saveProduct(existingId){
  nutrition:(window._nutritionDraft||[]).filter(r=>r.label&&r.value),
  faq:(window._faqDraft||[]).filter(r=>r.question&&r.answer),
  isNew:document.getElementById('pIsNew').checked,
- newUntil:document.getElementById('pNewUntil').value||''};
+ newUntil:document.getElementById('pNewUntil').value||'',
+ isPopular:document.getElementById('pPopular').checked,
+ isHealthy:document.getElementById('pHealthy').checked,
+ relatedProducts:[...document.querySelectorAll('.pRelated:checked')].map(x=>x.value),
+ howToEnjoy:document.getElementById('pHowToEnjoy').value.trim(),
+ seoTitle:document.getElementById('pSeoTitle').value.trim(),
+ seoDescription:document.getElementById('pSeoDesc').value.trim()};
 
  // Item Q — required-field validation before publish. Missing core
  // fields block the save outright, named individually. Variants are a
@@ -1338,18 +1364,26 @@ async function deleteMealTag(i){
 }
 async function categoriesPage(){
  await fetchCategories();
- return `<section class="panel">${liveCatalogNote()}<div class="panelHead"><div><h2>Categories</h2><p>Display position controls ordering. "Orders" is not used here.</p></div><button class="gold" onclick="categoryForm()">+ Add category</button></div><div class="categoryTable">${data.categories.map((c,i)=>`<div class="categoryRow"><span><b>${esc(c.name)}</b><small>ID: ${esc(c.id)}</small></span><strong>${c.order||i+1}</strong><span class="${c.enabled?'good':'danger'}">${c.enabled?'VISIBLE':'HIDDEN'}</span><button class="outline" onclick="categoryForm(${i})">Edit</button></div>`).join('')}</div></section>`;
+ return `<section class="panel">${liveCatalogNote()}<div class="panelHead"><div><h2>Categories</h2><p>Display position controls ordering. "Orders" is not used here.</p></div><button class="gold" onclick="categoryForm()">+ Add category</button></div><div class="categoryTable">${data.categories.map((c,i)=>`<div class="categoryRow"><span><b>${esc(c.name)}</b><small>ID: ${esc(c.id)}</small></span><strong>${c.order||i+1}</strong><span class="${c.enabled?'good':'danger'}">${c.enabled?'VISIBLE':'HIDDEN'}</span>${c.imageUrl?'<span class="tiny">🖼️</span>':''}<button class="outline" onclick="categoryForm(${i})">Edit</button></div>`).join('')}</div></section>`;
 }
-function categoryForm(index=-1){const c=index>=0?data.categories[index]:{id:'',name:'',enabled:true,order:data.categories.length+1};openModal(`<div class="eyebrow">CATEGORY</div><h2>${index<0?'Add category':'Edit category'}</h2><div class="formGrid"><label>ID<input id="catId" value="${esc(c.id)}" ${index>=0?'disabled':''}></label><label>Name<input id="catName" value="${esc(c.name)}"></label><label>Display position<input id="catOrder" type="number" value="${c.order||1}"></label></div><label class="checkOnly"><input id="catEnabled" type="checkbox" ${c.enabled?'checked':''}> Visible on storefront</label><button class="gold full" onclick="saveCategory(${index})">Save category</button>`)}
+function categoryForm(index=-1){const c=index>=0?data.categories[index]:{id:'',name:'',enabled:true,order:data.categories.length+1,description:'',imageUrl:''};openModal(`<div class="eyebrow">CATEGORY</div><h2>${index<0?'Add category':'Edit category'}</h2><div class="formGrid"><label>ID<input id="catId" value="${esc(c.id)}" ${index>=0?'disabled':''}></label><label>Name<input id="catName" value="${esc(c.name)}"></label><label>Display position<input id="catOrder" type="number" value="${c.order||1}"></label><label class="fullLabel">Card description <small class="fieldHint">Shown on the homepage "Shop by category" card, e.g. "Add tradition to every meal".</small><input id="catDesc" maxlength="80" value="${esc(c.description||'')}"></label><label class="fullLabel">Card image <small class="fieldHint">Blank = the first product's pack image. Use real photography where possible.</small><input id="catImage" value="${esc(c.imageUrl||'')}" placeholder="https://… or images/…" oninput="document.getElementById('catImgPv').innerHTML=this.value?'<img src=&quot;'+esc(this.value)+'&quot; alt=&quot;&quot;>':''"></label><span class="scImgRow"><span class="scPreview" id="catImgPv">${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:''}</span><label class="outline uploadBtn">Upload image<input type="file" accept="image/webp,image/jpeg,image/png" style="display:none" onchange="uploadCategoryImage(event)"></label></span></div><label class="checkOnly"><input id="catEnabled" type="checkbox" ${c.enabled?'checked':''}> Visible on storefront</label><button class="gold full" onclick="saveCategory(${index})">Save category</button>`)}
+async function uploadCategoryImage(evt){
+  const file=evt.target.files?.[0]; if(!file) return;
+  const key=`categories/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'-').toLowerCase()}`;
+  const {error}=await sb.storage.from('site-media').upload(key,file,{cacheControl:'31536000',upsert:false});
+  if(error){ toast('Upload failed: '+error.message+' — run supabase_migration_v33_brand_upgrade.sql (site-media bucket).'); return; }
+  const url=sb.storage.from('site-media').getPublicUrl(key).data.publicUrl;
+  document.getElementById('catImage').value=url; document.getElementById('catImgPv').innerHTML=`<img src="${esc(url)}" alt="">`;
+}
 async function saveCategory(i){
   const existingId=i>=0?data.categories[i].id:null;
-  const c={id:existingId||document.getElementById('catId').value.trim(),name:document.getElementById('catName').value.trim(),order:Number(document.getElementById('catOrder').value||1),enabled:document.getElementById('catEnabled').checked};
+  const c={id:existingId||document.getElementById('catId').value.trim(),name:document.getElementById('catName').value.trim(),order:Number(document.getElementById('catOrder').value||1),enabled:document.getElementById('catEnabled').checked,description:document.getElementById('catDesc').value.trim(),imageUrl:document.getElementById('catImage').value.trim()};
   if(!c.id||!c.name){toast('Category ID and name are required');return}
   const ok=await saveCategoryToSupabase(c);
   if(!ok)return;
   closeModal();render();
 }
-async function homepagePage(){await fetchAnnouncements();return `<section class="panel">${liveCatalogNote()}<div class="panelHead"><div><h2>Homepage announcements</h2><p>General announcements need no product. Product announcements are explicitly linked to a product or combo, which is used for both the click destination and the media fallback.</p></div><button class="gold" onclick="announcementForm()">+ Add announcement</button></div><div class="announcementAdmin">${data.announcements.sort((a,b)=>(a.order||0)-(b.order||0)).map((s,i)=>{
+async function homepagePage(){await fetchAnnouncements();return `<section class="panel">${liveCatalogNote()}<div class="panelHead"><div><h2>Hero slides</h2><p>General announcements need no product. Product announcements are explicitly linked to a product or combo, which is used for both the click destination and the media fallback.</p></div><button class="gold" onclick="announcementForm()">+ Add announcement</button></div><div class="announcementAdmin">${data.announcements.sort((a,b)=>(a.order||0)-(b.order||0)).map((s,i)=>{
   const isProduct=s.announcementType==='product';
   const targetName=isProduct?(s.targetType==='combo'?(combo(s.comboId)?.name||'(deleted combo)'):(product(s.productId)?.name||'(deleted product)')):'';
   return `<article><div class="announcementInfo"><span class="typeTag">${isProduct?'PRODUCT':'GENERAL'}</span><span class="typeTag">${esc(s.label||'ANNOUNCEMENT')}</span><h3>${esc(s.title||'')}</h3><p>${esc(s.text||'')}</p><small>${isProduct?`Linked to: ${esc(targetName)}`:`CTA: ${esc(s.actionType==='none'||!s.actionType?'None':s.actionType)}`} · ${s.mediaType==='video'?'🎬 Video':s.image?'🖼️ Image':'No media'} · ${s.active?'Active':'Inactive'}</small></div><div class="cardActions"><button class="outline" onclick="announcementForm(${i})">Edit</button><button class="outline dangerBtn" onclick="deleteAnnouncement('${esc(s.id)}')">Delete</button></div></article>`;
@@ -1689,7 +1723,7 @@ async function couponsPage(){
   await fetchProducts(); await fetchCategories(); // needed for the applicable-products/categories checkboxes in couponForm()
   return `<section class="panel"><div class="catalogWarning" style="border-color:#1a7a3d;background:#e9f7ee"><b>✅ Live on the storefront</b><p>Coupons you create, edit, enable or disable here take effect immediately for customers — no redeploy needed. Every discount is checked on our server at the moment an order is placed, so an expired, disabled, over-used, or restricted coupon can never actually be applied, even if a customer's screen hadn't refreshed yet. Customers see active offers on the homepage banner, a floating offer button, and a dropdown in Cart that only lists offers their current cart actually qualifies for.</p></div>
   <div class="panelHead"><div><h2>Coupons &amp; Offers</h2><p>Percentage or fixed discounts, with optional date range, minimum order value, usage limits, and product/category restrictions.</p></div><button class="gold" onclick="couponForm()">+ Add coupon</button></div>
-  <div class="comboAdmin">${(rows||[]).map(c=>`<article><span class="typeTag">${esc(c.discount_type.toUpperCase())}</span><h3>${esc(c.code)} — ${esc(c.name)}</h3><p>${esc(c.description||'')}</p><strong>${c.discount_type==='percentage'?c.discount_value+'% off':money(c.discount_value)+' off'}</strong><small>Min order ${money(c.min_order_value||0)}${c.max_discount?' · Max discount '+money(c.max_discount):''}${c.usage_limit?' · Limit '+c.usage_limit+' uses':''} · ${c.active?'Active':'Disabled'}${(c.applicable_products?.length)?' · '+c.applicable_products.length+' product(s) only':''}${(c.applicable_categories?.length)?' · '+c.applicable_categories.length+' categor'+(c.applicable_categories.length===1?'y':'ies')+' only':''}</small><div class="cardActions"><button class="outline" onclick="couponForm('${esc(c.id)}')">Edit</button><button class="outline" onclick="toggleCouponActive('${esc(c.id)}',${!c.active})">${c.active?'Disable':'Enable'}</button><button class="outline dangerBtn" onclick="deleteCoupon('${esc(c.id)}')">Delete</button></div></article>`).join('')||'<div class="empty smallEmpty">No coupons yet.</div>'}</div>
+  <div class="comboAdmin">${(rows||[]).map(c=>`<article><span class="typeTag">${esc(c.discount_type.toUpperCase())}</span><h3>${esc(c.code)} — ${esc(c.name)}</h3><p>${esc(c.description||'')}</p><strong>${c.discount_type==='percentage'?c.discount_value+'% off':money(c.discount_value)+' off'}</strong><small>Min order ${money(c.min_order_value||0)}${c.max_discount?' · Max discount '+money(c.max_discount):''}${c.usage_limit?' · Limit '+c.usage_limit+' uses':''} · ${c.active?'Active':'Disabled'}${c.is_public===false?' · Private (not advertised)':''}${(c.applicable_products?.length)?' · '+c.applicable_products.length+' product(s) only':''}${(c.applicable_categories?.length)?' · '+c.applicable_categories.length+' categor'+(c.applicable_categories.length===1?'y':'ies')+' only':''}</small><div class="cardActions"><button class="outline" onclick="couponForm('${esc(c.id)}')">Edit</button><button class="outline" onclick="toggleCouponActive('${esc(c.id)}',${!c.active})">${c.active?'Disable':'Enable'}</button><button class="outline dangerBtn" onclick="deleteCoupon('${esc(c.id)}')">Delete</button></div></article>`).join('')||'<div class="empty smallEmpty">No coupons yet.</div>'}</div>
   </section>`;
 }
 function couponForm(id=null){
@@ -1712,6 +1746,7 @@ function couponForm(id=null){
   <div class="formSection"><h3>Product restriction (optional)</h3><p>Leave nothing checked to allow every product. If any are checked, this coupon only applies when <b>every</b> item in the cart is one of these (server-enforced — see <code>public.validate_coupon</code>).</p><div class="checkGrid">${(data.products||[]).map(p=>`<label><input type="checkbox" class="cpProducts" value="${esc(p.id)}" ${selProducts.includes(p.id)?'checked':''}> ${esc(p.name)}</label>`).join('')||'<span class="tiny">No products yet.</span>'}</div></div>
   <div class="formSection"><h3>Category restriction (optional)</h3><p>Leave nothing checked to allow every category. If both product and category restrictions are set, the cart must satisfy both.</p><div class="checkGrid">${(data.categories||[]).map(cat=>`<label><input type="checkbox" class="cpCategories" value="${esc(cat.id)}" ${selCategories.includes(cat.id)?'checked':''}> ${esc(cat.name)}</label>`).join('')||'<span class="tiny">No categories yet.</span>'}</div></div>
   <label class="checkOnly"><input id="cpActive" type="checkbox" ${c.active!==false?'checked':''}> Active</label>
+  <label class="checkOnly"><input id="cpPublic" type="checkbox" ${c.is_public!==false?'checked':''}> Show publicly <small class="fieldHint">Untick for codes that should only be given out privately (e.g. the welcome-popup code) — they still work when typed in at the cart, but are not advertised in the offer banner, floating button or cart dropdown.</small></label>
   <button class="gold full" onclick="saveCoupon('${id?esc(id):''}')">Save coupon</button>`);
 }
 async function saveCoupon(id){
@@ -1729,10 +1764,11 @@ async function saveCoupon(id){
     end_date:document.getElementById('cpEnd').value||null,
     active:document.getElementById('cpActive').checked,
     applicable_products:[...document.querySelectorAll('.cpProducts:checked')].map(x=>x.value),
-    applicable_categories:[...document.querySelectorAll('.cpCategories:checked')].map(x=>x.value)
+    applicable_categories:[...document.querySelectorAll('.cpCategories:checked')].map(x=>x.value),
+    is_public:document.getElementById('cpPublic').checked
   };
   if(!row.code||!row.name||!row.discount_value){ toast('Code, name, and discount value are required'); return; }
-  const {error}=id?await sb.from('coupons').update(row).eq('id',id):await sb.from('coupons').insert(row);
+  const {error}=await upsertWithV33Fallback('coupons',row,['is_public'],id?'update':'insert',id);
   if(error){ toast('Could not save coupon: '+error.message); return; }
   toast('Coupon saved'); closeModal(); render();
 }
@@ -1978,6 +2014,199 @@ function openModal(html){document.getElementById('modalBody').innerHTML=html;doc
 function closeModal(){document.getElementById('modal').classList.remove('open')}
 document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
 
+
+/* =========================================================================
+   V33 — Site content editor (Admin → Site content) and Leads.
+   The editor is generated from JAYVI_SITE_DEFAULTS (site-content-defaults.js),
+   the SAME file the storefront uses for fallbacks — so every configurable
+   field automatically gets an editor, and a field added to the defaults
+   later needs no admin code. Saves to public.site_content.
+   ========================================================================= */
+const SC_BLOCKS=[
+  {id:'announcement_bar',title:'Announcement bar',desc:'The strip at the very top of every page. Use {freeShippingThreshold} or {shippingFlat} in a message to show the live value from Store settings. A message linking to #welcome opens the welcome popup and is hidden automatically while the popup is off.'},
+  {id:'welcome_popup',title:'First-visit offer popup',desc:'Shown once to new visitors after the delay below. The coupon code is only revealed after someone submits the form, and is saved with their details in Leads. The code must also exist as an active coupon in Coupons & Offers — tip: untick "Show publicly" there so it is not advertised elsewhere.'},
+  {id:'homepage',title:'Homepage sections',desc:'Show/hide, reorder and edit every homepage section. Hero slides themselves are managed under Homepage; product-driven rows (You\'ll love these, categories, combos) read live catalogue data.'},
+  {id:'brand',title:'Brand, contact, SEO & analytics',desc:'Brand colours recolour the whole storefront. Contact details feed the footer and menus. WhatsApp number and Instagram URL stay in Store settings → Customer updates; social links in Social Links.'}
+];
+const SC_IMAGE_KEYS=new Set(['image','imageUrl','logoUrl','ogImage']);
+const SC_LONG_KEYS=new Set(['text','body','story','description','successText']);
+const SC_SELECTS={
+  mode:[['rotate','Rotate one message at a time'],['marquee','Continuous scroll']],
+  action:[['popup','Open the welcome popup'],['link','Go to a link']],
+  target:[['','Show matching products'],['combos','Jump to combos']]
+};
+const SC_HINTS={
+  ctaTarget:'A section link like #shop, #best-sellers, #combos, #offers, #category/rice, #product/peanut — or a full https:// URL.',
+  secondaryTarget:'e.g. #best-sellers',
+  link:'Optional. e.g. #shop, #welcome, #offers, #category/snacks or https://…',
+  keywords:'Comma-separated. Used only when no products are ticked — matches product names.',
+  pairings:'Comma-separated serving ideas.',
+  icon:'Font Awesome icon name, e.g. fa-seedling, fa-box-open, fa-heart.',
+  ratingValue:'Optional, e.g. 4.8. Leave blank to show the average of approved website reviews.',
+  reshowAfterDays:'After someone closes the popup, show it again after this many days (0 = never).',
+  ga4Id:'Google Analytics 4 measurement ID, e.g. G-XXXXXXXXXX. Blank = no analytics script loaded.',
+  progressMessage:'{amount} is replaced with the amount still needed.',
+  maxItems:'Maximum products per tab.',
+  startDate:'Optional. Banner hides before this date.', endDate:'Optional. Banner hides after this date.'
+};
+let _sc={}, _scCoupon={code:''}, _scTab='announcement_bar', _scLive=true, _scSection='hero', _scCouponCheck='';
+function scLabel(k){ return String(k).replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase()).replace(/\bIds\b/,'').replace(/\bCta\b/,'Button').trim(); }
+function scGet(path,root=_sc){ return path.split('.').reduce((o,k)=>o==null?undefined:o[k],root); }
+function scSet(path,val){ const ks=path.split('.'); let o=_sc; ks.slice(0,-1).forEach((k,i)=>{ if(o[k]==null) o[k]=/^\d+$/.test(ks[i+1])?[]:{}; o=o[k]; }); o[ks[ks.length-1]]=val; }
+function scDefault(path){ return scGet(path.split('.').map(k=>/^\d+$/.test(k)?'0':k).join('.'),JAYVI_SITE_DEFAULTS); }
+async function fetchSiteContent(){
+  const {data:rows,error}=await sb.from('site_content').select('*');
+  _scLive=!error;
+  _sc={};
+  Object.keys(JAYVI_SITE_DEFAULTS).forEach(k=>{ const r=(rows||[]).find(x=>x.id===k); _sc[k]=jayviDeepMerge(JAYVI_SITE_DEFAULTS[k], r?.data||{}); });
+  const c=(rows||[]).find(x=>x.id==='welcome_popup_coupon'); _scCoupon={code:c?.data?.code||''};
+  if(!error) await scCheckCoupon();
+}
+async function scCheckCoupon(){
+  _scCouponCheck='';
+  const code=(_scCoupon.code||'').trim().toUpperCase(); if(!code) return;
+  const {data,error}=await sb.from('coupons').select('code,active,is_public,end_date').eq('code',code).maybeSingle();
+  if(error){ return; }
+  if(!data) _scCouponCheck=`⚠️ No coupon "${code}" exists yet — create it in Coupons & Offers, or the code customers receive will be rejected at checkout.`;
+  else if(!data.active) _scCouponCheck=`⚠️ Coupon "${code}" exists but is disabled.`;
+  else if(data.end_date && new Date(data.end_date)<new Date()) _scCouponCheck=`⚠️ Coupon "${code}" has expired.`;
+  else _scCouponCheck=`✅ Coupon "${code}" is active${data.is_public===false?' and private (not advertised publicly)':' — it is also advertised publicly; untick "Show publicly" in Coupons & Offers if it should only come from the popup'}.`;
+}
+function scInput(path,el,type){
+  let v=el.value;
+  if(type==='bool') v=el.checked;
+  else if(type==='num') v=el.value===''?'':Number(el.value);
+  else if(type==='list') v=el.value.split(',').map(x=>x.trim()).filter(Boolean);
+  scSet(path,v);
+  if(type==='img'){ const pv=document.getElementById('pv_'+path.replace(/\./g,'_')); if(pv) pv.innerHTML=v?`<img src="${esc(v)}" alt="">`:''; }
+}
+function scToggleIn(path,id,on){ const a=[...(scGet(path)||[])]; const i=a.indexOf(id); if(on&&i<0)a.push(id); if(!on&&i>=0)a.splice(i,1); scSet(path,a); }
+function scRowAdd(path){ const tpl=structuredClone(scDefault(path+'.0')??''); const blank=typeof tpl==='object'&&tpl?Object.fromEntries(Object.entries(tpl).map(([k,v])=>[k,typeof v==='boolean'?true:Array.isArray(v)?[]:typeof v==='number'?0:''])):''; const a=[...(scGet(path)||[]),blank]; scSet(path,a); scRender(); }
+function scRowDel(path,i){ const a=[...(scGet(path)||[])]; a.splice(i,1); scSet(path,a); scRender(); }
+function scRowMove(path,i,d){ const a=[...(scGet(path)||[])]; const j=i+d; if(j<0||j>=a.length) return; [a[i],a[j]]=[a[j],a[i]]; scSet(path,a); scRender(); }
+async function scUpload(evt,path){
+  const file=evt.target.files?.[0]; if(!file) return;
+  const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'-').toLowerCase();
+  const key=`${path.split('.')[0]}/${Date.now()}-${safe}`;
+  toast('Uploading '+file.name+'…');
+  const {error}=await sb.storage.from('site-media').upload(key,file,{cacheControl:'31536000',upsert:false});
+  if(error){ toast('Upload failed: '+error.message+' — has supabase_migration_v33_brand_upgrade.sql been run (it creates the site-media bucket)?'); evt.target.value=''; return; }
+  const {data:pub}=sb.storage.from('site-media').getPublicUrl(key);
+  scSet(path,pub.publicUrl); scRender(); toast('Uploaded — remember to Save.');
+}
+function scField(path,key,value,def){
+  const lab=esc(scLabel(key)), hint=SC_HINTS[key]?`<small class="fieldHint">${esc(SC_HINTS[key])}</small>`:'';
+  const id=path.replace(/\./g,'_');
+  if(key==='label' && path.split('.').length===4) return ''; // internal section name
+  if(key==='id' && /\.tabs\.\d+\.id$/.test(path)) return `<label>Shows products flagged<input value="${esc({best:'Bestseller',new:'New',popular:'Popular',healthy:'Healthy'}[value]||value)}" disabled></label>`;
+  if(typeof def==='boolean'||typeof value==='boolean') return `<label class="checkOnly"><input type="checkbox" ${value?'checked':''} onchange="scInput('${path}',this,'bool')"> ${lab}</label>`;
+  if(typeof def==='number') return `<label>${lab}<input type="number" value="${esc(value)}" onchange="scInput('${path}',this,'num')">${hint}</label>`;
+  if(key==='productIds') return `<div class="formSection"><h3>${lab || 'Products'}</h3><p>Tick products to show. Leave all unticked to use keywords instead.</p><div class="checkGrid">${(data.products||[]).map(p=>`<label><input type="checkbox" ${(value||[]).includes(p.id)?'checked':''} onchange="scToggleIn('${path}','${esc(p.id)}',this.checked)"> ${esc(p.name)}</label>`).join('')||'<span class="tiny">No products loaded.</span>'}</div></div>`;
+  if(key==='productId') return `<label>Product<select onchange="scInput('${path}',this,'str')"><option value="">— use keyword —</option>${(data.products||[]).map(p=>`<option value="${esc(p.id)}" ${p.id===value?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>`;
+  if(Array.isArray(def)||Array.isArray(value)){
+    const sample=(def&&def[0]!==undefined)?def[0]:(value||[])[0];
+    if(sample===undefined||typeof sample!=='object') return `<label class="fullLabel">${lab}<input value="${esc((value||[]).join(', '))}" onchange="scInput('${path}',this,'list')">${hint}</label>`;
+    const rows=(value||[]).map((row,i)=>`<div class="scRow"><div class="scRowHead"><b>${esc(row.title||row.label||row.text||row.caption||(key==='tabs'?row.id:'')||('Item '+(i+1)))}</b><span><button class="outline" onclick="scRowMove('${path}',${i},-1)" aria-label="Move up">↑</button><button class="outline" onclick="scRowMove('${path}',${i},1)" aria-label="Move down">↓</button><button class="outline dangerBtn" onclick="scRowDel('${path}',${i})">Remove</button></span></div><div class="formGrid">${Object.keys({...sample,...row}).map(k=>scField(`${path}.${i}.${k}`,k,row[k],sample[k])).join('')}</div></div>`).join('');
+    return `<div class="formSection"><h3>${lab}</h3>${hint}${rows||'<div class="empty smallEmpty">None yet.</div>'}<button class="outline" onclick="scRowAdd('${path}')">+ Add</button></div>`;
+  }
+  if(def&&typeof def==='object'&&!Array.isArray(def)){
+    if(path.endsWith('.colors')) return `<div class="formSection"><h3>Brand colours</h3><p>Only these six base colours are needed — every tint and shade on the site is derived from them.</p><div class="formGrid">${Object.keys(def).map(k=>`<label>${esc(scLabel(k))}<span class="colorRow"><input type="color" value="${esc(value?.[k]||def[k])}" onchange="scInput('${path}.${k}',this,'str');this.nextElementSibling.value=this.value"><input value="${esc(value?.[k]||def[k])}" maxlength="7" onchange="scInput('${path}.${k}',this,'str');this.previousElementSibling.value=this.value"></span></label>`).join('')}</div><button class="outline" onclick="scSet('${path}',structuredClone(JAYVI_SITE_DEFAULTS.brand.colors));scRender()">Reset to Jayvi palette</button></div>`;
+    return `<div class="formSection"><h3>${lab}</h3><div class="formGrid">${Object.keys({...def,...(value||{})}).map(k=>scField(`${path}.${k}`,k,value?.[k],def[k])).join('')}</div></div>`;
+  }
+  if(SC_SELECTS[key]) return `<label>${lab}<select onchange="scInput('${path}',this,'str')">${SC_SELECTS[key].map(([v,t])=>`<option value="${v}" ${v===(value||'')?'selected':''}>${esc(t)}</option>`).join('')}</select>${hint}</label>`;
+  if(key==='startDate'||key==='endDate') return `<label>${lab}<input type="date" value="${esc(value||'')}" onchange="scInput('${path}',this,'str')">${hint}</label>`;
+  if(SC_IMAGE_KEYS.has(key)) return `<label class="fullLabel">${lab}<input value="${esc(value||'')}" placeholder="Upload, or paste an image URL / images/… path" oninput="scInput('${path}',this,'img')"><span class="scImgRow"><span class="scPreview" id="pv_${id}">${value?`<img src="${esc(value)}" alt="">`:''}</span><label class="outline uploadBtn">Upload image<input type="file" accept="image/webp,image/jpeg,image/png,image/avif" style="display:none" onchange="scUpload(event,'${path}')"></label></span><small class="fieldHint">Use real photography or your original pack shots — WebP, ideally under 300 KB.</small></label>`;
+  if(SC_LONG_KEYS.has(key) && !/\.(messages|items|tiles)\.\d+\.text$/.test(path)) return `<label class="fullLabel">${lab}<textarea rows="${key==='story'?7:3}" onchange="scInput('${path}',this,'str')">${esc(value||'')}</textarea>${hint}</label>`;
+  return `<label>${lab}<input value="${esc(value??'')}" onchange="scInput('${path}',this,'str')">${hint}</label>`;
+}
+function scBlockForm(id){
+  const def=JAYVI_SITE_DEFAULTS[id], val=_sc[id];
+  return Object.keys(def).map(k=>scField(`${id}.${k}`,k,val[k],def[k])).join('');
+}
+function scHomepageMarkup(){
+  const hp=_sc.homepage, defs=JAYVI_SITE_DEFAULTS.homepage.sections;
+  const order=[...hp.sectionOrder]; Object.keys(defs).forEach(k=>{ if(!order.includes(k)) order.push(k); }); hp.sectionOrder=order;
+  if(!defs[_scSection]) _scSection=order[0];
+  const list=order.map((k,i)=>{ const s=hp.sections[k]||{}; return `<div class="scSecRow ${k===_scSection?'active':''}"><button class="scSecName" onclick="_scSection='${k}';scRender()">${esc(defs[k]?.label||k)}</button><label class="scSwitch" title="Show on homepage"><input type="checkbox" ${s.enabled!==false?'checked':''} onchange="scSet('homepage.sections.${k}.enabled',this.checked);scRender()"> ${s.enabled!==false?'Visible':'Hidden'}</label><span><button class="outline" onclick="scMoveSection(${i},-1)" aria-label="Move up">↑</button><button class="outline" onclick="scMoveSection(${i},1)" aria-label="Move down">↓</button></span></div>`; }).join('');
+  const d=defs[_scSection], v=hp.sections[_scSection]||{};
+  const editor=Object.keys(d).filter(k=>k!=='enabled').map(k=>scField(`homepage.sections.${_scSection}.${k}`,k,v[k],d[k])).join('');
+  return `<div class="scHomeGrid"><div class="scSecList"><h3>Order &amp; visibility</h3>${list}</div><div class="scSecEditor"><h3>${esc(d.label||_scSection)}</h3>${editor||'<p class="tiny">No editable fields — this section reads live data.</p>'}</div></div>`;
+}
+function scMoveSection(i,d){ const o=_sc.homepage.sectionOrder; const j=i+d; if(j<0||j>=o.length) return; [o[i],o[j]]=[o[j],o[i]]; scRender(); }
+function siteContentMarkup(){
+  const b=SC_BLOCKS.find(x=>x.id===_scTab);
+  const warn=_scLive?'':`<div class="catalogWarning"><b>Site content table not found</b><p>Run <code>supabase_migration_v33_brand_upgrade.sql</code> in Supabase first. Until then the storefront uses the built-in defaults shown here, and saving will fail.</p></div>`;
+  const coupon=_scTab==='welcome_popup'?`<div class="formSection"><h3>Coupon given after sign-up</h3><p>Stored privately — only revealed to a customer after they submit the form.</p><label>Coupon code<input value="${esc(_scCoupon.code)}" style="text-transform:uppercase" onchange="_scCoupon.code=this.value.trim().toUpperCase();scCheckCoupon().then(scRender)"></label>${_scCouponCheck?`<p class="tiny">${esc(_scCouponCheck)}</p>`:''}</div>`:'';
+  const body=_scTab==='homepage'?scHomepageMarkup():scBlockForm(_scTab);
+  return `<section class="panel">${warn}<div class="panelHead"><div><h2>Site content</h2><p>Everything here updates the live storefront as soon as you save — no developer or redeploy needed.</p></div><a class="outline" href="index.html" target="_blank" rel="noopener">Open storefront ↗</a></div>
+  <div class="scTabs">${SC_BLOCKS.map(x=>`<button class="${x.id===_scTab?'active':''}" onclick="_scTab='${x.id}';scRender()">${esc(x.title)}</button>`).join('')}</div>
+  <p class="scDesc">${esc(b.desc)}</p>${coupon}${body}
+  <div class="scSaveBar"><button class="outline" onclick="scResetBlock('${_scTab}')">Reset this tab to defaults</button><button class="gold" onclick="scSave('${_scTab}')">Save ${esc(b.title.toLowerCase())}</button></div></section>`;
+}
+function scRender(){ if(tab==='sitecontent') app.innerHTML=siteContentMarkup(); }
+function scResetBlock(id){ if(!confirm('Reset this tab to the built-in defaults? (Nothing is saved until you press Save.)')) return; _sc[id]=structuredClone(JAYVI_SITE_DEFAULTS[id]); scRender(); }
+async function scSave(id){
+  if(id==='welcome_popup' && _sc.welcome_popup.enabled && !_scCoupon.code){ toast('Enter the coupon code customers should receive before enabling the popup.'); return; }
+  if(id==='brand'){ const bad=Object.entries(_sc.brand.colors||{}).filter(([,v])=>!/^#[0-9a-f]{6}$/i.test(v||'')); if(bad.length){ toast('Colours must be 6-digit hex values like #9E1B32: '+bad.map(x=>x[0]).join(', ')); return; } }
+  const rows=[{id,data:_sc[id],is_public:true}];
+  if(id==='welcome_popup') rows.push({id:'welcome_popup_coupon',data:{code:(_scCoupon.code||'').toUpperCase()},is_public:false});
+  const {error}=await sb.from('site_content').upsert(rows);
+  if(error){ toast('Could not save: '+error.message+(/relation|does not exist|schema cache/i.test(error.message)?' — run supabase_migration_v33_brand_upgrade.sql first.':'')); return; }
+  if(id==='welcome_popup') await scCheckCoupon();
+  toast('Saved — live on the storefront.'); scRender();
+}
+async function siteContentPage(){ await fetchProducts(); await fetchSiteContent(); return siteContentMarkup(); }
+
+/* ---------- Leads (welcome popup sign-ups) ---------- */
+let _leadsSearch='', _leadsRows=[];
+async function leadsPage(){
+  const {data:rows,error,count}=await sb.from('leads').select('*',{count:'exact'}).order('created_at',{ascending:false}).limit(500);
+  if(error) return `<section class="panel"><div class="empty">Could not load leads: ${esc(error.message)}. Has supabase_migration_v33_brand_upgrade.sql been run?</div></section>`;
+  _leadsRows=rows||[];
+  const q=_leadsSearch.toLowerCase();
+  const list=_leadsRows.filter(r=>!q||`${r.name||''} ${r.mobile||''} ${r.email||''}`.toLowerCase().includes(q));
+  return `<section class="panel"><div class="panelHead"><div><h2>Leads</h2><p>${count||0} sign-up${count===1?'':'s'} from the first-visit offer popup. Showing the latest ${Math.min(500,count||0)}; export includes everything.</p></div><button class="gold" onclick="exportLeadsCsv()">⬇ Export CSV</button></div>
+  <input class="leadsSearch" placeholder="Search name, mobile or email" value="${esc(_leadsSearch)}" onchange="_leadsSearch=this.value;render()">
+  <div class="leadsTableWrap"><table class="leadsTable"><thead><tr><th>Date</th><th>Name</th><th>Mobile</th><th>Email</th><th>Coupon</th><th>Page</th><th></th></tr></thead><tbody>
+  ${list.map(r=>`<tr><td>${esc(new Date(r.created_at).toLocaleString('en-IN'))}</td><td>${esc(r.name||'')}</td><td>${r.mobile?`<a href="https://wa.me/91${esc(r.mobile)}" target="_blank" rel="noopener">${esc(r.mobile)}</a>`:''}</td><td>${r.email?`<a href="mailto:${esc(r.email)}">${esc(r.email)}</a>`:''}</td><td>${esc(r.coupon_code||'')}</td><td>${esc(r.source_page||'')}</td><td><button class="outline dangerBtn" onclick="deleteLead('${esc(r.id)}')">Delete</button></td></tr>`).join('')||'<tr><td colspan="7"><div class="empty smallEmpty">No leads yet.</div></td></tr>'}
+  </tbody></table></div></section>`;
+}
+function csvCell(v){ let s=String(v??''); if(/^[=+\-@\t\r]/.test(s)) s="'"+s; return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; }
+async function exportLeadsCsv(){
+  const all=[]; let from=0;
+  while(true){
+    const {data,error}=await sb.from('leads').select('*').order('created_at',{ascending:false}).range(from,from+999);
+    if(error){ toast('Export failed: '+error.message); return; }
+    all.push(...(data||[])); if(!data||data.length<1000) break; from+=1000;
+  }
+  const head=['created_at','name','mobile','email','coupon_code','source','source_page'];
+  const csv=[head.join(','),...all.map(r=>head.map(h=>csvCell(r[h])).join(','))].join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`jayvi-leads-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); a.remove();
+  toast(`Exported ${all.length} lead${all.length===1?'':'s'}.`);
+}
+async function deleteLead(id){
+  if(!confirm('Delete this lead permanently?')) return;
+  const {error}=await sb.from('leads').delete().eq('id',id);
+  if(error){ toast('Could not delete: '+error.message); return; }
+  render();
+}
+
+/* ---------- Saving new V33 columns before the migration is run ----------
+   If a save fails only because a V33 column doesn't exist yet, retry once
+   without those columns so existing admin work is never blocked, and tell
+   the admin what to run. */
+async function upsertWithV33Fallback(table,row,cols,op='upsert',matchId=null){
+  const run=r=>op==='update'?sb.from(table).update(r).eq('id',matchId):op==='insert'?sb.from(table).insert(r):sb.from(table).upsert(r);
+  let {error}=await run(row);
+  if(error && cols.some(c=>(error.message||'').includes(c))){
+    const r={...row}; cols.forEach(c=>delete r[c]);
+    ({error}=await run(r));
+    if(!error) toast('Saved — but the new V33 fields were skipped. Run supabase_migration_v33_brand_upgrade.sql to enable them.');
+  }
+  return {error};
+}
+
 /* ---------- Back-button / history sync (item 12) ---------- */
 // Small and deliberately not a routing framework, matching the app.js
 // approach: Dashboard → Products → (Edit) Product modal, then Back
@@ -2077,7 +2306,7 @@ window.announcementForm=function(index=-1){
  const s=index>=0?data.announcements[index]:{id:'',label:'',title:'',em:'',text:'',image:'',mediaType:'image',posterUrl:'',showPrice:true,announcementType:'general',targetType:'',actionType:'shop',actionTarget:'',productId:'',comboId:'',active:true,order:data.announcements.length+1};
  window._announcementDraft=s;
  window._annDraft={image:s.image||'',mediaType:s.mediaType||'image',posterUrl:s.posterUrl||''};
- openModal(`<div class="eyebrow">HOMEPAGE ANNOUNCEMENT</div><h2>${index<0?'Add announcement':'Edit announcement'}</h2><div class="formGrid"><label>Label<input id="aLabel" value="${esc(s.label||'')}"></label><label>Title<input id="aTitle" value="${esc(s.title||'')}"></label><label>Emphasis<input id="aEm" value="${esc(s.em||'')}"></label><label>Display position<input id="aOrder" type="number" value="${s.order||1}"></label><label class="fullLabel">Message<textarea id="aText" rows="3">${esc(s.text||'')}</textarea></label></div>
+ openModal(`<div class="eyebrow">HOMEPAGE ANNOUNCEMENT</div><h2>${index<0?'Add announcement':'Edit announcement'}</h2><div class="formGrid"><label>Label<input id="aLabel" value="${esc(s.label||'')}"></label><label>Title<input id="aTitle" value="${esc(s.title||'')}"></label><label>Emphasis<input id="aEm" value="${esc(s.em||'')}"></label><label>Display position<input id="aOrder" type="number" value="${s.order||1}"></label><label class="fullLabel">Message<textarea id="aText" rows="3">${esc(s.text||'')}</textarea></label><label>Main button text <small class="fieldHint">Blank = "Shop now"</small><input id="aCtaLabel" value="${esc(s.ctaLabel||'')}" placeholder="Shop now"></label><label>Second button text <small class="fieldHint">Blank = the default from Site content</small><input id="aSecLabel" value="${esc(s.secondaryLabel||'')}" placeholder="Explore bestsellers"></label><label class="fullLabel">Second button link<input id="aSecTarget" value="${esc(s.secondaryTarget||'')}" placeholder="#best-sellers, #combos, #category/rice or https://…"></label></div>
 <div class="formSection">
   <h3>Announcement type</h3>
   <p>A General announcement (e.g. "Independence Day special") needs no product. A Product announcement (e.g. "Peanut Chutney — perfect for breakfast") is explicitly linked to one product or combo — that link drives both the click destination and the media fallback, separate from any custom media below.</p>
@@ -2207,7 +2436,10 @@ window.saveAnnouncement=async function(i){
     announcementType:type, targetType:type==='product'?targetType:'',
     actionType, actionTarget, productId, comboId,
     active:document.getElementById('aActive').checked,
-    order:Number(document.getElementById('aOrder').value||1)
+    order:Number(document.getElementById('aOrder').value||1),
+    ctaLabel:document.getElementById('aCtaLabel').value.trim(),
+    secondaryLabel:document.getElementById('aSecLabel').value.trim(),
+    secondaryTarget:document.getElementById('aSecTarget').value.trim()
   };
   if(!s.label||!s.title){ toast('Label and title are required'); return; }
   const ok=await saveAnnouncementToSupabase(s);
