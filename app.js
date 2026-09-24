@@ -418,7 +418,7 @@ function responsiveImgAttrs(path,sizes){
 }
 
 /* ---------- State ---------- */
-let CONFIG, products=[], categories=[], mealTagList=[];
+let CONFIG, products=[], categories=[], mealTagList=[], pairingTagList=[];
 let cat='all', heroIndex=0, heroTimer=null, meal='idli', selectedVariants={}, mealFilter=null, discoveryFilter=null, availabilityFilter='all', priceBucket='all', sortValue='featured';
 let cart=loadCart(), wishlist=loadWishlist(), mapsReady=false;
 
@@ -594,7 +594,12 @@ async function loadCategoriesAndMealTagsFromSupabase(){
       imageType:c.image_type||'packshot' // V34.1 (optional column) — category photos default to "show whole"
     }));
     CONFIG.mealTags=[...dbMealTags].sort((a,b)=>(a.display_order||0)-(b.display_order||0)).map(t=>({
-      id:t.id, name:t.name, enabled:t.enabled, order:t.display_order||0
+      id:t.id, name:t.name, enabled:t.enabled, order:t.display_order||0,
+      // V34.2 product tags: a "pairing" tag (Idli, Dosa, Rice + Ghee…) also
+      // appears in "Made for every meal" and on the product page; a
+      // use-case tag (Breakfast, Travel, Gifting…) only groups products,
+      // e.g. for occasions. Column absent (migration not run) = pairing.
+      pairing:t.show_as_pairing!==false
     }));
     CONFIG.mealLabels=Object.fromEntries(CONFIG.mealTags.map(t=>[t.id,t.name]));
     return true;
@@ -641,7 +646,9 @@ async function loadSettingsAnnouncementsReviewsFromSupabase(){
       id:a.id, label:a.label, title:a.title, em:a.em, text:a.text,
       image:a.image, mediaType:a.media_type||'image', posterUrl:a.poster_url||'',
       // V34 (supabase_migration_v34_hero_media.sql — optional columns; absent = old behaviour)
-      mobileImage:a.mobile_image||'', imageType:a.image_type||'lifestyle', imageFocus:a.image_focus||'', mobileImageFocus:a.mobile_image_focus||'', textPlacement:a.text_placement||'',
+      mobileImage:a.mobile_image||'', imageType:a.image_type||'lifestyle', imageFocus:a.image_focus||'',
+      // V34.2 (optional columns — absent = split layout, the safe default)
+      layout:a.layout||'split', mobileLayout:a.mobile_layout||'auto', overlayStrength:a.overlay_strength||'auto', badge:a.badge_text||'', mobileImageFocus:a.mobile_image_focus||'', textPlacement:a.text_placement||'',
       showPrice:a.show_price,
       ctaLabel:a.cta_label||'', secondaryLabel:a.secondary_cta_label||'', secondaryTarget:a.secondary_cta_target||'',
       // V32.3 (spec 3): the explicit product/combo ASSOCIATION, separate
@@ -697,6 +704,8 @@ function sync(){
     .map(p=>({...p,media:p.media?.length?p.media:(p.image?[{type:'image',path:p.image}]:PLACEHOLDER_MEDIA)}));
   categories=(CONFIG.categories||[]).filter(c=>c.enabled).sort((a,b)=>a.order-b.order);
   mealTagList=(CONFIG.mealTags||[]).filter(t=>t.enabled).sort((a,b)=>a.order-b.order);
+  pairingTagList=mealTagList.filter(t=>t.pairing!==false);
+  if(pairingTagList.length && !pairingTagList.some(t=>t.id===meal)) meal=pairingTagList[0].id;
   if($('topShipping')) $('topShipping').textContent=`FREE SHIPPING ABOVE ${money(CONFIG.store.freeShippingThreshold)}`;
   // V32.3 fix (spec 20.C): the duplicate (aria-hidden, for the seamless
   // marquee loop) and the "Free delivery" trust-badge both had the same
@@ -1016,7 +1025,7 @@ function renderCategoryCards(){
     const count=inCat.length?`${inCat.length} product${inCat.length>1?'s':''}`:`${combos.length} combo${combos.length>1?'s':''}`;
     const action=inCat.length?`filterByCategory('${c.id}')`:`navigate('#combos')`;
     return `<button class="catCard" type="button" onclick="${action}">
-      <div class="catImg${isPackshot(c.imageType,!c.imageUrl)?' contain':''}">${imgTag(img,'(max-width:767px) 45vw, 280px',c.name)}</div>
+      <div class="catImg${fitAttrs(isPackshot(c.imageType,!c.imageUrl))}">${imgTag(img,'(max-width:767px) 45vw, 280px',c.name)}</div>
       <h3>${escapeHtml(c.name)}</h3><p>${escapeHtml(categoryCopy(c)||count)}</p><span class="catLink">Shop now →</span>
     </button>`;
   }).filter(Boolean).join('');
@@ -1033,40 +1042,55 @@ function renderCategoryCards(){
 // name keywords. A card with no matching products is hidden. If Admin has
 // removed every card, falls back to the pre-V33 meal-tag cards.
 let occasionItems=[];
-// V34.1: every occasion is Admin data — title, description, icon OR a
-// dedicated lifestyle image, products, button, order, active. The picture is
-// ONLY ever the occasion's own image; with none, its icon is shown. Product
-// pouches are never borrowed as occasion pictures.
+// V34.2 occasions. Admin data only: name, description, real food/lifestyle
+// photo (type + focal point), products, product tags, button, order, active.
+//   products = hand-picked productIds  ∪  products carrying ANY selected tag
+//   (keywords are used only while neither is set, so the section works
+//   before tags are assigned). No photo → a clean typographic tile in Jayvi
+//   colours — never an emoji default and never a product pouch.
+// An optional Admin icon is still honoured if someone deliberately sets one.
+function occasionProducts(it){
+  const ids=new Set(it.productIds||[]), tags=new Set(it.tagIds||[]);
+  let list=products.filter(p=>ids.has(p.id) || (tags.size && (p.mealTags||[]).some(t=>tags.has(t))));
+  if(!ids.size && !tags.size) list=resolveProducts([],it.keywords);
+  return list;
+}
 function occasionIconMarkup(icon){
   const v=String(icon||'').trim();
   if(/^fa-[a-z0-9-]+$/.test(v)) return `<i class="fa-solid ${v}" aria-hidden="true"></i>`;
-  return escapeHtml(v||'🍽️');
+  return escapeHtml(v);
 }
+const OCC_TILES=['maroon','green','gold'];
 function renderOccasionCards(){
   const box=$('occasionGrid'), section=$('occasionSection');
   if(!box||!section) return;
   const combos=(CONFIG.combos||[]).filter(c=>c.active);
   occasionItems=(sec('occasions').items||[]).filter(it=>it && it.title && it.active!==false)
-    .map((it,i)=>({...it,_i:i,list:it.target==='combos'?[]:resolveProducts(it.productIds,it.keywords)}))
+    .map((it,i)=>({...it,_i:i,list:it.target==='combos'?[]:occasionProducts(it)}))
     // A card must lead somewhere: its own button link, the combos, or at least one product.
     .filter(it=>it.ctaTarget || (it.target==='combos'?combos.length:it.list.length))
     .sort((a,b)=>(Number(a.order)||999)-(Number(b.order)||999) || a._i-b._i);
   const card=(it,i)=>{
-    const icon=occasionIconMarkup(it.icon||it.emoji);
-    const media=it.image
-      ? `<div class="occImg${isPackshot(it.imageType)?'':' cover'}">${imgTag(it.image,'(max-width:767px) 45vw, 220px',it.title)}</div>`
-      : `<div class="occImg occIconOnly"><span class="occIcon">${icon}</span></div>`;
-    const sub=it.description||(it.target==='combos'?combos.map(c=>c.name):it.list.map(p=>p.name)).slice(0,3).join(', ');
-    return `<button class="occCard" type="button" onclick="setOccasion(${i})">${media}<div class="occBody"><h3>${escapeHtml(it.title)}</h3>${sub?`<p>${escapeHtml(sub)}</p>`:''}${it.ctaLabel?`<span class="occCta">${escapeHtml(it.ctaLabel)} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>`:''}</div></button>`;
+    let media;
+    if(it.image){
+      const pack=isPackshot(it.imageType);
+      media=`<div class="occImg${pack?' fit-pack':' cover fit-life'}"${pack?'':` style="--focus:${focusToCss(it.imageFocus)}"`}>${imgTag(it.image,'(max-width:767px) 46vw, 260px',it.title)}</div>`;
+    } else {
+      const icon=it.icon?`<span class="occIcon">${occasionIconMarkup(it.icon)}</span>`:'';
+      media=`<div class="occImg occTile occTile-${OCC_TILES[i%OCC_TILES.length]}" aria-hidden="true">${icon}<span class="occTileName">${escapeHtml(it.description||it.title)}</span></div>`;
+    }
+    const tile=!it.image;
+    const sub=tile?'':(it.description||(it.target==='combos'?combos.map(c=>c.name):it.list.map(p=>p.name)).slice(0,3).join(', '));
+    return `<button class="occCard${tile?' hasTile':''}" type="button" onclick="setOccasion(${i})">${media}<div class="occBody"><h3>${escapeHtml(it.title)}</h3>${sub?`<p>${escapeHtml(sub)}</p>`:''}${it.ctaLabel?`<span class="occCta">${escapeHtml(it.ctaLabel)} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>`:''}</div></button>`;
   };
   let cards='';
   if(occasionItems.length){
     cards=occasionItems.map(card).join('');
   } else if(!(sec('occasions').items||[]).length){
-    // Nothing configured at all → meal tags, shown with an icon (never a pouch).
-    cards=mealTagList.map(t=>{
+    // Nothing configured at all → one tile per use-case/pairing tag that has products.
+    cards=mealTagList.map((t,i)=>{
       const m=products.filter(p=>(p.mealTags||[]).includes(t.id)); if(!m.length) return '';
-      return `<button class="occCard" type="button" onclick="setMealFilter('${t.id}')"><div class="occImg occIconOnly"><span class="occIcon">🍽️</span></div><div class="occBody"><h3>${escapeHtml(t.name)}</h3><p>${m.length} product${m.length>1?'s':''}</p></div></button>`;
+      return `<button class="occCard" type="button" onclick="setMealFilter('${t.id}')"><div class="occImg occTile occTile-${OCC_TILES[i%OCC_TILES.length]}" aria-hidden="true"><span class="occTileName">${escapeHtml(t.name)}</span></div><div class="occBody"><h3>${escapeHtml(t.name)}</h3><p>${m.length} product${m.length>1?'s':''}</p></div></button>`;
     }).filter(Boolean).join('');
   }
   section.style.display=cards?'':'none';
@@ -1305,7 +1329,7 @@ function changeComboQty(id,d){
 const MEAL_DESCRIPTIONS={idli:'Idli + your favourite podi or chutney',dosa:'Dosa + your favourite chutney flavour',chapati:'Chapati works with every chutney and podi',rice:'Rice + ghee + chutney powder or podi'};
 function renderMeal(){
   if(!$('mealTabs'))return;
-  $('mealTabs').innerHTML=mealTagList.map(t=>`<button class="${t.id===meal?'active':''}" onclick="setMeal('${t.id}')">${escapeHtml(t.name)}</button>`).join('');
+  $('mealTabs').innerHTML=pairingTagList.map(t=>`<button class="${t.id===meal?'active':''}" onclick="setMeal('${t.id}')">${escapeHtml(t.name)}</button>`).join('');
   const rec=products.filter(p=>p.mealTags?.includes(meal));
   const desc=MEAL_DESCRIPTIONS[meal]||'Pick from all products that fit this meal';
   // V32.6 (root cause of the "combo -/+ doesn't show" bug, item 6): this
@@ -1531,7 +1555,7 @@ function heroSlides(){
   if(a.length) return a;
   // V33: no active hero slide → the brand slide from Site content → Homepage → Hero.
   const f=sec('hero').fallback||{};
-  return [{id:'fallback',label:f.eyebrow||'',title:f.title||'',em:f.em||'',text:f.text||'',image:f.image||'',mobileImage:f.mobileImage||'',imageType:f.imageType||'lifestyle',imageFocus:f.imageFocus||'',mobileImageFocus:f.mobileImageFocus||'',textPlacement:f.textPlacement||'',mediaType:'image',announcementType:'general',actionType:'hash',actionTarget:f.ctaTarget||'#shop',ctaLabel:f.ctaLabel||'',showPrice:false,active:true}];
+  return [{id:'fallback',label:f.eyebrow||'',title:f.title||'',em:f.em||'',text:f.text||'',image:f.image||'',mobileImage:f.mobileImage||'',imageType:f.imageType||'lifestyle',layout:f.layout||'split',mobileLayout:f.mobileLayout||'auto',overlayStrength:f.overlayStrength||'auto',badge:f.badge||'',imageFocus:f.imageFocus||'',mobileImageFocus:f.mobileImageFocus||'',textPlacement:f.textPlacement||'',mediaType:'image',announcementType:'general',actionType:'hash',actionTarget:f.ctaTarget||'#shop',ctaLabel:f.ctaLabel||'',showPrice:false,active:true}];
 }
 // V34: focal point → CSS object-position. Accepts the Admin presets
 // ('center', 'top', 'bottom left', …) or an explicit "x% y%".
@@ -1569,34 +1593,54 @@ function heroShow(){
   // never cropped — packaging is always shown whole and unaltered).
   const heroImgEl=$('heroImg'), heroVideoEl=$('heroVideo'), box=$('heroImageBox');
   const stage=$('heroStage'), mSrc=$('heroMobileSrc');
+  const isVideo=!!(s.image && s.mediaType==='video');
+  const packMode=!isVideo && isPackshot(s.imageType,!s.image);
   if(stage){
-    const tp=['top','none'].includes(s.textPlacement)?s.textPlacement:'bottom';
-    stage.dataset.text=tp;
+    // V34.2 layout rules:
+    //  • pack shots are ALWAYS split — text never sits on packaging;
+    //  • phones use overlay only when the slide has its own phone image
+    //    (artwork made for it) or Admin forces it; otherwise split, so a
+    //    wide desktop photo is never squeezed under a headline.
+    const L=(!packMode && s.layout==='overlay')?'overlay':'split';
+    let ML=s.mobileLayout||'auto';
+    if(packMode) ML='split';
+    else if(ML==='auto') ML=(L==='overlay' && s.mobileImage)?'overlay':'split';
+    stage.dataset.layout=L; stage.dataset.mlayout=ML;
+    stage.dataset.text=['top','center','bottom','none'].includes(s.textPlacement)?s.textPlacement:'center';
+    stage.dataset.overlay=['none','light','medium','strong'].includes(s.overlayStrength)?s.overlayStrength:'auto';
+    stage.dataset.pack=packMode?'1':'0';
     stage.style.setProperty('--focus',focusToCss(s.imageFocus));
     stage.style.setProperty('--focus-m',focusToCss(s.mobileImageFocus||s.imageFocus));
+    stage.style.removeProperty('--ratio-m'); stage.style.removeProperty('--ratio-d');
   }
+  const badge=$('heroBadge'); if(badge){ badge.textContent=s.badge||''; badge.hidden=!s.badge; }
   if(s.image && s.mediaType==='video'){
     heroVideoEl.src=s.image; if(s.posterUrl) heroVideoEl.poster=s.posterUrl;
     heroVideoEl.style.display='block'; heroImgEl.style.display='none';
     heroVideoEl.play?.().catch(()=>{});
-    box?.classList.remove('contain');
+    box?.classList.remove('contain','fit-pack'); box?.classList.add('fit-life');
   } else {
     heroVideoEl.style.display='none'; heroImgEl.style.display='block';
     const fallbackImg=p?.image||combo?.image||firstRealImage(products.filter(x=>x.best))||firstRealImage(products)||'images/brand/placeholder.svg';
     const src=s.image||fallbackImg;
     // Photography fills the full-bleed stage; a pack shot is shown whole.
-    const pack=isPackshot(s.imageType,!s.image);
-    const attrs=responsiveImgAttrs(src,pack?'(max-width:767px) 70vw, 45vw':'100vw');
+    const pack=packMode;
+    const attrs=responsiveImgAttrs(src,'(max-width:767px) 100vw, 60vw');
     heroImgEl.src=attrs.src;
     if(attrs.srcset){ heroImgEl.srcset=attrs.srcset; heroImgEl.sizes=attrs.sizes; } else heroImgEl.removeAttribute('srcset');
     // Optional phone-specific artwork (4:5) via <picture><source media>.
     if(mSrc){
-      if(s.image && s.mobileImage){ const m=responsiveImgAttrs(s.mobileImage,'100vw'); mSrc.srcset=m.srcset||m.src; if(m.srcset) mSrc.sizes='100vw'; else mSrc.removeAttribute('sizes'); }
+      if(s.image && s.mobileImage && !pack){ const m=responsiveImgAttrs(s.mobileImage,'100vw'); mSrc.srcset=m.srcset||m.src; if(m.srcset) mSrc.sizes='100vw'; else mSrc.removeAttribute('sizes'); }
       else { mSrc.removeAttribute('srcset'); mSrc.removeAttribute('sizes'); }
     }
     heroImgEl.alt=[s.title,s.em].filter(Boolean).join(' ')||'Jayvi Foods';
     heroImgEl.onerror=()=>{ heroImgEl.onerror=null; heroImgEl.removeAttribute('srcset'); mSrc?.removeAttribute('srcset'); heroImgEl.src='images/brand/placeholder.svg'; };
+    // Split layout: the frame follows the photo's own shape (within limits)
+    // instead of cropping it to a fixed composition.
+    heroImgEl.onload=()=>setHeroRatio(heroImgEl);
+    if(heroImgEl.complete && heroImgEl.naturalWidth) setHeroRatio(heroImgEl);
     box?.classList.toggle('contain',pack);
+    box?.classList.toggle('fit-pack',pack); box?.classList.toggle('fit-life',!pack);
   }
   const btn=$('heroShop');
   if(btn){
@@ -1623,7 +1667,39 @@ function heroShow(){
   $('heroDots').innerHTML=a.length>1?a.map((_,i)=>`<button class="${i===heroIndex%a.length?'active':''}" aria-label="Show slide ${i+1}" onclick="heroIndex=${i};heroShow();restartHero()"></button>`).join(''):'';
   const g=document.querySelector('.heroGrid');
   if(g){ g.classList.remove('heroChange'); void g.offsetWidth; g.classList.add('heroChange'); }
+  fitHeroTitle(); requestAnimationFrame(fitHeroTitle);
 }
+// Frame ratio for the split layout, from the image actually displayed
+// (the phone image on phones). Phones: between 4:5 and 2:1. Computers:
+// between 5:4 and 16:9. Inside those limits nothing is cropped at all.
+function setHeroRatio(img){
+  const st=$('heroStage'); if(!st||!img.naturalWidth||!img.naturalHeight) return;
+  const r=img.naturalWidth/img.naturalHeight;
+  st.style.setProperty('--ratio-m',String(Math.min(2,Math.max(0.8,r))));
+  st.style.setProperty('--ratio-d',String(Math.min(16/9,Math.max(1.25,r))));
+  requestAnimationFrame(fitHeroTitle); // the column width may have changed
+}
+// Headline auto-fit: long Admin headlines step down in size until the
+// headline is at most 3 lines (never below 22px on phones / 30px on
+// computers) — so it can't become oversized, push the button off screen
+// or make the hero unnecessarily tall.
+function fitHeroTitle(){
+  const h=$('heroTitle'); if(!h) return;
+  h.style.fontSize='';
+  if($('heroStage')?.dataset.text==='none') return; // headline is visually hidden
+  const mobile=window.matchMedia('(max-width:767px)').matches;
+  const min=mobile?22:(window.innerWidth<1024?26:30), maxLines=3;
+  let size=parseFloat(getComputedStyle(h).fontSize)||28;
+  for(let guard=0; guard<30; guard++){
+    const lh=parseFloat(getComputedStyle(h).lineHeight)||size*1.1;
+    // layout height, not scrollHeight: italic glyphs overhang by a few px
+    if(h.getBoundingClientRect().height <= lh*(maxLines+0.5) || size<=min) break;
+    size-=1; h.style.fontSize=size+'px';
+  }
+}
+let _heroFitT=null;
+document.fonts?.ready?.then(()=>fitHeroTitle());
+window.addEventListener('resize',()=>{ clearTimeout(_heroFitT); _heroFitT=setTimeout(fitHeroTitle,120); });
 function restartHero(){clearInterval(heroTimer);startHero()}
 function startHero(){
   const n=(CONFIG.announcements||[]).filter(x=>x.active).length;
@@ -2994,7 +3070,9 @@ function sectionHowToEnjoy(p){
   if(lines.length) return accordion('How to enjoy', `<div class="pillRow">${lines.map(n=>`<span class="pill">${escapeHtml(n)}</span>`).join('')}</div>`);
   // Reuses mealTags — the exact same data already shown as "Works well
   // with" in the old modal — rather than a separate how-to-enjoy field.
-  const names=(p.mealTags||[]).map(m=>escapeHtml(mealTagList.find(t=>t.id===m)?.name||CONFIG.mealLabels?.[m]||m)).filter(Boolean);
+  // V34.2: only pairing tags read as "how to enjoy" — use-case tags (Travel, Gifting…) don't.
+  const names=(p.mealTags||[]).filter(m=>{ const t=mealTagList.find(x=>x.id===m); return t?t.pairing!==false:!!CONFIG.mealLabels?.[m]; })
+    .map(m=>escapeHtml(mealTagList.find(t=>t.id===m)?.name||CONFIG.mealLabels?.[m]||m)).filter(Boolean);
   if(!names.length) return '';
   return accordion('How to enjoy', `<div class="pillRow">${names.map(n=>`<span class="pill">${n}</span>`).join('')}</div>`);
 }
@@ -3313,6 +3391,51 @@ function imgTag(path,sizes,alt,extra=''){
 // (object-fit:contain), never cropped. 'lifestyle' = food/lifestyle photo →
 // fills its frame (cover). Anything borrowed from a product is a packshot.
 function isPackshot(type,borrowedFromProduct){ return borrowedFromProduct || type==='packshot'; }
+// V34.2 — pack frames that match the photo. When a pack shot was photographed
+// on light grey (not white), its frame would show a grey "box". We sample the
+// image corners (through a separate probe image, so the visible image is never
+// affected) and, if they're one uniform light neutral, paint the frame that
+// colour. If the image host doesn't allow sampling, the frame simply keeps the
+// default pack background. Admin: Brand → packBackgroundAuto.
+const _packBgCache=new Map();
+function samplePackBg(url){
+  if(_packBgCache.has(url)) return _packBgCache.get(url);
+  const pr=new Promise(res=>{
+    const probe=new Image(); probe.crossOrigin='anonymous'; probe.decoding='async';
+    probe.onload=()=>{ try{
+      const c=document.createElement('canvas'); c.width=c.height=16; const x=c.getContext('2d',{willReadFrequently:true});
+      x.drawImage(probe,0,0,16,16);
+      const px=[[0,0],[15,0],[0,15],[15,15],[7,0],[0,7]].map(([a,b])=>x.getImageData(a,b,1,1).data);
+      if(px.some(p=>p[3]<250)) return res(null);                 // transparent PNG → keep the default ground
+      const avg=[0,1,2].map(i=>px.reduce((t,p)=>t+p[i],0)/px.length);
+      const uniform=px.every(p=>[0,1,2].every(i=>Math.abs(p[i]-avg[i])<=10));
+      const light=avg.every(v=>v>=205), neutral=Math.max(...avg)-Math.min(...avg)<=18;
+      res(uniform&&light&&neutral?`rgb(${avg.map(Math.round).join(',')})`:null);
+    }catch{ res(null); } };
+    probe.onerror=()=>res(null);
+    probe.src=url;
+  });
+  _packBgCache.set(url,pr); return pr;
+}
+function initPackBgMatching(){
+  if(SITE.brand?.packBackgroundAuto===false) return;
+  document.addEventListener('load',e=>matchPackBg(e.target),true);
+  // images that were already loaded (e.g. from cache) before this ran
+  const sweep=()=>document.querySelectorAll('.fit-pack img,.cardMediaFrame img').forEach(i=>{ if(i.complete&&i.naturalWidth) matchPackBg(i); });
+  setTimeout(sweep,0); setTimeout(sweep,2500);
+}
+function matchPackBg(img){
+    if(!(img instanceof HTMLImageElement)) return;
+    const box=img.closest('.fit-pack,.cardMediaFrame'); if(!box) return;
+    const url=img.currentSrc||img.src; if(!url||url.startsWith('data:')||/placeholder\.svg/.test(url)) return;
+    samplePackBg(url).then(bg=>{ if(bg && (img.currentSrc||img.src)===url) (img.closest('.cardMediaSlide')||box).style.setProperty('background',bg,'important'); });
+}
+// V34.2 — ONE image treatment used by every homepage image module.
+//   fit-pack: whole product, contain, centred, on the neutral pack ground
+//   fit-life: fills the frame (cover) around the Admin focal point
+function fitAttrs(pack,focus){
+  return pack ? ' fit-pack contain' : ` fit-life" style="--focus:${focusToCss(focus)}`;
+}
 function fmtDate(d){ try{ return new Date(d+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short'}); }catch{ return d; } }
 function scrollToSection(id){
   const el=$(id); if(!el) return;
@@ -3356,6 +3479,9 @@ function setMeta(attr,key,val){
   m.setAttribute('content',val);
 }
 function applyBrandTheme(){
+  // V34.2: neutral ground for every pack shot (Admin → Brand → Pack shot background)
+  const pb=String(SITE.brand?.packBackground||'').trim();
+  if(/^#[0-9a-f]{3,8}$/i.test(pb)) document.documentElement.style.setProperty('--pack-bg',pb);
   const b=SITE.brand||{}, c=b.colors||{};
   const map={maroon:'--jayvi-maroon',green:'--jayvi-green',gold:'--jayvi-gold',cream:'--jayvi-cream',sand:'--jayvi-sand',text:'--jayvi-text'};
   Object.entries(map).forEach(([k,v])=>{ if(/^#[0-9a-f]{6}$/i.test(c[k]||'')) document.documentElement.style.setProperty(v,c[k]); });
@@ -3585,7 +3711,7 @@ function renderPromo(){
     ${items.length?`<div class="pairings" style="margin-top:14px">${items.map(p=>`<span>${escapeHtml(p.name)}</span>`).join('')}</div>`:''}
     ${c.ctaLabel&&c.ctaTarget?`<div class="heroBtns"><a class="btn onDark" href="${escapeHtml(safeHref(c.ctaTarget))}">${escapeHtml(c.ctaLabel)} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></div>`:''}
     ${c.endDate?`<div class="promoDates">Offer ends ${escapeHtml(fmtDate(c.endDate))}</div>`:''}</div>
-    ${c.image?`<div class="promoImg${isPackshot(c.imageType)?' contain':''}">${imgTag(c.image,'(max-width:767px) 92vw, 560px',c.title)}</div>`:''}`;
+    ${c.image?`<div class="promoImg${fitAttrs(isPackshot(c.imageType),c.imageFocus)}">${imgTag(c.image,'(max-width:767px) 92vw, 560px',c.title)}</div>`:''}`;
 }
 function renderWhy(){
   const box=$('whyGrid'); if(!box) return;
@@ -3601,7 +3727,7 @@ function renderHowToEnjoy(){
     const img=it.image||p?.image||'';
     const pack=isPackshot(it.imageType,!it.image);
     const pair=(Array.isArray(it.pairings)?it.pairings:String(it.pairings||'').split(',')).map(s=>String(s).trim()).filter(Boolean);
-    return `<button class="enjoyCard" type="button"${p?` onclick="openProduct('${p.id}')"`:''}><div class="enjoyImg${pack?' contain':''}">${imgTag(img,'(max-width:767px) 72vw, 300px',it.title||p?.name)}</div><div class="enjoyBody"><h3>${escapeHtml(it.title||p?.name||'')}</h3><div class="pairings">${pair.map(x=>`<span>${escapeHtml(x)}</span>`).join('')}</div></div></button>`;
+    return `<button class="enjoyCard" type="button"${p?` onclick="openProduct('${p.id}')"`:''}><div class="enjoyImg${fitAttrs(pack,it.imageFocus)}">${imgTag(img,'(max-width:767px) 72vw, 300px',it.title||p?.name)}</div><div class="enjoyBody"><h3>${escapeHtml(it.title||p?.name||'')}</h3><div class="pairings">${pair.map(x=>`<span>${escapeHtml(x)}</span>`).join('')}</div></div></button>`;
   }).filter(Boolean).join('');
   el.hidden=c.enabled===false||!cards;
   box.innerHTML=cards;
@@ -3613,7 +3739,7 @@ function renderHeritage(){
   if(c.enabled===false||!target){ el.hidden=true; return; }
   el.hidden=false;
   const img=c.image||p?.image||'';
-  box.innerHTML=`<div class="heritageImg${isPackshot(c.imageType,!c.image)?' contain':''}">${imgTag(img,'(max-width:767px) 92vw, 440px',c.title)}</div>
+  box.innerHTML=`<div class="heritageImg${fitAttrs(isPackshot(c.imageType,!c.image),c.imageFocus)}">${imgTag(img,'(max-width:767px) 92vw, 440px',c.title)}</div>
     <div class="heritageCopy"><div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2>${escapeHtml(c.title||'')}</h2>${c.text?`<p>${escapeHtml(c.text)}</p>`:''}
     ${c.ctaLabel?`<a class="btn primary" href="${escapeHtml(safeHref(target))}">${escapeHtml(c.ctaLabel)} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>`:''}</div>`;
 }
@@ -3631,7 +3757,7 @@ function renderAbout(){
   const el=$('about'), box=$('aboutInner'), c=sec('about'); if(!el||!box) return;
   box.innerHTML=`<div><div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2>${escapeHtml(c.title||'')}</h2>${c.text?`<p class="lead">${escapeHtml(c.text)}</p>`:''}${c.body?`<p>${escapeHtml(c.body)}</p>`:''}${c.signoff?`<p class="aboutSignoff">${escapeHtml(c.signoff)}</p>`:''}
     ${c.ctaLabel&&c.story?`<div class="heroBtns"><a class="btn secondary" href="#story">${escapeHtml(c.ctaLabel)} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></div>`:''}</div>
-    ${c.image?`<div class="aboutImg${isPackshot(c.imageType)?' contain':''}">${imgTag(c.image,'(max-width:767px) 92vw, 560px',c.title)}</div>`:''}`;
+    ${c.image?`<div class="aboutImg${fitAttrs(isPackshot(c.imageType),c.imageFocus)}">${imgTag(c.image,'(max-width:767px) 92vw, 560px',c.title)}</div>`:''}`;
 }
 function renderNewsletter(){
   const el=$('newsletter'), box=$('newsInner'), c=sec('newsletter'); if(!el||!box) return;
@@ -3864,7 +3990,7 @@ function promoActionMarkup(p,context){
 }
 function promoCardMarkup(p,context='home'){
   const notes=promoRuleNotes(p);
-  const img=context==='home'&&p.image?`<div class="promoCardImg${isPackshot(p.imageType)?' contain':''}">${imgTag(p.image,'(max-width:767px) 92vw, 380px',p.title||p.name)}</div>`:'';
+  const img=context==='home'&&p.image?`<div class="promoCardImg${fitAttrs(isPackshot(p.imageType),p.imageFocus)}">${imgTag(p.image,'(max-width:767px) 92vw, 380px',p.title||p.name)}</div>`:'';
   return `<article class="promoOfferCard v34Promo">${img}
     <span class="promoOfferEyebrow">${escapeHtml(p.name||'Jayvi offer')}</span>
     <h3 class="promoOfferHeadline">${escapeHtml(fillOfferText(promoHeadline(p)))}</h3>
@@ -3997,7 +4123,7 @@ async function init(){
   // V33: brand theme, contact links, analytics, section order/visibility,
   // navigation and the announcement bar — all from Admin-managed data.
   applyBrandTheme(); applyContactLinks(); initAnalytics(); initOutboundTracking();
-  applySectionConfig(); renderNavigation(); initMegaMenu(); renderAnnouncementBar(); initPromoActions();
+  applySectionConfig(); renderNavigation(); initMegaMenu(); renderAnnouncementBar(); initPromoActions(); initPackBgMatching();
   renderFloatingOffer(); renderOfferAnnouncement(); renderOffersSection();
   if(CONFIG.store.vacationMode){
     const b=$('vacationBanner');

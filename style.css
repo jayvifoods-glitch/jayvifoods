@@ -1004,81 +1004,140 @@ main#home>section[hidden]{display:none!important}
 .bgSand{background:var(--jayvi-sand)!important}
 .bgWhite{background:var(--jayvi-white)!important}
 
-/* ---------- V34 hero — immersive image stage ----------
-   ONE plain rectangle (mobile 4:5, desktop/tablet 16:7 — the same ratios
-   JAYVI_IMAGE_SLOTS documents for Admin uploads). The image fills it with
-   object-fit:cover around an Admin-set focal point; the copy sits on a
-   gradient scrim so it stays readable over any photograph. No decorative
-   frame ever changes the image's shape. */
-.hero{background:var(--jayvi-cream);padding:0 0 18px;position:relative;overflow:hidden}
+/* ---------- V34.2 hero ----------
+   Two layouts per slide (Admin → Hero slides → Layout):
+   SPLIT (default) — computers: text panel left, image right; phones: image
+     on top, text below. The frame follows the photo's own shape (JS sets
+     --ratio-m / --ratio-d from the image, clamped), so nothing important is
+     cropped and text can never sit on the product.
+   OVERLAY — text on the image at top / centre / bottom (or none), over a
+     readability gradient whose strength Admin sets (--s). Phones use it only
+     when the slide has its own phone image (see heroShow()).
+   Pack shots: always split, shown whole (contain) on --pack-bg. */
+.hero{background:var(--jayvi-cream);padding:0 0 16px;position:relative;overflow:hidden}
 .hero::after{content:'';position:absolute;left:0;right:0;bottom:0;height:12px;background-color:var(--jayvi-gold);-webkit-mask:var(--motif) center/32px 12px repeat-x;mask:var(--motif) center/32px 12px repeat-x;opacity:.55}
-.heroStage{position:relative;isolation:isolate;overflow:hidden;width:100%;
-  aspect-ratio:4/5;min-height:420px;
-  /* never taller than the visible phone screen (header + announcement bar + bottom nav) */
-  max-height:calc(100svh - var(--header-h) - var(--annbar-h) - var(--bottomnav-h) - var(--safe-b));
-  background:var(--jayvi-maroon-deep);color:var(--jayvi-cream);display:flex;flex-direction:column;justify-content:flex-end}
-.heroImage{position:absolute;inset:0;z-index:-2;margin:0;border-radius:0;box-shadow:none;aspect-ratio:auto;background:transparent}
+.heroStage{--s:.8;--scrim:41 34 31;position:relative;isolation:isolate;width:100%;color:var(--jayvi-text)}
+.heroStage[data-overlay="none"]{--s:0}.heroStage[data-overlay="light"]{--s:.5}.heroStage[data-overlay="medium"]{--s:.75}.heroStage[data-overlay="strong"]{--s:1}
+.heroImage{position:relative;overflow:hidden;margin:0;border-radius:0;box-shadow:none;background:var(--jayvi-sand)}
 .heroImage picture,.heroImage img,.heroImage video{display:block;width:100%;height:100%}
 .heroImage img,.heroImage video{object-fit:cover;object-position:var(--focus,50% 50%)}
-@media(max-width:767px){.heroImage img{object-position:var(--focus-m,var(--focus,50% 50%))}}
-/* No photography yet → show the linked product's real pack, whole and
-   uncropped, on a warm brand ground (packaging is never cropped). */
-.heroImage.contain{background:linear-gradient(180deg,var(--jayvi-cream) 0%,var(--jayvi-cream) 37%,var(--jayvi-maroon-deep) 50%)}
-/* positioned (not padded) so the pack stays in the top part at any ratio */
-.heroImage.contain picture{position:absolute;left:10%;right:10%;top:3%;height:33%;width:auto}
-.heroImage.contain img{object-fit:contain;object-position:50% 50%}
-.heroImage.contain+.heroScrim{background:linear-gradient(0deg,color-mix(in srgb,var(--jayvi-text) 55%,transparent) 0%,transparent 40%)}
-.heroScrim{position:absolute;inset:0;z-index:-1;pointer-events:none;
-  background:linear-gradient(0deg,color-mix(in srgb,var(--jayvi-text) 88%,transparent) 0%,color-mix(in srgb,var(--jayvi-text) 62%,transparent) 30%,color-mix(in srgb,var(--jayvi-text) 18%,transparent) 50%,transparent 62%)}
-.heroStage .heroCopyWrap{width:100%;padding-top:24px;padding-bottom:34px}
-.heroCopy{max-width:560px;text-shadow:0 1px 14px color-mix(in srgb,var(--jayvi-text) 45%,transparent)}
-.heroGrid.heroChange .heroCopy{animation:fadeUp .45s var(--ease)}
-.heroCopy .eyebrow{color:var(--jayvi-gold);font-size:11.5px;letter-spacing:.14em;background:none;padding:0;border-radius:0}
-.heroCopy h1{font-size:clamp(30px,8.6vw,64px);line-height:1.04;letter-spacing:-.018em;font-weight:600;margin:8px 0 10px;color:var(--jayvi-cream);text-wrap:balance;overflow-wrap:break-word}
-.heroCopy h1 em{display:block;font-style:italic;font-weight:500;color:var(--jayvi-gold)}
-.heroCopy p{font-size:clamp(15px,4.1vw,18px);line-height:1.5;color:color-mix(in srgb,var(--jayvi-cream) 90%,transparent);max-width:34ch}
-.heroCopy p:empty{display:none}
-.heroBtns{display:flex;align-items:center;flex-wrap:wrap;gap:10px 18px;margin-top:18px}
-.heroBtns .btn{padding:14px 26px;min-height:50px;text-shadow:none}
-.heroBtns .btn.primary{background:var(--jayvi-maroon);color:var(--jayvi-white);box-shadow:0 8px 24px color-mix(in srgb,var(--jayvi-text) 35%,transparent)}
-.heroLink{font-weight:700;font-size:14.5px;color:var(--jayvi-cream);border-bottom:1.5px solid var(--jayvi-gold);padding:6px 0}
-.heroLink[hidden]{display:none}
-.heroPrice{position:static;transform:none;display:inline-flex;align-items:baseline;gap:8px;margin-top:14px;padding:8px 16px;border-radius:var(--radius-pill);background:color-mix(in srgb,var(--jayvi-cream) 94%,transparent);color:var(--jayvi-text);text-shadow:none;box-shadow:none;border:0}
-.heroPrice b{font-family:var(--font-display);font-size:19px;color:var(--jayvi-maroon)}
-.heroPrice span{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint)}
-.heroDots{position:absolute;left:0;right:0;bottom:12px;justify-content:center;z-index:1;margin:0}
+.heroImage.fit-pack{background:var(--pack-bg,#fff)}
+.heroImage.fit-pack img{object-fit:contain;object-position:50% 50%;padding:5% 6%}
+.heroScrim{position:absolute;inset:0;pointer-events:none;display:none}
+.heroDots{position:absolute;left:0;right:0;bottom:10px;justify-content:center;z-index:2;margin:0}
 .heroDots:empty{display:none}
-.heroDots button{background:color-mix(in srgb,var(--jayvi-cream) 45%,transparent);width:22px;height:5px}
+.heroDots button{background:rgb(255 255 255 / .55);width:20px;height:4px;box-shadow:0 0 0 1px rgb(0 0 0 / .08)}
 .heroDots button.active{background:var(--jayvi-gold)}
-/* Text placement per slide: top, or none (artwork already carries its text) */
-.heroStage[data-text="top"]{justify-content:flex-start}
-.heroStage[data-text="top"] .heroScrim{background:linear-gradient(180deg,color-mix(in srgb,var(--jayvi-text) 82%,transparent) 0%,color-mix(in srgb,var(--jayvi-text) 45%,transparent) 32%,transparent 58%)}
-.heroStage[data-text="none"] .heroScrim{background:linear-gradient(0deg,color-mix(in srgb,var(--jayvi-text) 45%,transparent) 0%,transparent 26%)}
-.heroStage[data-text="none"] .heroCopy{max-width:none;text-align:center}
-.heroStage[data-text="none"] .heroBtns{justify-content:center}
-.heroStage[data-text="none"] .heroCopy .eyebrow,.heroStage[data-text="none"] .heroCopy h1,.heroStage[data-text="none"] .heroCopy p{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;margin:0;padding:0}
-/* Trust points move out of the image into a calm strip beneath it */
-.heroTrust{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 16px;padding:14px 0 12px;font-size:12.5px;font-weight:700;color:var(--ink-soft)}
+.heroImage.fit-pack .heroDots button{background:rgb(41 34 31 / .18)}
+.heroImage.fit-pack .heroDots button.active{background:var(--jayvi-maroon)}
+.heroCopyWrap{position:relative;z-index:1;min-width:0}
+.heroGrid.heroChange .heroCopy{animation:fadeUp .45s var(--ease)}
+.heroCopy{max-width:560px;min-width:0}
+.heroBadge{display:inline-block;margin-bottom:10px;padding:5px 11px;border-radius:var(--radius-pill);background:var(--jayvi-green);color:var(--jayvi-white);font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.heroBadge[hidden]{display:none}
+.heroCopy .eyebrow{color:var(--jayvi-green);font-size:11px;letter-spacing:.14em;background:none;padding:0;border-radius:0;margin:0}
+/* Refined scale: 25px @360 → 29px @412 on phones; 34–52px on computers.
+   fitHeroTitle() then caps long headlines at 3 lines. */
+.heroCopy h1{font-size:clamp(25px,7vw,30px);line-height:1.1;letter-spacing:-.012em;font-weight:600;margin:6px 0 8px;color:var(--jayvi-maroon-deep);text-wrap:balance;overflow-wrap:break-word;hyphens:manual}
+.heroCopy h1 em{display:block;font-style:italic;font-weight:500;color:var(--jayvi-maroon)}
+.heroCopy p{font-size:15px;line-height:1.5;color:var(--ink-soft);max-width:42ch;margin:0}
+.heroCopy p:empty{display:none}
+.heroBtns{display:flex;align-items:center;flex-wrap:wrap;gap:10px 16px;margin-top:16px}
+.heroBtns .btn{padding:13px 22px;min-height:48px;font-size:15px}
+.heroBtns .btn.primary{background:var(--jayvi-maroon);color:var(--jayvi-white)}
+.heroLink{font-weight:700;font-size:14px;color:var(--jayvi-text);border-bottom:1.5px solid var(--jayvi-gold);padding:4px 0}
+.heroLink[hidden]{display:none}
+.heroPrice{display:inline-flex;align-items:baseline;gap:5px;font-size:12px;color:var(--ink-soft);position:static;background:none;padding:0;box-shadow:none;border:0}
+.heroPrice span{font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.heroPrice b{font-family:var(--font-display);font-size:17px;color:var(--jayvi-maroon)}
+/* text: none → headline kept for Google/screen readers, only the button shows */
+.heroStage[data-text="none"] .heroCopy .eyebrow,.heroStage[data-text="none"] .heroCopy h1,.heroStage[data-text="none"] .heroCopy p,.heroStage[data-text="none"] .heroBadge{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;margin:0;padding:0}
+.heroTrust{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 16px;padding:12px 0 12px;font-size:12.5px;font-weight:700;color:var(--ink-soft)}
 .heroTrust:empty{display:none}
 .heroTrust span{display:flex;align-items:center;gap:6px}
 .heroTrust i{color:var(--jayvi-green)}
+/* shared overlay look (colours + scrim) */
+.heroStage .heroCopy{--oc:var(--jayvi-text)}
+@media(max-width:767px){
+  /* phones — split: image first, text panel below */
+  .heroStage[data-mlayout="split"] .heroImage{width:100%;aspect-ratio:var(--ratio-m,4/3);max-height:max(210px,calc(100svh - var(--header-h) - var(--annbar-h) - var(--bottomnav-h) - var(--safe-b) - 270px))}
+  /* pack shots are contained, so they can be shorter without losing anything */
+  .heroStage[data-mlayout="split"][data-pack="1"] .heroImage{aspect-ratio:4/3;max-height:min(300px,max(210px,calc(100svh - var(--header-h) - var(--annbar-h) - var(--bottomnav-h) - var(--safe-b) - 270px)))}
+  .heroStage[data-mlayout="split"] .heroImage img{object-position:var(--focus-m,var(--focus,50% 50%))}
+  .heroStage[data-mlayout="split"] .heroImage.fit-pack img{object-position:50% 50%}
+  .heroStage[data-mlayout="split"] .heroCopyWrap{padding:18px 18px 18px}
+  .heroStage[data-mlayout="split"][data-text="none"] .heroCopyWrap{padding:14px 18px}
+  /* phones — overlay: one cell, text on the (phone) image */
+  .heroStage[data-mlayout="overlay"]{display:grid}
+  .heroStage[data-mlayout="overlay"]>.heroImage,.heroStage[data-mlayout="overlay"]>.heroCopyWrap{grid-area:1/1}
+  .heroStage[data-mlayout="overlay"] .heroImage{aspect-ratio:4/5;min-height:420px;max-height:calc(100svh - var(--header-h) - var(--annbar-h) - var(--bottomnav-h) - var(--safe-b))}
+  .heroStage[data-mlayout="overlay"] .heroImage img{object-position:var(--focus-m,var(--focus,50% 50%))}
+  .heroStage[data-mlayout="overlay"] .heroScrim{display:block;background:linear-gradient(0deg,rgb(var(--scrim) / calc(.9*var(--s))) 0%,rgb(var(--scrim) / calc(.62*var(--s))) 32%,rgb(var(--scrim) / calc(.14*var(--s))) 56%,transparent 70%)}
+  .heroStage[data-mlayout="overlay"][data-text="top"] .heroScrim{background:linear-gradient(180deg,rgb(var(--scrim) / calc(.88*var(--s))) 0%,rgb(var(--scrim) / calc(.5*var(--s))) 34%,transparent 62%)}
+  .heroStage[data-mlayout="overlay"][data-text="center"] .heroScrim{background:linear-gradient(0deg,rgb(var(--scrim) / calc(.3*var(--s))) 0%,rgb(var(--scrim) / calc(.72*var(--s))) 50%,rgb(var(--scrim) / calc(.3*var(--s))) 100%)}
+  .heroStage[data-mlayout="overlay"][data-text="none"] .heroScrim{background:linear-gradient(0deg,rgb(var(--scrim) / calc(.4*var(--s))) 0%,transparent 26%)}
+  .heroStage[data-mlayout="overlay"] .heroCopyWrap{align-self:end;padding:24px 18px 32px}
+  .heroStage[data-mlayout="overlay"][data-text="top"] .heroCopyWrap{align-self:start}
+  .heroStage[data-mlayout="overlay"][data-text="center"] .heroCopyWrap{align-self:center}
+  .heroStage[data-mlayout="overlay"][data-text="none"] .heroCopy{text-align:center;max-width:none}
+  .heroStage[data-mlayout="overlay"][data-text="none"] .heroBtns{justify-content:center}
+  .heroStage[data-mlayout="overlay"] .heroCopy{text-shadow:0 1px 12px rgb(var(--scrim) / .45)}
+  .heroStage[data-mlayout="overlay"] .heroCopy .eyebrow{color:var(--jayvi-gold)}
+  .heroStage[data-mlayout="overlay"] .heroCopy h1{color:var(--jayvi-cream)}
+  .heroStage[data-mlayout="overlay"] .heroCopy h1 em{color:var(--jayvi-gold)}
+  .heroStage[data-mlayout="overlay"] .heroCopy p{color:rgb(255 247 232 / .92)}
+  .heroStage[data-mlayout="overlay"] .heroLink{color:var(--jayvi-cream)}
+  .heroStage[data-mlayout="overlay"] .heroPrice{color:rgb(255 247 232 / .85)}
+  .heroStage[data-mlayout="overlay"] .heroPrice b{color:var(--jayvi-gold)}
+  .heroStage[data-mlayout="overlay"] .heroBtns .btn{text-shadow:none}
+}
 @media(max-width:374px){
-  .heroCopy h1{font-size:28px}
-  .heroBtns .btn{padding:13px 20px}
+  .heroBtns .btn{padding:12px 18px;font-size:14.5px}
+  .heroBtns{gap:10px 14px}
 }
 @media(min-width:768px){
-  .heroStage{aspect-ratio:16/7;min-height:420px;max-height:720px;justify-content:center}
-  .heroScrim{background:linear-gradient(90deg,color-mix(in srgb,var(--jayvi-text) 82%,transparent) 0%,color-mix(in srgb,var(--jayvi-text) 60%,transparent) 30%,color-mix(in srgb,var(--jayvi-text) 14%,transparent) 50%,transparent 60%)}
-  .heroStage[data-text="top"]{justify-content:flex-start}
-  .heroStage[data-text="top"] .heroScrim{background:linear-gradient(90deg,color-mix(in srgb,var(--jayvi-text) 80%,transparent) 0%,color-mix(in srgb,var(--jayvi-text) 50%,transparent) 32%,transparent 56%)}
-  .heroStage[data-text="none"]{justify-content:flex-end}
-  .heroStage .heroCopyWrap{padding-top:40px;padding-bottom:48px}
-  .heroCopy{max-width:min(520px,42vw)}
-  .heroCopy h1{font-size:clamp(36px,4.4vw,62px)}
-  .heroImage.contain picture{left:54%;right:5%;top:8%;height:84%}
-  .heroImage.contain{background:linear-gradient(90deg,var(--jayvi-maroon-deep) 0%,var(--jayvi-maroon-deep) 38%,var(--jayvi-cream) 54%,var(--jayvi-cream) 100%)}
-  .heroImage.contain+.heroScrim{background:none}
+  .heroCopy h1{font-size:clamp(34px,3.3vw,52px);line-height:1.06;margin:8px 0 12px}
+  .heroCopy p{font-size:17px}
+  .heroBtns{margin-top:22px}
+  .heroBtns .btn{padding:14px 26px;min-height:50px}
   .heroTrust{gap:8px 28px;padding:16px 0 14px}
+  /* tablets — split stays stacked (image on top, text below): a narrow
+     side column would force heavy cropping */
+  .heroStage[data-layout="split"] .heroImage{width:100%;aspect-ratio:var(--ratio-m,4/3);max-height:520px}
+  .heroStage[data-layout="split"][data-pack="1"] .heroImage{aspect-ratio:16/9;max-height:420px}
+  .heroStage[data-layout="split"] .heroCopyWrap{padding:26px max(24px,calc((100vw - 1220px)/2 + 18px)) 24px}
+  .heroStage[data-layout="split"] .heroCopy{max-width:640px}
+  /* computers — overlay: text on the image, left side */
+  .heroStage[data-layout="overlay"]{display:grid}
+  .heroStage[data-layout="overlay"]>.heroImage,.heroStage[data-layout="overlay"]>.heroCopyWrap{grid-area:1/1}
+  .heroStage[data-layout="overlay"] .heroImage{aspect-ratio:16/7;min-height:420px;max-height:720px}
+  .heroStage[data-layout="overlay"] .heroScrim{display:block;background:linear-gradient(90deg,rgb(var(--scrim) / calc(.85*var(--s))) 0%,rgb(var(--scrim) / calc(.6*var(--s))) 30%,rgb(var(--scrim) / calc(.12*var(--s))) 50%,transparent 60%)}
+  .heroStage[data-layout="overlay"][data-text="none"] .heroScrim{background:linear-gradient(0deg,rgb(var(--scrim) / calc(.35*var(--s))) 0%,transparent 26%)}
+  .heroStage[data-layout="overlay"]>.heroCopyWrap{align-self:center;padding:40px max(24px,calc((100vw - 1220px)/2 + 18px)) 48px}
+  .heroStage[data-layout="overlay"][data-text="top"]>.heroCopyWrap{align-self:start}
+  .heroStage[data-layout="overlay"][data-text="bottom"]>.heroCopyWrap,.heroStage[data-layout="overlay"][data-text="none"]>.heroCopyWrap{align-self:end}
+  .heroStage[data-layout="overlay"] .heroCopy{max-width:min(520px,42vw);text-shadow:0 1px 12px rgb(var(--scrim) / .4)}
+  .heroStage[data-layout="overlay"] .heroCopy .eyebrow{color:var(--jayvi-gold)}
+  .heroStage[data-layout="overlay"] .heroCopy h1{color:var(--jayvi-cream)}
+  .heroStage[data-layout="overlay"] .heroCopy h1 em{color:var(--jayvi-gold)}
+  .heroStage[data-layout="overlay"] .heroCopy p{color:rgb(255 247 232 / .92)}
+  .heroStage[data-layout="overlay"] .heroLink{color:var(--jayvi-cream)}
+  .heroStage[data-layout="overlay"] .heroPrice{color:rgb(255 247 232 / .85)}
+  .heroStage[data-layout="overlay"] .heroPrice b{color:var(--jayvi-gold)}
+  .heroStage[data-layout="overlay"] .heroBtns .btn{text-shadow:none}
+}
+@media(min-width:768px) and (max-width:1023px){
+  /* tablets — overlay text column a little wider so long headlines stay ≤3 lines */
+  .heroStage[data-layout="overlay"] .heroCopy{max-width:56vw}
+}
+@media(min-width:1024px){
+  /* computers — split: text panel | image */
+  .heroStage[data-layout="split"]{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);align-items:stretch}
+  .heroStage[data-layout="split"]>.heroImage{grid-column:2;grid-row:1;aspect-ratio:var(--ratio-d,4/3);min-height:380px;max-height:640px;width:100%}
+  .heroStage[data-layout="split"]>.heroCopyWrap{grid-column:1;grid-row:1;align-self:center;padding:40px 36px 40px max(28px,calc((100vw - 1220px)/2 + 18px))}
+  .heroStage[data-layout="split"] .heroCopy{max-width:560px}
+  .heroStage[data-layout="split"][data-text="top"]>.heroCopyWrap{align-self:start}
+  .heroStage[data-layout="split"][data-text="bottom"]>.heroCopyWrap{align-self:end}
 }
 
 /* ---------- Welcome offer strip ---------- */
@@ -1476,3 +1535,42 @@ main#home{overflow-x:clip}
 
 /* Reviews: "View all" hidden when there are no reviews */
 .reviewActions a[hidden]{display:none}
+
+/* =========================================================================
+   V34.2 — ONE image treatment for every module
+   fit-pack → the whole product, contained, centred, on --pack-bg (white by
+              default — matches studio pack photos, so no visible "box")
+   fit-life → fills the frame (cover) around the Admin focal point (--focus)
+   Set per image in Admin ("Image type"); anything borrowed from a product
+   is always fit-pack.
+   ========================================================================= */
+:root{--pack-bg:#FFFFFF;--pack-pad:5%}
+.fit-pack{background:var(--pack-bg)!important}
+.fit-pack img{object-fit:contain!important;object-position:50% 50%!important;padding:var(--pack-pad)!important}
+.fit-life img{object-fit:cover!important;object-position:var(--focus,50% 50%)!important;padding:0!important}
+/* Product & combo cards and the product gallery are pack shots everywhere */
+.cardMediaFrame,.productGallery .galleryMain,.galleryThumbs button,.comboMediaScroller,.miniImg,#searchResults .srItem img{background:var(--pack-bg)}
+.cartItem img,.cartRecCard img,.miniImg img{object-fit:contain;background:var(--pack-bg)}
+
+/* Category cards: square frame — pack photos (usually square) fill it with
+   a small margin instead of floating in a tall box */
+.catCard .catImg{aspect-ratio:1/1;--frame-gap:var(--jayvi-cream)}
+.catCard .catImg.fit-pack img{padding:4%!important}
+.catCard .catImg.fit-pack{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--jayvi-gold) 40%,transparent)}
+.heritageImg.fit-pack{--frame-gap:var(--jayvi-sand)}
+.enjoyCard .enjoyImg.fit-pack img{padding:6%!important}
+
+/* Occasions: 4:5 food photography, or a clean typographic tile */
+.occCard .occImg{aspect-ratio:4/5}
+.occCard .occImg.fit-life img{transition:transform .5s var(--ease)}
+.occCard:hover .occImg.fit-life img{transform:scale(1.03)}
+.occTile{display:flex!important;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:16px;gap:8px;position:relative}
+.occTile::before{content:'';position:absolute;left:16px;right:16px;top:16px;height:10px;background-color:currentColor;opacity:.45;-webkit-mask:var(--motif) left center/28px 10px repeat-x;mask:var(--motif) left center/28px 10px repeat-x}
+.occTile-maroon{background:linear-gradient(160deg,var(--jayvi-maroon) 0%,var(--jayvi-maroon-deep) 100%)!important;color:var(--jayvi-gold)}
+.occTile-green{background:linear-gradient(160deg,var(--jayvi-green) 0%,color-mix(in srgb,var(--jayvi-green) 70%,var(--jayvi-text)) 100%)!important;color:var(--jayvi-gold)}
+.occTile-gold{background:linear-gradient(160deg,var(--jayvi-sand) 0%,color-mix(in srgb,var(--jayvi-gold) 45%,var(--jayvi-sand)) 100%)!important;color:var(--jayvi-maroon-deep)}
+.occTile .occTileName{font-family:var(--font-display);font-style:italic;font-weight:500;font-size:clamp(18px,5vw,23px);line-height:1.18;color:var(--jayvi-cream);text-wrap:balance}
+.occTile-gold .occTileName{color:var(--jayvi-maroon-deep)}
+.occTile .occIcon{font-size:26px;line-height:1;color:inherit}
+.occCard .occBody h3{font-size:17px}
+.occCard .occBody p{font-size:13px;line-height:1.4}

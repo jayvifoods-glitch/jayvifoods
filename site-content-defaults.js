@@ -1,5 +1,5 @@
 /* =========================================================
-   Jayvi Foods — site-content-defaults.js (V34.1)
+   Jayvi Foods — site-content-defaults.js (V34.2)
 
    ONE shared definition of every Admin-editable content block
    (announcement bar, welcome popup, homepage sections, brand/theme).
@@ -33,6 +33,15 @@
    - Floating offer = ONE promotion chosen in promotions.floatingButton.promotionId.
    - Coupon stacking is NOT available yet (backend accepts one code per order);
      `canCombine` is kept only as a disabled placeholder for later.
+   V34.2:
+   - Hero slides have a LAYOUT: 'split' (text beside the image on computers,
+     below it on phones — text can never cover the product) or 'overlay'
+     (text on the image, for artwork designed with empty space). Text
+     position top / centre / bottom / none, overlay strength, badge.
+   - Occasions are built from real photography (or a clean typographic tile
+     when no photo yet — never emoji) and pick products via PRODUCT TAGS
+     and/or hand-picked products.
+   - brand.packBackground: the neutral ground every pack shot sits on.
    - JAYVI_IMAGE_SLOTS — the ONE definition of every image slot's real
                         on-screen shape, used by style.css (as documented
                         ratios), Admin upload guidance and crop previews.
@@ -50,17 +59,22 @@
    `safe` describes the area that stays visible (and uncovered by text)
    at every supported screen size. */
 const JAYVI_IMAGE_SLOTS = {
-  heroDesktop: { label:'Hero banner — desktop & tablet', w:1920, h:840, ratio:'16/7', ratioText:'16:7 (≈2.29:1)',
+  // Split layout (default): the SAME 4:3 photo is used on computers (right
+  // side, beside the text) and phones (top, above the text) — no crop needed.
+  heroSplit: { label:'Hero image — split layout (computers & phones)', w:1600, h:1200, ratio:'4/3', ratioText:'4:3',
+    safe:{x:0.1,y:0.1,w:0.8,h:0.8}, text:null,
+    safeText:'Text sits beside the image on computers and below it on phones, so the whole photo is visible — keep the product inside the dashed box. Other shapes work too (the frame follows the photo between square and 2:1).' },
+  heroDesktop: { label:'Hero banner — overlay layout, computers', w:1920, h:840, ratio:'16/7', ratioText:'16:7 (≈2.29:1)',
     safe:{x:0.46,y:0.10,w:0.42,h:0.80}, text:{x:0,y:0,w:0.45,h:1},
     safeText:'Keep the product / key subject inside the right-hand area (the dashed box). The left 45% sits under the headline and buttons — keep it plain (background, texture, props). Very wide screens may trim up to 10% from the top and bottom.' },
-  heroMobile: { label:'Hero banner — mobile', w:1080, h:1350, ratio:'4/5', ratioText:'4:5',
+  heroMobile: { label:'Hero banner — overlay layout, phones', w:1080, h:1350, ratio:'4/5', ratioText:'4:5',
     safe:{x:0.06,y:0.05,w:0.88,h:0.50}, text:{x:0,y:0.55,w:1,h:0.45},
-    safeText:'Keep the product / key subject in the top half, inside the dashed box. The bottom 45% sits under the headline and Shop button on a dark gradient. If this is blank, the desktop image is used on phones (cropped to 4:5 around its focal point).' },
+    safeText:'Keep the product / key subject in the top half, inside the dashed box. The bottom 45% sits under the headline and Shop button. Without a phone image, phones automatically use the split layout (text below the image), so nothing is covered.' },
   promo:      { label:'Promotional banner', w:1600, h:1000, ratio:'16/10', ratioText:'16:10', safe:{x:0.08,y:0.08,w:0.84,h:0.84}, safeText:'No text is placed over this image. Keep important content away from the outer 8%.' },
   heritage:   { label:'Heritage story image', w:1080, h:1350, ratio:'4/5', ratioText:'4:5', safe:{x:0.08,y:0.08,w:0.84,h:0.84}, safeText:'Plain rectangle with a decorative gold border around it. Keep important content away from the outer 8%.' },
   about:      { label:'About image', w:1600, h:1200, ratio:'4/3', ratioText:'4:3', safe:{x:0.06,y:0.06,w:0.88,h:0.88}, safeText:'Keep important content away from the outer 6%.' },
-  category:   { label:'Category card', w:800, h:1000, ratio:'4/5', ratioText:'4:5', safe:{x:0.08,y:0.08,w:0.84,h:0.84}, safeText:'A pack shot is shown whole (never cropped) on a warm background. A lifestyle photo fills the card — keep the subject away from the outer 8%.' },
-  occasion:   { label:'Occasion card', w:800, h:800, ratio:'1/1', ratioText:'1:1', safe:{x:0.18,y:0.18,w:0.72,h:0.72}, safeText:'A dedicated lifestyle photo (e.g. an idli breakfast plate). Leave blank to show the icon instead — a product pouch is never used here.' },
+  category:   { label:'Category card', w:1000, h:1000, ratio:'1/1', ratioText:'1:1', safe:{x:0.08,y:0.08,w:0.84,h:0.84}, safeText:'A pack shot is shown whole (never cropped) on a warm background. A lifestyle photo fills the card — keep the subject away from the outer 8%.' },
+  occasion:   { label:'Occasion card', w:1080, h:1350, ratio:'4/5', ratioText:'4:5', safe:{x:0.1,y:0.08,w:0.8,h:0.84}, safeText:'Real food / lifestyle photography (e.g. an idli breakfast plate, a festive thali). Landscape photos also work — set the focal point. With no photo, a clean text tile in Jayvi colours is shown (never emoji, never a pouch).' },
   enjoy:      { label:'How-to-enjoy card', w:1200, h:900, ratio:'4/3', ratioText:'4:3', safe:{x:0.06,y:0.06,w:0.88,h:0.88}, safeText:'Keep important content away from the outer 6%.' },
   social:     { label:'Instagram tile', w:1080, h:1080, ratio:'1/1', ratioText:'1:1', safe:{x:0.05,y:0.05,w:0.9,h:0.9}, safeText:'Shown as a square.' },
   popup:      { label:'Offer popup image', w:1200, h:600, ratio:'2/1', ratioText:'2:1', safe:{x:0.08,y:0.1,w:0.84,h:0.8}, safeText:'Shown above the offer headline. Avoid putting text in the image.' },
@@ -146,7 +160,9 @@ const JAYVI_SITE_DEFAULTS = {
     fssai: '21226177001087',
     udyam: 'UDYAM-KR-03-0681597',
     analytics: { ga4Id: '' },
-    seo: { homeTitle: '', homeDescription: '', ogImage: '', ogImageAlt: '' },   // blank = the values built into index.html
+    seo: { homeTitle: '', homeDescription: '', ogImage: '', ogImageAlt: '' },
+    packBackground: '#FFFFFF',   // V34.2: ground behind every pack shot. White matches most studio pack photos, so no "box" shows.
+    packBackgroundAuto: true,    // V34.2: match each pack photo's own light studio background (e.g. light grey) automatically   // blank = the values built into index.html
     // Small reassurance row on every product page (icon = Font Awesome name).
     productTrust: [
       { icon: 'fa-box-open',  text: 'Freshly packed' },
@@ -183,10 +199,14 @@ const JAYVI_SITE_DEFAULTS = {
           ctaTarget: '#shop',
           image: '',             // desktop/tablet banner — 1920 × 840 (16:7)
           imageType: 'lifestyle',  // 'packshot' shows an uploaded pouch whole on a brand background
+          layout: 'split',         // 'split' = text beside/below the image | 'overlay' = text on the image
+          mobileLayout: 'auto',    // 'auto' = overlay only when a phone image exists, else split | 'overlay' | 'split'
+          overlayStrength: 'auto', // overlay only: 'auto' | 'none' | 'light' | 'medium' | 'strong'
+          badge: '',               // optional small pill, e.g. 'New launch'
           mobileImage: '',       // phone banner — 1080 × 1350 (4:5); blank = desktop image cropped
           imageFocus: 'center',
           mobileImageFocus: 'center',
-          textPlacement: 'bottom'  // 'bottom' | 'top' | 'none' (artwork already contains its own text)
+          textPlacement: 'center'  // 'top' | 'center' | 'bottom' | 'none' (artwork already contains its own text)
         }
       },
       welcomeOffer: {
@@ -236,17 +256,17 @@ const JAYVI_SITE_DEFAULTS = {
         // Each card shows products by explicit id (productIds) or, if
         // none are set, by name keyword. target:'combos' jumps to combos.
         // A card with no matching products is hidden automatically.
-        // Each occasion: title, description, icon (emoji or Font Awesome name)
-        // OR a dedicated lifestyle image, products (ticked, or keywords),
-        // button, order and active. A product pouch is NEVER used as the
-        // occasion picture — no image means the icon is shown.
-        // target:'combos' sends the card to the combos section instead.
+        // V34.2 — each occasion: name, short description, a real food /
+        // lifestyle photo (type + focal point), products chosen by PRODUCT
+        // TAGS and/or hand-picked products, button text + link, order,
+        // active. No photo → a clean typographic tile in Jayvi colours.
+        // Products = hand-picked ∪ products carrying any selected tag.
+        // (keywords are only a fallback while no tags/products are set.)
         items: [
-          { id: 'breakfast',   active: true, order: 1, title: 'Breakfast',   description: 'Idli, dosa and a good start',   icon: '🥣', image: '', imageType: 'lifestyle', productIds: [], keywords: ['idli dosa pudi','pudi','peanut'], target: '',       ctaLabel: 'Shop breakfast',   ctaTarget: '' },
-          { id: 'lunch',       active: true, order: 2, title: 'Lunch',       description: 'Hot rice, ghee and chutney',    icon: '🍚', image: '', imageType: 'lifestyle', productIds: [], keywords: ['rajamudi','peanut','flaxseed'],   target: '',       ctaLabel: 'Shop lunch',       ctaTarget: '' },
-          { id: 'tea-time',    active: true, order: 3, title: 'Tea time',    description: 'Crunchy favourites with chai',  icon: '☕', image: '', imageType: 'lifestyle', productIds: [], keywords: ['chakli','kodubale','puffora'],    target: '',       ctaLabel: 'Shop tea time',    ctaTarget: '' },
-          { id: 'gifting',     active: true, order: 4, title: 'Gifting',     description: 'Combos made for sharing',       icon: '🎁', image: '', imageType: 'lifestyle', productIds: [], keywords: [],                                  target: 'combos', ctaLabel: 'See combos',       ctaTarget: '' },
-          { id: 'traditional', active: true, order: 5, title: 'Traditional', description: 'Recipes we grew up with',       icon: '🌿', image: '', imageType: 'lifestyle', productIds: [], keywords: ['rajamudi','chutney'],             target: '',       ctaLabel: 'Shop traditional', ctaTarget: '' }
+          { id: 'breakfast', active: true, order: 1, title: 'Breakfast', description: 'Start your day the traditional way.',       image: '', imageType: 'lifestyle', imageFocus: 'center', tagIds: ['breakfast','idli','dosa'], productIds: [], keywords: ['idli dosa pudi','pudi','peanut'], target: '',       ctaLabel: 'Shop breakfast', ctaTarget: '', icon: '' },
+          { id: 'lunch',     active: true, order: 2, title: 'Lunch',     description: 'Hot rice, ghee and a spoon of chutney.',    image: '', imageType: 'lifestyle', imageFocus: 'center', tagIds: ['lunch','rice'],              productIds: [], keywords: ['rajamudi','peanut','flaxseed'],   target: '',       ctaLabel: 'Shop lunch',     ctaTarget: '', icon: '' },
+          { id: 'tea-time',  active: true, order: 3, title: 'Tea time',  description: 'Crunchy favourites for chai time.',        image: '', imageType: 'lifestyle', imageFocus: 'center', tagIds: ['tea-time','snack-time'],     productIds: [], keywords: ['chakli','kodubale','puffora'],    target: '',       ctaLabel: 'Shop tea time',  ctaTarget: '', icon: '' },
+          { id: 'festival',  active: true, order: 4, title: 'Festival',  description: 'Traditional flavours for celebrations.',   image: '', imageType: 'lifestyle', imageFocus: 'center', tagIds: ['festival','gifting'],        productIds: [], keywords: [],                                  target: 'combos', ctaLabel: 'Shop festive',   ctaTarget: '', icon: '' }
         ]
       },
       promo: {
@@ -259,6 +279,7 @@ const JAYVI_SITE_DEFAULTS = {
         ctaTarget: '#offers',
         image: '',
         imageType: 'lifestyle',
+        imageFocus: 'center',
         startDate: '',
         endDate: '',
         productIds: []
@@ -293,10 +314,10 @@ const JAYVI_SITE_DEFAULTS = {
         eyebrow: 'How to enjoy Jayvi',
         title: 'One product. So many ways.',
         items: [
-          { productId: '', keyword: 'peanut',   title: 'Peanut Chutney',   pairings: ['Rice + ghee','Idli','Dosa'],        image: '', imageType: 'lifestyle' },
-          { productId: '', keyword: 'flaxseed', title: 'Flaxseed Chutney', pairings: ['Rice + ghee','Curd rice','Dosa'],   image: '', imageType: 'lifestyle' },
-          { productId: '', keyword: 'pudi',     title: 'Idli Dosa Pudi',   pairings: ['Idli','Dosa','Breakfast'],          image: '', imageType: 'lifestyle' },
-          { productId: '', keyword: 'rajamudi', title: 'Rajamudi Rice',    pairings: ['Rajamudi + ghee + peanut chutney'], image: '', imageType: 'lifestyle' }
+          { productId: '', keyword: 'peanut',   title: 'Peanut Chutney',   pairings: ['Rice + ghee','Idli','Dosa'],        image: '', imageType: 'lifestyle', imageFocus: 'center' },
+          { productId: '', keyword: 'flaxseed', title: 'Flaxseed Chutney', pairings: ['Rice + ghee','Curd rice','Dosa'],   image: '', imageType: 'lifestyle', imageFocus: 'center' },
+          { productId: '', keyword: 'pudi',     title: 'Idli Dosa Pudi',   pairings: ['Idli','Dosa','Breakfast'],          image: '', imageType: 'lifestyle', imageFocus: 'center' },
+          { productId: '', keyword: 'rajamudi', title: 'Rajamudi Rice',    pairings: ['Rajamudi + ghee + peanut chutney'], image: '', imageType: 'lifestyle', imageFocus: 'center' }
         ]
       },
       combos: {
@@ -319,7 +340,8 @@ const JAYVI_SITE_DEFAULTS = {
         productKeyword: 'rajamudi',
         ctaTarget: '',         // optional override, e.g. '#product/rajamudi' or a URL
         image: '',
-        imageType: 'lifestyle'
+        imageType: 'lifestyle',
+        imageFocus: 'center'
       },
       reviews: {
         enabled: true,
@@ -364,7 +386,8 @@ const JAYVI_SITE_DEFAULTS = {
         ctaLabel: 'Our story',
         story: 'Jayvi Foods brings the warmth of traditional Indian flavours to modern kitchens. Inspired by the food, recipes and everyday traditions we grew up with, we create thoughtfully crafted foods that are simple to enjoy and made to bring people together.\n\nFrom everyday favourites to traditional specialities, every Jayvi Foods product is rooted in familiar flavours, quality ingredients and the joy of good food.\n\nPurely Traditional. Simply Delicious.',
         image: '',
-        imageType: 'lifestyle'
+        imageType: 'lifestyle',
+        imageFocus: 'center'
       },
       newsletter: {
         enabled: true,

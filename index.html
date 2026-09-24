@@ -46,7 +46,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-<link rel="stylesheet" href="style.css?v=34.1">
+<link rel="stylesheet" href="style.css?v=34.2">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
  {"@type":"Organization","@id":"https://jayvifoods.com/#organization","name":"Jayvi Foods","url":"https://jayvifoods.com/",
@@ -123,26 +123,31 @@
 
 <main id="home">
 
-  <!-- V34 hero: one plain rectangular image stage (desktop 16:7, mobile 4:5 —
-       see JAYVI_IMAGE_SLOTS) with the copy overlaid on a readability
-       gradient. Artwork is never shaped by a decorative frame. -->
+  <!-- V34.2 hero. Two layouts, chosen per slide in Admin:
+       split   (default) — text beside the image on computers, below it on
+                 phones: the text can never cover the product.
+       overlay — text on the image (top / centre / bottom / none), for
+                 artwork designed with empty space, with a readability
+                 gradient of adjustable strength.
+       Pack shots are always shown whole; lifestyle photos fill the frame
+       around an Admin-set focal point. -->
   <section class="hero" id="heroSection" data-section="hero">
-    <div class="heroStage heroGrid" id="heroStage" data-text="bottom">
+    <div class="heroStage heroGrid" id="heroStage" data-layout="split" data-mlayout="split" data-text="center" data-overlay="auto">
       <div class="heroImage" id="heroImageBox">
         <picture id="heroPicture"><source id="heroMobileSrc" media="(max-width:767px)"><img id="heroImg" src="images/brand/placeholder.svg" alt="Jayvi Foods" fetchpriority="high" decoding="async"></picture>
         <video id="heroVideo" style="display:none" autoplay muted loop playsinline></video>
+        <div class="heroScrim" aria-hidden="true"></div>
+        <div id="heroDots" class="dots heroDots"></div>
       </div>
-      <div class="heroScrim" aria-hidden="true"></div>
-      <div class="wrap heroCopyWrap">
+      <div class="heroCopyWrap">
         <div class="heroCopy">
+          <span class="heroBadge" id="heroBadge" hidden></span>
           <div class="eyebrow" id="heroLabel">Authentic Karnataka flavours</div>
           <h1 id="heroTitle">Purely Traditional. <em>Simply Delicious.</em></h1>
           <p id="heroDesc">Traditional favourites made for everyday moments.</p>
-          <div class="heroBtns"><button id="heroShop" class="btn primary">Shop now <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button><a id="heroSecondary" class="heroLink" href="#best-sellers">Explore bestsellers</a></div>
-          <div class="heroPrice" style="display:none"><span>from</span><b id="heroPrice"></b></div>
+          <div class="heroBtns"><button id="heroShop" class="btn primary">Shop now <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button><a id="heroSecondary" class="heroLink" href="#best-sellers">Explore bestsellers</a><span class="heroPrice" style="display:none"><span>from</span><b id="heroPrice"></b></span></div>
         </div>
       </div>
-      <div id="heroDots" class="dots heroDots"></div>
     </div>
     <div class="wrap"><div class="heroTrust" id="heroTrust"></div></div>
   </section>
@@ -259,7 +264,7 @@
   <div><b>Connect</b><span id="footerSocialLinks"><a href="#" data-wa-link target="_blank" rel="noopener">WhatsApp</a><a href="https://instagram.com/jayvifoods" target="_blank" rel="noopener" data-ig-link>Instagram</a></span><a href="mailto:jayvifoods@gmail.com" data-brand-email>jayvifoods@gmail.com</a><a href="tel:+918861981003" data-brand-phone>+91 88619 81003</a></div>
   <div class="footerCompliance"><b>Food Safety &amp; Business</b><div class="fssaiBadge" aria-label="FSSAI"><img src="images/compliance/fssai-logo.png" alt="FSSAI" loading="lazy"></div><p>FSSAI Lic. No. <strong data-brand-fssai>21226177001087</strong></p><p>UDYAM Registered MSME</p><p data-brand-udyam>UDYAM-KR-03-0681597</p><div class="footerBadges"><span>FSSAI Registered</span><span>Udyam MSME</span></div></div>
 </div>
-<div class="wrap copyright"><span>© <span id="copyYear">2026</span> Jayvi Foods</span><span>Delivered across India</span><span class="siteVersion" id="siteVersion">Website v34.1</span></div></footer>
+<div class="wrap copyright"><span>© <span id="copyYear">2026</span> Jayvi Foods</span><span>Delivered across India</span><span class="siteVersion" id="siteVersion">Website v34.2</span></div></footer>
 
 <a class="whatsappFloat" href="#" data-wa-link data-wa-text="Hi Jayvi Foods, I need help with my order." target="_blank" rel="noopener" aria-label="Chat with Jayvi's team on WhatsApp"><i class="fa-brands fa-whatsapp"></i><span>Chat with us</span></a>
 
@@ -312,8 +317,8 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="supabase-config.js?v=34.1"></script>
-<script src="site-content-defaults.js?v=34.1"></script>
-<script src="app.js?v=34.1"></script>
+<script src="supabase-config.js?v=34.2"></script>
+<script src="site-content-defaults.js?v=34.2"></script>
+<script src="app.js?v=34.2"></script>
 </body>
 </html>

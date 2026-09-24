@@ -530,19 +530,20 @@ async function saveCategoryToSupabase(c){
 async function fetchMealTags(){
   const {data:rows,error}=await sb.from('meal_tags').select('*').order('display_order',{ascending:true});
   if(error){ toast('Could not load meal tags: '+error.message); return []; }
-  const mealTags=(rows||[]).map(t=>({id:t.id, name:t.name||'', enabled:t.enabled, order:t.display_order||0}));
+  const mealTags=(rows||[]).map(t=>({id:t.id, name:t.name||'', enabled:t.enabled, order:t.display_order||0, pairing:t.show_as_pairing!==false}));
   data.mealTags=mealTags;
   data.mealLabels=Object.fromEntries(mealTags.map(x=>[x.id,x.name]));
   return mealTags;
 }
 async function saveMealTagToSupabase(t){
-  const {error}=await sb.from('meal_tags').upsert({id:t.id, name:t.name, enabled:t.enabled, display_order:t.order});
-  if(error){ toast('Could not save meal tag: '+error.message); return false; }
+  // V34.2: show_as_pairing is optional (migration) — skipped with a toast if the column isn't there yet
+  const {error}=await upsertWithV33Fallback('meal_tags',{id:t.id, name:t.name, enabled:t.enabled, display_order:t.order, show_as_pairing:t.pairing!==false},['show_as_pairing']);
+  if(error){ toast('Could not save product tag: '+error.message); return false; }
   return true;
 }
 async function deleteMealTagFromSupabase(id){
   const {error}=await sb.from('meal_tags').delete().eq('id',id);
-  if(error){ toast('Could not delete meal tag: '+error.message); return false; }
+  if(error){ toast('Could not delete product tag: '+error.message); return false; }
   return true;
 }
 // V32.11: Store settings, Announcements, and curated ("Google")
@@ -589,7 +590,8 @@ async function fetchAnnouncements(){
   const announcements=(rows||[]).map(a=>({
     id:a.id, label:a.label||'', title:a.title||'', em:a.em||'', text:a.text||'',
     image:a.image||'', mediaType:a.media_type||'image', posterUrl:a.poster_url||'',
-    mobileImage:a.mobile_image||'', imageType:a.image_type||'lifestyle', imageFocus:a.image_focus||'center', mobileImageFocus:a.mobile_image_focus||'', textPlacement:a.text_placement||'bottom',
+    mobileImage:a.mobile_image||'', imageType:a.image_type||'lifestyle', imageFocus:a.image_focus||'center',
+    layout:a.layout||'split', mobileLayout:a.mobile_layout||'auto', overlayStrength:a.overlay_strength||'auto', badge:a.badge_text||'', mobileImageFocus:a.mobile_image_focus||'', textPlacement:a.text_placement||'bottom',
     showPrice:a.show_price,
     // V32.3 (spec 3): announcementType/targetType are the explicit
     // "does this announcement belong to a product?" relationship —
@@ -615,8 +617,10 @@ async function saveAnnouncementToSupabase(a){
     cta_label:a.ctaLabel||null, secondary_cta_label:a.secondaryLabel||null, secondary_cta_target:a.secondaryTarget||null,
     // V34 — supabase_migration_v34_hero_media.sql; skipped (with a toast) if not run yet
     mobile_image:a.mobileImage||null, image_focus:a.imageFocus||null, mobile_image_focus:a.mobileImageFocus||null, text_placement:a.textPlacement||null,
-    image_type:a.imageType||'lifestyle'
-  },['cta_label','secondary_cta_label','secondary_cta_target','mobile_image','image_focus','mobile_image_focus','text_placement','image_type']);
+    image_type:a.imageType||'lifestyle',
+    // V34.2 — supabase_migration_v34_2.sql
+    layout:a.layout||'split', mobile_layout:a.mobileLayout||'auto', overlay_strength:a.overlayStrength||'auto', badge_text:a.badge||null
+  },['cta_label','secondary_cta_label','secondary_cta_target','mobile_image','image_focus','mobile_image_focus','text_placement','image_type','layout','mobile_layout','overlay_strength','badge_text']);
   if(error){ toast('Could not save announcement: '+error.message); return false; }
   return true;
 }
@@ -827,7 +831,7 @@ async function markAllNotificationsRead(){
   closeModal(); refreshNotifBadge(); toast('All notifications marked read');
 }
 
-async function render(){title.textContent=tab==='variants'?'Variants & sizes':tab==='mealtags'?'Meal tags':tab==='settings'?'Store settings':tab==='pincodes'?'Delivery / Pincodes':tab==='sitecontent'?'Site content':tab==='homepage'?'Hero slides':tab[0].toUpperCase()+tab.slice(1);document.getElementById('headerContext').innerHTML=tab==='dashboard'?'<span class="livePill">Connected to Supabase</span>':'';
+async function render(){title.textContent=tab==='variants'?'Variants & sizes':tab==='mealtags'?'Product tags':tab==='settings'?'Store settings':tab==='pincodes'?'Delivery / Pincodes':tab==='sitecontent'?'Site content':tab==='homepage'?'Hero slides':tab[0].toUpperCase()+tab.slice(1);document.getElementById('headerContext').innerHTML=tab==='dashboard'?'<span class="livePill">Connected to Supabase</span>':'';
  refreshNotifBadge();
  app.innerHTML = '<div class="empty">Loading…</div>';
  let h='';
@@ -1151,7 +1155,7 @@ function productForm(id=null){
  <label class="fullLabel">Full product description<textarea id="pDesc" rows="7">${esc(p.description||'')}</textarea></label>
  </div>
  <div class="formSection"><h3>Categories / collections</h3><p>Select as many as needed. Primary category is separate from merchandising collections.</p><div class="checkGrid">${data.categories.map(c=>`<label><input type="checkbox" class="pCats" value="${c.id}" ${selected.includes(c.id)?'checked':''}> ${esc(c.name)}</label>`).join('')}</div></div>
- <div class="formSection"><h3>Meal tags</h3><p>Admin-managed. Add more from <b>Meal tags</b> in the sidebar; nothing is hardcoded to four choices. Also used as the storefront's "How to enjoy" section on the product page.</p><div class="checkGrid">${(data.mealTags||[]).filter(t=>t.enabled).sort((a,b)=>a.order-b.order).map(t=>`<label><input type="checkbox" class="pMeals" value="${t.id}" ${(p.mealTags||[]).includes(t.id)?'checked':''}> ${esc(t.name)}</label>`).join('')}</div></div>
+ <div class="formSection"><h3>Product tags</h3><p>Tick everything this product is for — homepage occasions pick their products from these tags. Manage the list under <b>Product tags</b> in the sidebar.</p>${(()=>{ const all=(data.mealTags||[]).slice().sort((a,b)=>a.order-b.order); const box=(t)=>`<label class="${t.enabled?'':'tagOff'}"><input type="checkbox" class="pMeals" value="${t.id}" ${(p.mealTags||[]).includes(t.id)?'checked':''}> ${esc(t.name)}${t.enabled?'':' (disabled)'}</label>`; const use=all.filter(t=>t.pairing===false), pair=all.filter(t=>t.pairing!==false); return `${use.length?`<h4 class="tagSub">Use cases</h4><div class="checkGrid">${use.map(box).join('')}</div>`:''}<h4 class="tagSub">Pairings</h4><div class="checkGrid">${pair.map(box).join('')}</div>`; })()}</div>
  ${mediaEditorMarkup()}
  <div class="formSection"><h3>Product detail page — extra content</h3><p>All optional. Leave a field blank and its section simply won't show on the storefront for this product.</p>
    <label class="fullLabel">Why you'll love it<textarea id="pHighlights" rows="3" placeholder="One claim per line, e.g.&#10;Traditional recipe&#10;Freshly packed&#10;Authentic Karnataka flavour">${esc((p.highlights||[]).join('\n'))}</textarea><small class="fieldHint">One short claim per line. Only list things that are actually true for this product.</small></label>
@@ -1341,27 +1345,49 @@ function deleteCombo(id){
    render();
  })();
 }
+// V34.2 — PRODUCT TAGS (the existing meal_tags table, extended).
+// Two kinds, one list:
+//   pairing  — Idli, Dosa, Rice + Ghee… also shown in "Made for every meal"
+//              and as "How to enjoy" on the product page
+//   use case — Breakfast, Tea time, Travel, Gifting… only group products
+//              (occasions, search, filters)
+// Occasions select products by these tags, so a product's occasions follow
+// its tags automatically.
+function tagUsage(id){
+  const prods=(data.products||[]).filter(p=>(p.mealTags||[]).includes(id));
+  const occ=((_sc?.homepage?.sections?.occasions?.items)||[]).filter(o=>(o.tagIds||[]).includes(id));
+  return {prods,occ};
+}
 async function mealTagsPage(){
- await fetchMealTags();
- return `<section class="panel">${liveCatalogNote()}<div class="panelHead"><div><h2>Meal tags</h2><p>Manage the meals shown in product setup and the storefront's "Made for every meal" recommendations.</p></div><button class="gold" onclick="mealTagForm()">+ Add meal tag</button></div>
- <div class="categoryTable">${(data.mealTags||[]).sort((a,b)=>(a.order||0)-(b.order||0)).map((t,i)=>`<div class="categoryRow"><span><b>${esc(t.name)}</b><small>ID: ${esc(t.id)}</small></span><strong>${t.order||i+1}</strong><span class="${t.enabled?'good':'danger'}">${t.enabled?'VISIBLE':'HIDDEN'}</span><button class="outline" onclick="mealTagForm(${i})">Edit</button><button class="outline dangerBtn" onclick="deleteMealTag(${i})">Delete</button></div>`).join('')}</div></section>`;
+ await fetchMealTags(); await fetchProducts();
+ if(!Object.keys(_sc||{}).length){ try{ await fetchSiteContent(); }catch{} }
+ const rows=(data.mealTags||[]).sort((a,b)=>(a.order||0)-(b.order||0));
+ const row=(t)=>{ const i=data.mealTags.indexOf(t), u=tagUsage(t.id);
+   return `<div class="categoryRow tagRow"><span><b>${esc(t.name)}</b><small>ID: ${esc(t.id)} · ${t.pairing!==false?'Pairing':'Use case'}</small></span><span class="tagUse">${u.prods.length} product${u.prods.length===1?'':'s'}${u.occ.length?` · ${u.occ.length} occasion${u.occ.length===1?'':'s'}`:''}</span><span class="${t.enabled?'good':'danger'}">${t.enabled?'ACTIVE':'DISABLED'}</span><button class="outline" onclick="mealTagForm(${i})">Edit</button><button class="outline dangerBtn" onclick="deleteMealTag(${i})" ${u.prods.length||u.occ.length?'title="In use — remove it from products/occasions first"':''}>Delete</button></div>`; };
+ const pairing=rows.filter(t=>t.pairing!==false), use=rows.filter(t=>t.pairing===false);
+ return `<section class="panel">${liveCatalogNote()}<div class="panelHead"><div><h2>Product tags</h2><p>Tag each product with what it's for. <b>Use-case tags</b> (Breakfast, Tea time, Travel, Gifting…) group products — occasions on the homepage pick their products from these. <b>Pairing tags</b> (Idli, Dosa, Rice + Ghee…) also appear in "Made for every meal" and as "How to enjoy" on the product page. A product can have any number of tags.</p></div><button class="gold" onclick="mealTagForm()">+ Add product tag</button></div>
+ <h3 class="tagGroupHead">Use cases</h3><div class="categoryTable">${use.map(row).join('')||'<div class="empty smallEmpty">None yet — add Breakfast, Lunch, Tea time, Travel, Festival, Gifting… (or run the V34.2 migration, which adds a starter set).</div>'}</div>
+ <h3 class="tagGroupHead">Pairings</h3><div class="categoryTable">${pairing.map(row).join('')||'<div class="empty smallEmpty">None yet.</div>'}</div></section>`;
 }
 function mealTagForm(index=-1){
- const t=index>=0?data.mealTags[index]:{id:'',name:'',enabled:true,order:data.mealTags.length+1};
- openModal(`<div class="eyebrow">MEAL TAG</div><h2>${index<0?'Add meal tag':'Edit meal tag'}</h2><div class="formGrid"><label>ID<input id="mtId" value="${esc(t.id)}" ${index>=0?'disabled':''}></label><label>Name<input id="mtName" value="${esc(t.name)}"></label><label>Display position<input id="mtOrder" type="number" value="${t.order||1}"></label></div><label class="checkOnly"><input id="mtEnabled" type="checkbox" ${t.enabled?'checked':''}> Visible</label><button class="gold full" onclick="saveMealTag(${index})">Save meal tag</button>`);
+ const t=index>=0?data.mealTags[index]:{id:'',name:'',enabled:true,order:data.mealTags.length+1,pairing:false};
+ openModal(`<div class="eyebrow">PRODUCT TAG</div><h2>${index<0?'Add product tag':'Edit product tag'}</h2><div class="formGrid"><label>Name<input id="mtName" value="${esc(t.name)}" ${index<0?`oninput="const f=document.getElementById('mtId');if(!f.dataset.touched)f.value=this.value.toLowerCase().replace(/\\+/g,' plus ').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')"`:''}></label><label>ID<input id="mtId" value="${esc(t.id)}" ${index>=0?'disabled':''} oninput="this.dataset.touched=1"><small class="fieldHint">Lowercase, no spaces. Can't be changed later.</small></label><label>Display position<input id="mtOrder" type="number" value="${t.order||1}"></label><label>Kind<select id="mtKind"><option value="use" ${t.pairing===false?'selected':''}>Use case (Breakfast, Travel, Gifting…)</option><option value="pairing" ${t.pairing!==false?'selected':''}>Pairing (Idli, Dosa, Rice + Ghee…)</option></select></label></div><label class="checkOnly"><input id="mtEnabled" type="checkbox" ${t.enabled?'checked':''}> Active (a disabled tag stays on products but is hidden from the storefront)</label><button class="gold full" onclick="saveMealTag(${index})">Save product tag</button>`);
 }
 async function saveMealTag(i){
   const existingId=i>=0?data.mealTags[i].id:null;
-  const t={id:existingId||document.getElementById('mtId').value.trim(),name:document.getElementById('mtName').value.trim(),order:Number(document.getElementById('mtOrder').value||1),enabled:document.getElementById('mtEnabled').checked};
+  const t={id:existingId||document.getElementById('mtId').value.trim().toLowerCase(),name:document.getElementById('mtName').value.trim(),order:Number(document.getElementById('mtOrder').value||1),enabled:document.getElementById('mtEnabled').checked,pairing:document.getElementById('mtKind')?.value!=='use'};
   if(!t.id||!t.name){toast('ID and name are required');return}
+  if(!/^[a-z0-9][a-z0-9-]*$/.test(t.id)){toast('ID: lowercase letters, numbers and dashes only');return}
+  if(i<0 && (data.mealTags||[]).some(x=>x.id===t.id)){toast('A tag with this ID already exists');return}
   const ok=await saveMealTagToSupabase(t);
   if(!ok)return;
   closeModal();render();
 }
 async function deleteMealTag(i){
   const id=data.mealTags[i]?.id;
-  if(data.products.some(p=>(p.mealTags||[]).includes(id))){toast('Remove this tag from products before deleting it');return}
-  if(!confirm('Delete this meal tag?'))return;
+  const u=tagUsage(id);
+  if(u.prods.length||u.occ.length){toast(`"${data.mealTags[i].name}" is in use (${[u.prods.length?u.prods.map(p=>p.name).slice(0,3).join(', ')+(u.prods.length>3?'…':''):'',u.occ.length?'occasions: '+u.occ.map(o=>o.title).join(', '):''].filter(Boolean).join('; ')}). Remove it there first, or disable it instead.`);return}
+  if(!confirm('Delete this product tag?'))return;
   const ok=await deleteMealTagFromSupabase(id);
   if(!ok)return;
   render();
@@ -1370,7 +1396,7 @@ async function categoriesPage(){
  await fetchCategories();
  return `<section class="panel">${liveCatalogNote()}<div class="panelHead"><div><h2>Categories</h2><p>Display position controls ordering. "Orders" is not used here.</p></div><button class="gold" onclick="categoryForm()">+ Add category</button></div><div class="categoryTable">${data.categories.map((c,i)=>`<div class="categoryRow"><span><b>${esc(c.name)}</b><small>ID: ${esc(c.id)}</small></span><strong>${c.order||i+1}</strong><span class="${c.enabled?'good':'danger'}">${c.enabled?'VISIBLE':'HIDDEN'}</span>${c.imageUrl?'<span class="tiny">🖼️</span>':''}<button class="outline" onclick="categoryForm(${i})">Edit</button></div>`).join('')}</div></section>`;
 }
-function categoryForm(index=-1){const c=index>=0?data.categories[index]:{id:'',name:'',enabled:true,order:data.categories.length+1,description:'',imageUrl:'',imageType:'packshot'};openModal(`<div class="eyebrow">CATEGORY</div><h2>${index<0?'Add category':'Edit category'}</h2><div class="formGrid"><label>ID<input id="catId" value="${esc(c.id)}" ${index>=0?'disabled':''}></label><label>Name<input id="catName" value="${esc(c.name)}"></label><label>Display position<input id="catOrder" type="number" value="${c.order||1}"></label><label class="fullLabel">Card description <small class="fieldHint">Shown on the homepage "Shop by category" card, e.g. "Add tradition to every meal".</small><input id="catDesc" maxlength="80" value="${esc(c.description||'')}"></label><label class="fullLabel">Card image <small class="fieldHint">Card shape 4:5 (e.g. 800 × 1000 px). Pack shots are shown whole — no special cropping needed. Lifestyle photos fill the card. Blank = the first product's pack image, shown whole.</small><input id="catImage" value="${esc(c.imageUrl||'')}" placeholder="https://… or images/…" oninput="document.getElementById('catImgPv').innerHTML=this.value?'<img src=&quot;'+esc(this.value)+'&quot; alt=&quot;&quot;>':''"></label><label class="fullLabel">Image type<select id="catImageType">${[['lifestyle','Lifestyle / food photo — fills the frame (edges may be cropped)'],['packshot','Product pack shot — whole pouch shown, never cropped']].map(([v,t])=>`<option value="${v}" ${v===(c.imageType||'packshot')?'selected':''}>${t}</option>`).join('')}</select><small class="fieldHint">Pack shots are shown whole on a warm background, so any pouch photo works without special cropping.</small></label><span class="scImgRow"><span class="scPreview" id="catImgPv">${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:''}</span><label class="outline uploadBtn">Upload image<input type="file" accept="image/webp,image/jpeg,image/png" style="display:none" onchange="uploadCategoryImage(event)"></label></span></div><label class="checkOnly"><input id="catEnabled" type="checkbox" ${c.enabled?'checked':''}> Visible on storefront</label><button class="gold full" onclick="saveCategory(${index})">Save category</button>`)}
+function categoryForm(index=-1){const c=index>=0?data.categories[index]:{id:'',name:'',enabled:true,order:data.categories.length+1,description:'',imageUrl:'',imageType:'packshot'};openModal(`<div class="eyebrow">CATEGORY</div><h2>${index<0?'Add category':'Edit category'}</h2><div class="formGrid"><label>ID<input id="catId" value="${esc(c.id)}" ${index>=0?'disabled':''}></label><label>Name<input id="catName" value="${esc(c.name)}"></label><label>Display position<input id="catOrder" type="number" value="${c.order||1}"></label><label class="fullLabel">Card description <small class="fieldHint">Shown on the homepage "Shop by category" card, e.g. "Add tradition to every meal".</small><input id="catDesc" maxlength="80" value="${esc(c.description||'')}"></label><label class="fullLabel">Card image <small class="fieldHint">Square card (1:1). Pack shots: any size, shown whole — no special cropping needed. Lifestyle photos: 1000 × 1000 px, they fill the card. Blank = the first product's pack image, shown whole.</small><input id="catImage" value="${esc(c.imageUrl||'')}" placeholder="https://… or images/…" oninput="document.getElementById('catImgPv').innerHTML=this.value?'<img src=&quot;'+esc(this.value)+'&quot; alt=&quot;&quot;>':''"></label><label class="fullLabel">Image type<select id="catImageType">${[['lifestyle','Lifestyle / food photo — fills the frame (edges may be cropped)'],['packshot','Product pack shot — whole pouch shown, never cropped']].map(([v,t])=>`<option value="${v}" ${v===(c.imageType||'packshot')?'selected':''}>${t}</option>`).join('')}</select><small class="fieldHint">Pack shots are shown whole on a warm background, so any pouch photo works without special cropping.</small></label><span class="scImgRow"><span class="scPreview" id="catImgPv">${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:''}</span><label class="outline uploadBtn">Upload image<input type="file" accept="image/webp,image/jpeg,image/png" style="display:none" onchange="uploadCategoryImage(event)"></label></span></div><label class="checkOnly"><input id="catEnabled" type="checkbox" ${c.enabled?'checked':''}> Visible on storefront</label><button class="gold full" onclick="saveCategory(${index})">Save category</button>`)}
 async function uploadCategoryImage(evt){
   const file=evt.target.files?.[0]; if(!file) return;
   const key=`categories/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'-').toLowerCase()}`;
@@ -2047,7 +2073,10 @@ const SC_SELECTS={
   audience:[['all','Everyone'],['new','New customers only'],['existing','Returning customers only']],
   frequency:[['days','Again after the number of days below'],['session','Once per visit'],['once','Never again once closed']],
   showOn:[['all','Phones and computers'],['mobile','Phones only'],['desktop','Computers only']],
-  textPlacement:[['bottom','Headline over the image (bottom on phones, left on computers)'],['top','Headline at the top'],['none','Artwork already has its own text — show only the button']],
+  textPlacement:[['top','Top'],['center','Centre'],['bottom','Bottom'],['none','None — artwork has its own text (button only)']],
+  layout:[['split','Split — text beside the image (computers) / below it (phones). Safest.'],['overlay','Overlay — text on the image (artwork with empty space)']],
+  mobileLayout:[['auto','Automatic — overlay only if a phone image is uploaded'],['split','Always split on phones'],['overlay','Always overlay on phones']],
+  overlayStrength:[['auto','Automatic'],['none','None'],['light','Light'],['medium','Medium'],['strong','Strong']],
   imageFocus:SC_FOCUS_OPTS, mobileImageFocus:SC_FOCUS_OPTS,
   imageType:[['lifestyle','Lifestyle / food photo — fills the frame (edges may be cropped)'],['packshot','Product pack shot — whole pouch shown, never cropped']]
 };
@@ -2081,9 +2110,14 @@ const SC_HINTS={
   ratingCount:'Only with a genuine quoted rating, e.g. the number of Google reviews.',
   signoff:'Short closing line shown in italics.',
   order:'Lower numbers show first.',
+  layout:'Split keeps text off the image, so it can never cover the product.',
+  mobileLayout:'Automatic uses overlay on phones only when a phone image is uploaded.',
+  overlayStrength:'Only for the overlay layout: how dark the gradient behind the text is.',
+  keywords:'Only used while no tags or products are chosen.',
+  packBackgroundAuto:'Removes the visible "box" when a pack photo has a light grey (not white) background.',
   description:''
 };
-const SC_KEY_LABELS={imageType:'Image type',promotionId:'Floating offer',ratingCount:'Rating count (optional)',ratingValue:'Quoted rating (optional)',signoff:'Sign-off line',codeVisibility:'How the code is revealed',canCombine:'Can be combined with other offers',showOnHomepage:'Show on homepage',showInPopup:'Show in sign-up popup',showFloating:'Show on floating button',showInCart:'Show in cart',couponCode:'Coupon code',appliesTo:'Applies to',categoryIds:'Categories',skipWhenCartHasItems:"Don't show while the basket has items",showOn:'Show on',frequency:'How often',audience:'Who sees it',imageFocus:'Image focus (desktop)',mobileImageFocus:'Image focus (phone)',mobileImage:'Mobile image',textPlacement:'Headline position',ogImage:'Share image (Google / WhatsApp / Facebook)',ogImageAlt:'Share image description',discountPercent:'Discount % (for {discount})'};
+const SC_KEY_LABELS={layout:'Layout',mobileLayout:'On phones',overlayStrength:'Overlay strength',badge:'Badge (optional)',tagIds:'Product tags',packBackground:'Pack shot background',packBackgroundAuto:"Match each pack photo's own background automatically",textPlacement:'Text position',keywords:'Search words (fallback)',imageType:'Image type',promotionId:'Floating offer',ratingCount:'Rating count (optional)',ratingValue:'Quoted rating (optional)',signoff:'Sign-off line',codeVisibility:'How the code is revealed',canCombine:'Can be combined with other offers',showOnHomepage:'Show on homepage',showInPopup:'Show in sign-up popup',showFloating:'Show on floating button',showInCart:'Show in cart',couponCode:'Coupon code',appliesTo:'Applies to',categoryIds:'Categories',skipWhenCartHasItems:"Don't show while the basket has items",showOn:'Show on',frequency:'How often',audience:'Who sees it',imageFocus:'Image focus (desktop)',mobileImageFocus:'Image focus (phone)',mobileImage:'Mobile image',textPlacement:'Headline position',ogImage:'Share image (Google / WhatsApp / Facebook)',ogImageAlt:'Share image description',discountPercent:'Discount % (for {discount})'};
 /* ---------- V34: image slot guidance ----------
    Maps an editor field to its JAYVI_IMAGE_SLOTS entry (site-content-defaults.js),
    so every upload shows the real size/ratio, a crop preview with the safe
@@ -2107,6 +2141,56 @@ function slotGuideMarkup(slotId,url,opts={}){
   const pv=url?`<div class="slotPreview${opts.focusPath?' clickable':''}" style="aspect-ratio:${S.ratio}"${click}><img src="${esc(url)}" alt="" style="object-position:${focus}" onload="slotCheck(this,${S.w},${S.h})" onerror="this.closest('.slotGuide').querySelector('.slotCheck').textContent='⚠️ This image could not be loaded — check the URL.'">${box(S.text,'slotText')}${box(S.safe,'slotSafe')}${opts.focusPath?`<i class="slotDot" style="left:${focus.split(' ')[0]};top:${focus.split(' ')[1]}"></i>`:''}</div>`
                 :`<div class="slotPreview empty" style="aspect-ratio:${S.ratio}">${box(S.text,'slotText')}${box(S.safe,'slotSafe')}<span>${S.w} × ${S.h}</span></div>`;
   return `<div class="slotGuide"><div class="slotSpec"><b>Recommended image: ${S.w} × ${S.h} px</b><span>Aspect ratio ${esc(S.ratioText)}</span><small>${esc(S.safeText)}${S.text?' <em>Shaded = covered by text. Dashed = keep important content here.</em>':S.safe?' <em>Dashed = keep important content here.</em>':''}</small>${opts.note?`<small class="slotNote">${esc(opts.note)}</small>`:''}</div>${pv}<small class="slotCheck"></small></div>`;
+}
+/* ---------- V34.2: hero layout controls + live phone/desktop preview ---------- */
+const IMG_TYPE_OPTS=[['lifestyle','Lifestyle / food photo — fills the frame (edges may be cropped)'],['packshot','Product pack shot — whole pouch shown, never cropped']];
+const HERO_LAYOUT_OPTS=[['split','Split — text beside the image (computers) / below it (phones). Safest.'],['overlay','Overlay — text on the image (artwork with empty space)']];
+const HERO_MLAYOUT_OPTS=[['auto','Automatic — overlay only if a phone image is uploaded'],['split','Always split on phones'],['overlay','Always overlay on phones']];
+const HERO_TEXT_OPTS=[['top','Top'],['center','Centre'],['bottom','Bottom'],['none','None — artwork has its own text (button only)']];
+const HERO_OVERLAY_OPTS=[['auto','Automatic'],['none','None'],['light','Light'],['medium','Medium'],['strong','Strong']];
+function heroResolve(d){
+  const video=d.mediaType==='video', pack=!video && (d.imageType==='packshot' || !d.image);
+  const L=(!pack && d.layout==='overlay')?'overlay':'split';
+  let ML=d.mobileLayout||'auto'; if(pack) ML='split'; else if(ML==='auto') ML=(L==='overlay'&&d.mobileImage)?'overlay':'split';
+  return {pack,L,ML};
+}
+function heroLayoutControls(d){
+  const {pack}=heroResolve(d);
+  const sel=(key,label,opts,cur)=>`<label>${label}<select onchange="window._annDraft.${key}=this.value;renderAnnouncementMediaPreview()">${opts.map(([v,t])=>`<option value="${v}" ${v===cur?'selected':''}>${esc(t)}</option>`).join('')}</select></label>`;
+  return `<div class="heroCtl">${pack?`<p class="fieldHint"><b>Pack shot:</b> always shown whole in the split layout, so text never sits on the packaging.</p>`:sel('layout','Layout',HERO_LAYOUT_OPTS,d.layout||'split')+(d.layout==='overlay'?sel('mobileLayout','On phones',HERO_MLAYOUT_OPTS,d.mobileLayout||'auto'):'')}${sel('textPlacement','Text position',HERO_TEXT_OPTS,d.textPlacement||'center')}${!pack&&d.layout==='overlay'?sel('overlayStrength','Overlay strength (readability gradient)',HERO_OVERLAY_OPTS,d.overlayStrength||'auto'):''}</div>`;
+}
+// Mini replica of the storefront hero, using the same layout rules as
+// heroShow() — what Admin sees here is what customers get.
+function heroPreviewMarkup(d,t){
+  const {pack,L,ML}=heroResolve(d);
+  const tp=d.textPlacement||'center', ov=d.overlayStrength||'auto';
+  const copy=`<div class="pvCopy t-${tp}">${tp==='none'?'':`${t.badge?`<span class="pvBadge">${esc(t.badge)}</span>`:''}${t.label?`<span class="pvEyebrow">${esc(t.label)}</span>`:''}<b class="pvH">${esc(t.title||'Your headline')}${t.em?`<em>${esc(t.em)}</em>`:''}</b>${t.text?`<span class="pvP">${esc(t.text)}</span>`:''}`}<span class="pvBtn">${esc(t.cta||'Shop now')}</span></div>`;
+  const img=(src,focus,clampMin,clampMax)=>src
+    ? `<img src="${esc(src)}" alt="" style="object-fit:${pack?'contain':'cover'};object-position:${pack?'50% 50%':focusCss(focus)};${pack?'padding:5%;':''}"${!pack&&clampMin?` onload="this.parentNode.style.aspectRatio=Math.min(${clampMax},Math.max(${clampMin},this.naturalWidth/this.naturalHeight))"`:''}>`
+    : `<span class="pvNoImg">Product pack</span>`;
+  const phoneSrc=(!pack&&d.mobileImage)?d.mobileImage:d.image;
+  const phoneFocus=d.mobileImageFocus||d.imageFocus;
+  const phone = ML==='overlay'
+    ? `<div class="pvMedia over s-${ov}" style="aspect-ratio:4/5">${img(phoneSrc,phoneFocus)}<i class="pvScrim t-${tp}"></i>${copy}</div>`
+    : `<div class="pvMedia${pack?' pack':''}" style="aspect-ratio:4/3">${img(phoneSrc,phoneFocus,.8,2)}</div>${copy}`;
+  const desk = L==='overlay'
+    ? `<div class="pvMedia over s-${ov}" style="aspect-ratio:16/7">${img(d.image,d.imageFocus)}<i class="pvScrim desk t-${tp}"></i>${copy}</div>`
+    : `<div class="pvSplit">${copy}<div class="pvMedia${pack?' pack':''}" style="aspect-ratio:4/3">${img(d.image,d.imageFocus,1.25,1.78)}</div></div>`;
+  return `<div class="heroPv"><div class="pvHead"><b>Preview</b><span>Updates as you type. ${ML!==L?`Phones use the <b>${ML}</b> layout${L==='overlay'&&ML==='split'?' because there is no phone image':''}.`:''}</span></div>
+    <div class="pvRow"><div><small>Phone</small><div class="pvPhone ${ML}">${phone}</div></div><div class="pvDeskWrap"><small>Computer</small><div class="pvDesk ${L}">${desk}</div></div></div></div>`;
+}
+function packGuideMarkup(url,ratio){
+  return `<div class="slotGuide"><div class="slotSpec"><b>Pack shot — shown whole, never cropped</b><span>Any size (at least 800 px on the long side)</span><small>No special cropping needed: the website fits the whole pouch inside the frame, centred. White, light-grey or transparent backgrounds work best — the frame automatically takes the photo's own light background, so no "box" shows.</small></div>${url?`<div class="slotPreview" style="aspect-ratio:${ratio||'1/1'};background:#fff"><img src="${esc(url)}" alt="" style="object-fit:contain;padding:5%"></div>`:''}<small class="slotCheck"></small></div>`;
+}
+function occasionPreviewMarkup(it){
+  const ids=new Set(it.productIds||[]), tags=new Set(it.tagIds||[]);
+  let list=(data.products||[]).filter(p=>p.active!==false && (ids.has(p.id)||(tags.size&&(p.mealTags||[]).some(x=>tags.has(x)))));
+  let how='hand-picked products and products with the selected tags';
+  if(!ids.size&&!tags.size){ const kw=(it.keywords||[]).map(k=>String(k).toLowerCase()).filter(Boolean); list=(data.products||[]).filter(p=>p.active!==false&&kw.some(k=>(p.name+' '+(p.short||'')).toLowerCase().includes(k))); how='search words (fallback — pick tags or products for full control)'; }
+  if(it.target==='combos') how='combos (this card links to the combos section)';
+  const media=it.image?`<div class="pvOccImg" style="${it.imageType==='packshot'?'background:#fff':''}"><img src="${esc(it.image)}" alt="" style="object-fit:${it.imageType==='packshot'?'contain':'cover'};object-position:${focusCss(it.imageFocus)}"></div>`:`<div class="pvOccImg pvTile"><span>${esc(it.description||it.title||'')}</span></div>`;
+  return `<div class="occPv"><div class="pvOccCard">${media}<div class="pvOccBody"><b>${esc(it.title||'Occasion')}</b>${it.image&&it.description?`<span>${esc(it.description)}</span>`:''}${it.ctaLabel?`<em>${esc(it.ctaLabel)} →</em>`:''}</div></div>
+   <div class="occPvInfo"><b>${it.active===false?'⏸ Inactive — hidden from the website':'✅ Shown on the website'}</b><span>${it.target==='combos'?'Links to combos.':`Shows <b>${list.length}</b> product${list.length===1?'':'s'} (from ${how})${list.length?': '+list.slice(0,6).map(p=>esc(p.name)).join(', ')+(list.length>6?'…':''):''}.`}</span>${!it.image?'<span>No photo yet — a clean text tile in Jayvi colours is shown. Add a real food photo for the best result.</span>':''}${!list.length&&it.target!=='combos'&&!it.ctaTarget?'<span class="warnTxt">⚠️ No products match, so this card is hidden. Tick tags or products.</span>':''}</div></div>`;
 }
 function slotCheck(img,w,h){
   const out=img.closest('.slotGuide')?.querySelector('.slotCheck'); if(!out) return;
@@ -2207,6 +2291,11 @@ function scField(path,key,value,def){
   if(key==='label' && path.split('.').length===4) return ''; // internal section name
   if(key==='id' && /\.tabs\.\d+\.id$/.test(path)) return `<label>Shows products flagged<input value="${esc({best:'Bestseller',new:'New',popular:'Popular',healthy:'Healthy'}[value]||value)}" disabled></label>`;
   if(key==='showFloating') return ''; // V34.1: replaced by the single "Floating offer" choice
+  if(key==='tagIds'){
+    const all=(data.mealTags||[]).slice().sort((a,b)=>(a.pairing===false?0:1)-(b.pairing===false?0:1)||a.order-b.order);
+    return `<div class="formSection"><h3>Product tags</h3><p>Products carrying ANY ticked tag are included automatically — tag new products once and they join the right occasions. Manage tags under <b>Product tags</b>.</p><div class="checkGrid">${all.map(t=>`<label class="${t.enabled?'':'tagOff'}"><input type="checkbox" ${(value||[]).includes(t.id)?'checked':''} onchange="scToggleIn('${path}','${esc(t.id)}',this.checked);scRender()"> ${esc(t.name)}${t.pairing===false?'':' <small>(pairing)</small>'}${t.enabled?'':' (disabled)'}</label>`).join('')||'<span class="tiny">No product tags yet.</span>'}</div></div>`;
+  }
+  if(key==='packBackground') return `<label>Pack shot background<span class="colorRow"><input type="color" value="${esc(/^#[0-9a-f]{6}$/i.test(value||'')?value:'#ffffff')}" onchange="scSet('${path}',this.value);scRender()"><input value="${esc(value||'#FFFFFF')}" onchange="scSet('${path}',this.value.trim());scRender()"></span><small class="fieldHint">The ground every pack shot sits on. White suits most studio pack photos.</small></label>`;
   if(key==='promotionId' && path==='promotions.floatingButton.promotionId'){
     const items=(_sc.promotions?.items||[]);
     const sel=items.find(x=>x.id===value);
@@ -2237,23 +2326,29 @@ function scField(path,key,value,def){
   }
   if(SC_SELECTS[key]){
     const opts=[...SC_SELECTS[key]]; if(value && !opts.some(([v])=>v===value)) opts.push([value,`Custom (${value})`]);
-    const rerender=/Focus$|^textPlacement$|^appliesTo$|^codeVisibility$/.test(key)?';scRender()':'';
+    const rerender=/Focus$|^textPlacement$|^appliesTo$|^codeVisibility$|^imageType$|^layout$|^mobileLayout$|^overlayStrength$|^target$/.test(key)?';scRender()':'';
     return `<label>${lab}<select onchange="scInput('${path}',this,'str')${rerender}">${opts.map(([v,t])=>`<option value="${esc(v)}" ${v===(value||'')?'selected':''}>${esc(t)}</option>`).join('')}</select>${hint}</label>`;
   }
   if(key==='startDate'||key==='endDate') return `<label>${lab}<input type="date" value="${esc(value||'')}" onchange="scInput('${path}',this,'str')">${hint}</label>`;
   if(SC_IMAGE_KEYS.has(key)){
-    const slot=scSlotFor(path), parent=path.split('.').slice(0,-1).join('.');
+    const parent=path.split('.').slice(0,-1).join('.'), P=scGet(parent)||{};
+    let slot=scSlotFor(path);
+    const isHero=/hero\.fallback\./.test(path), overlay=isHero&&P.layout==='overlay';
+    if(isHero) slot = key==='mobileImage' ? (overlay?'heroMobile':'heroSplit') : (overlay?'heroDesktop':'heroSplit');
     let guide='';
     if(slot){
-      const isHeroD=slot==='heroDesktop', isHeroM=slot==='heroMobile';
-      const desktopImg=isHeroM?scGet(parent+'.image'):'';
-      const shown=value||(isHeroM?desktopImg:'');
-      const pack=scGet(parent+'.imageType')==='packshot';
-      guide=pack&&shown?`<div class="slotGuide"><div class="slotSpec"><b>Pack shot</b><span>Shown whole — never cropped</span><small>Any pouch photo works. It is centred on a warm background inside the ${esc((JAYVI_IMAGE_SLOTS[slot]||{}).ratioText||'')} frame. A transparent PNG/WebP looks best.</small></div><div class="slotPreview" style="aspect-ratio:${(JAYVI_IMAGE_SLOTS[slot]||{}).ratio||'1/1'};background:#FFF7E8"><img src="${esc(shown)}" alt="" style="object-fit:contain;padding:6%"></div><small class="slotCheck"></small></div>`:slotGuideMarkup(slot,shown,{
-        focus:isHeroD?scGet(parent+'.imageFocus'):isHeroM?(scGet(parent+'.mobileImageFocus')||scGet(parent+'.imageFocus')):'',
-        focusPath:isHeroD?parent+'.imageFocus':isHeroM&&shown?parent+'.mobileImageFocus':'',
-        note:isHeroM&&!value&&desktopImg?'No mobile image yet — this preview shows how phones will crop the desktop image.':''
+      const pack=P.imageType==='packshot' && key!=='mobileImage';
+      const shown=value||(key==='mobileImage'&&!overlay?'':(key==='mobileImage'?P.image:''))||'';
+      const focusKey=key==='mobileImage'?'mobileImageFocus':'imageFocus';
+      const hasFocus=('imageFocus' in P);
+      if(pack) guide=packGuideMarkup(value,(JAYVI_IMAGE_SLOTS[slot]||{}).ratio);
+      else guide=slotGuideMarkup(slot,shown,{
+        focus:P[focusKey]||P.imageFocus,
+        focusPath:hasFocus&&shown?parent+'.'+focusKey:'',
+        note:key==='mobileImage'&&!value?(overlay?'No phone image: phones use the split layout (text below the image), so nothing is covered.':'Optional — only if you want different artwork on phones.'):''
       });
+      if(isHero && key==='image') guide+=heroPreviewMarkup({image:P.image,mobileImage:P.mobileImage,imageType:P.imageType,layout:P.layout,mobileLayout:P.mobileLayout,textPlacement:P.textPlacement,overlayStrength:P.overlayStrength,imageFocus:P.imageFocus,mobileImageFocus:P.mobileImageFocus},{label:P.eyebrow,title:P.title,em:P.em,text:P.text,badge:P.badge,cta:P.ctaLabel});
+      if(/occasions\.items\.\d+\.image$/.test(path)) guide+=occasionPreviewMarkup(P);
     }
     return `<label class="fullLabel">${lab}<input value="${esc(value||'')}" placeholder="Upload, or paste an image URL / images/… path" onchange="scInput('${path}',this,'img');scRender()"><span class="scImgRow"><label class="outline uploadBtn">Upload image<input type="file" accept="image/webp,image/jpeg,image/png,image/avif" style="display:none" onchange="scUpload(event,'${path}')"></label>${value?`<button type="button" class="outline dangerBtn" onclick="scSet('${path}','');scRender()">Remove</button>`:''}</span>${guide||(value?`<span class="scPreview" id="pv_${id}"><img src="${esc(value)}" alt=""></span>`:'')}<small class="fieldHint">Use real photography or your original pack shots — never recreated packaging. WebP or JPG, ideally under 300 KB.</small></label>`;
   }
@@ -2379,8 +2474,10 @@ async function upsertWithV33Fallback(table,row,cols,op='upsert',matchId=null){
     ({error}=await run(r));
   }
   if(!error && skipped.length){
+    const v342=skipped.some(c=>['layout','mobile_layout','overlay_strength','badge_text','show_as_pairing'].includes(c));
     const v34=skipped.some(c=>['mobile_image','image_focus','mobile_image_focus','text_placement','image_type'].includes(c));
-    toast(v34?'Saved — but the V34 image fields (phone image / focus / headline position / image type) were skipped. Run supabase_migration_v34_hero_media.sql to enable them.':'Saved — but the new V33 fields were skipped. Run supabase_migration_v33_brand_upgrade.sql to enable them.');
+    toast(v342&&!v34?'Saved — but the V34.2 fields (hero layout / overlay strength / badge / tag kind) were skipped. Run supabase_migration_v34_2.sql to enable them.'
+      :v34?'Saved — but some V34 image fields (phone image / focus / text position / image type) were skipped. Run supabase_migration_v34_hero_media.sql and supabase_migration_v34_2.sql to enable them.':'Saved — but the new V33 fields were skipped. Run supabase_migration_v33_brand_upgrade.sql to enable them.');
   }
   return {error};
 }
@@ -2468,6 +2565,7 @@ window.removeAnnouncementMedia = function(){ return removeAnnouncementMedia.appl
 // V34 additions used from inline handlers in the announcement modal
 window.renderAnnouncementMediaPreview = function(){ return renderAnnouncementMediaPreview.apply(this, arguments); };
 window.annSetFocus = function(){ return annSetFocus.apply(this, arguments); };
+window.annPreviewSoon = function(){ return annPreviewSoon.apply(this, arguments); };
 window.galleryPage = function(){ return galleryPage.apply(this, arguments); };
 window.uploadGalleryFiles = function(){ return uploadGalleryFiles.apply(this, arguments); };
 window.updateGalleryCaption = function(){ return updateGalleryCaption.apply(this, arguments); };
@@ -2486,8 +2584,9 @@ window.deleteGalleryItem = function(){ return deleteGalleryItem.apply(this, argu
 window.announcementForm=function(index=-1){
  const s=index>=0?data.announcements[index]:{id:'',label:'',title:'',em:'',text:'',image:'',mediaType:'image',posterUrl:'',showPrice:true,announcementType:'general',targetType:'',actionType:'shop',actionTarget:'',productId:'',comboId:'',active:true,order:data.announcements.length+1};
  window._announcementDraft=s;
- window._annDraft={image:s.image||'',mediaType:s.mediaType||'image',posterUrl:s.posterUrl||'',mobileImage:s.mobileImage||'',imageType:s.imageType||'lifestyle',imageFocus:s.imageFocus||'center',mobileImageFocus:s.mobileImageFocus||''};
- openModal(`<div class="eyebrow">HOMEPAGE ANNOUNCEMENT</div><h2>${index<0?'Add announcement':'Edit announcement'}</h2><div class="formGrid"><label>Label<input id="aLabel" value="${esc(s.label||'')}"></label><label>Title<input id="aTitle" value="${esc(s.title||'')}"></label><label>Emphasis<input id="aEm" value="${esc(s.em||'')}"></label><label>Display position<input id="aOrder" type="number" value="${s.order||1}"></label><label class="fullLabel">Message<textarea id="aText" rows="3">${esc(s.text||'')}</textarea></label><label>Main button text <small class="fieldHint">Blank = "Shop now"</small><input id="aCtaLabel" value="${esc(s.ctaLabel||'')}" placeholder="Shop now"></label><label>Second button text <small class="fieldHint">Blank = the default from Site content</small><input id="aSecLabel" value="${esc(s.secondaryLabel||'')}" placeholder="Explore bestsellers"></label><label class="fullLabel">Second button link<input id="aSecTarget" value="${esc(s.secondaryTarget||'')}" placeholder="#best-sellers, #combos, #category/rice or https://…"></label></div>
+ window._annDraft={image:s.image||'',mediaType:s.mediaType||'image',posterUrl:s.posterUrl||'',mobileImage:s.mobileImage||'',imageType:s.imageType||'lifestyle',imageFocus:s.imageFocus||'center',mobileImageFocus:s.mobileImageFocus||'',
+   layout:s.layout||'split',mobileLayout:s.mobileLayout||'auto',textPlacement:['top','center','bottom','none'].includes(s.textPlacement)?s.textPlacement:'center',overlayStrength:s.overlayStrength||'auto'};
+ openModal(`<div class="eyebrow">HOMEPAGE ANNOUNCEMENT</div><h2>${index<0?'Add announcement':'Edit announcement'}</h2><div class="formGrid"><label>Label (small line above)<input id="aLabel" value="${esc(s.label||'')}" oninput="annPreviewSoon()"></label><label>Headline<input id="aTitle" value="${esc(s.title||'')}" oninput="annPreviewSoon()"><small class="fieldHint">Headline + emphasis read best under ~45 characters on phones. Longer headlines are automatically sized down to fit 3 lines.</small></label><label>Emphasis <small class="fieldHint">Second line, in italics</small><input id="aEm" value="${esc(s.em||'')}" oninput="annPreviewSoon()"></label><label>Badge (optional)<input id="aBadge" value="${esc(s.badge||'')}" placeholder="e.g. New launch" oninput="annPreviewSoon()"></label><label>Display position<input id="aOrder" type="number" value="${s.order||1}"></label><label class="fullLabel">Subheadline<textarea id="aText" rows="2" oninput="annPreviewSoon()">${esc(s.text||'')}</textarea></label><label>Main button text <small class="fieldHint">Blank = "Shop now"</small><input id="aCtaLabel" value="${esc(s.ctaLabel||'')}" placeholder="Shop now"></label><label>Second button text <small class="fieldHint">Blank = the default from Site content</small><input id="aSecLabel" value="${esc(s.secondaryLabel||'')}" placeholder="Explore bestsellers"></label><label class="fullLabel">Second button link<input id="aSecTarget" value="${esc(s.secondaryTarget||'')}" placeholder="#best-sellers, #combos, #category/rice or https://…"></label></div>
 <div class="formSection">
   <h3>Announcement type</h3>
   <p>A General announcement (e.g. "Independence Day special") needs no product. A Product announcement (e.g. "Peanut Chutney — perfect for breakfast") is explicitly linked to one product or combo — that link drives both the click destination and the media fallback, separate from any custom media below.</p>
@@ -2502,7 +2601,7 @@ window.announcementForm=function(index=-1){
   <div id="aMediaBlockInner"></div>
   <div id="aMediaUploadStatus" class="mediaUploadStatus"></div>
 </div>
-<label class="fullLabel">Headline position<select id="aTextPlacement">${[['bottom','Headline over the image (bottom on phones, left on computers)'],['top','Headline at the top'],['none','Artwork already has its own text — show only the button']].map(([v,t])=>`<option value="${v}" ${v===(s.textPlacement||'bottom')?'selected':''}>${t}</option>`).join('')}</select><small class="fieldHint">Choose the last option for campaign artwork with text baked in, so the website doesn't print a second headline over it.</small></label>
+
 <label class="checkOnly"><input id="aShowPrice" type="checkbox" ${s.showPrice!==false?'checked':''}> Show price badge (Product announcements only)</label>
 <label class="checkOnly"><input id="aActive" type="checkbox" ${s.active!==false?'checked':''}> Active</label>
 <button class="gold full" onclick="saveAnnouncement(${index})">Save announcement</button>`);
@@ -2570,18 +2669,27 @@ function renderAnnouncementMediaPreview(){
 }
 // V34: recommended sizes + crop previews for the desktop and phone versions.
 function annGuidesMarkup(d){
-  if(d.mediaType==='video') return '<p class="fieldHint">Video fills the banner like a photo (cropped to fit, centred). Use 16:9 or wider footage and keep the subject centred.</p>';
-  const focusSel=(key,val)=>`<select onchange="window._annDraft.${key}=this.value;renderAnnouncementMediaPreview()">${[...SC_FOCUS_OPTS,...(val&&!SC_FOCUS_OPTS.some(([v])=>v===val)?[[val,'Custom ('+val+')']]:[])].map(([v,t])=>`<option value="${esc(v)}" ${v===(val||'center')?'selected':''}>${esc(t)}</option>`).join('')}</select>`;
+  const val=id=>document.getElementById(id)?.value||'';
+  const texts={label:val('aLabel'),title:val('aTitle'),em:val('aEm'),text:val('aText'),badge:val('aBadge'),cta:val('aCtaLabel')||'Shop now'};
+  if(d.mediaType==='video') return `${heroLayoutControls(d,'ann')}<p class="fieldHint">Video fills the image area like a photo (cropped to fit, centred). Use 16:9 footage and keep the subject centred.</p>${heroPreviewMarkup(d,texts)}`;
+  const focusSel=(key,v)=>`<select onchange="window._annDraft.${key}=this.value;renderAnnouncementMediaPreview()">${[...SC_FOCUS_OPTS,...(v&&!SC_FOCUS_OPTS.some(([o])=>o===v)?[[v,'Custom ('+v+')']]:[])].map(([o,t])=>`<option value="${esc(o)}" ${o===(v||'center')?'selected':''}>${esc(t)}</option>`).join('')}</select>`;
   const pack=d.imageType==='packshot';
-  const typeSel=d.image?`<label>Image type<select onchange="window._annDraft.imageType=this.value;renderAnnouncementMediaPreview()">${[['lifestyle','Lifestyle / food photo — fills the frame (edges may be cropped)'],['packshot','Product pack shot — whole pouch shown, never cropped']].map(([v,t])=>`<option value="${v}" ${v===(d.imageType||'lifestyle')?'selected':''}>${t}</option>`).join('')}</select></label>`:'';
-  if(pack && d.image) return `<div class="annSlots"><div class="annSlot">${typeSel}<p class="fieldHint">Pack shot: the whole pouch is shown on a warm Jayvi background (right side on computers, top on phones), with the headline beside/below it. Any pouch photo works — no special cropping needed. A transparent PNG/WebP looks best.</p><div class="slotPreview" style="aspect-ratio:16/7;background:linear-gradient(90deg,#4a1e22 0 38%,#FFF7E8 54%)"><img src="${esc(d.image)}" alt="" style="object-fit:contain;left:54%;width:41%;top:8%;height:84%"></div></div></div>`;
-  const desk=`<div class="annSlot"><h4>Desktop &amp; tablet</h4>${typeSel}${slotGuideMarkup('heroDesktop',d.image,{focus:d.imageFocus,focusPath:d.image?'imageFocus':'',focusCb:'annSetFocus'})}${d.image?`<label>Image focus ${focusSel('imageFocus',d.imageFocus)}</label>`:''}</div>`;
-  const mobShown=d.mobileImage||d.image;
-  const mob=`<div class="annSlot"><h4>Phones</h4>${slotGuideMarkup('heroMobile',mobShown,{focus:d.mobileImageFocus||d.imageFocus,focusPath:mobShown?'mobileImageFocus':'',focusCb:'annSetFocus',note:!d.mobileImage&&d.image?'No phone image — this is how phones will crop the desktop image. Upload a 4:5 version for best results.':''})}
-    <div class="mediaUploadRow"><label class="outline small uploadBtn">${d.mobileImage?'Replace phone image':'📱 + Add phone image (optional)'}<input type="file" accept="image/webp,image/jpeg,image/png,image/avif" style="display:none" onchange="uploadAnnouncementFile(event,'mobile')"></label>${d.mobileImage?`<button type="button" class="outline small dangerBtn" onclick="window._annDraft.mobileImage='';renderAnnouncementMediaPreview()">Remove phone image</button>`:''}</div>
-    ${mobShown?`<label>Image focus ${focusSel('mobileImageFocus',d.mobileImageFocus||d.imageFocus)}</label>`:''}</div>`;
-  return `<div class="annSlots">${desk}${mob}</div>`;
+  const typeSel=d.image?`<label>Image type<select onchange="window._annDraft.imageType=this.value;renderAnnouncementMediaPreview()">${IMG_TYPE_OPTS.map(([v,t])=>`<option value="${v}" ${v===(d.imageType||'lifestyle')?'selected':''}>${t}</option>`).join('')}</select></label>`:'';
+  const phoneUpload=`<div class="mediaUploadRow"><label class="outline small uploadBtn">${d.mobileImage?'Replace phone image':'📱 + Add phone image (optional)'}<input type="file" accept="image/webp,image/jpeg,image/png,image/avif" style="display:none" onchange="uploadAnnouncementFile(event,'mobile')"></label>${d.mobileImage?`<button type="button" class="outline small dangerBtn" onclick="window._annDraft.mobileImage='';renderAnnouncementMediaPreview()">Remove phone image</button>`:''}</div>`;
+  let guide='';
+  if(!d.image) guide=`<p class="fieldHint">No image: the linked product's pack is shown whole beside/below the text.</p>`;
+  else if(pack) guide=packGuideMarkup(d.image,'4/3');
+  else if(d.layout!=='overlay'){
+    guide=`<div class="annSlot"><h4>Image (computers &amp; phones)</h4>${slotGuideMarkup('heroSplit',d.image,{focus:d.imageFocus,focusPath:'imageFocus',focusCb:'annSetFocus'})}<label>Image focus ${focusSel('imageFocus',d.imageFocus)}</label></div>
+      <div class="annSlot"><h4>Phone image (optional)</h4><p class="fieldHint">Only if you want different artwork on phones — otherwise the image above is used.</p>${d.mobileImage?slotGuideMarkup('heroSplit',d.mobileImage,{focus:d.mobileImageFocus||d.imageFocus,focusPath:'mobileImageFocus',focusCb:'annSetFocus'}):''}${phoneUpload}</div>`;
+  } else {
+    guide=`<div class="annSlot"><h4>Computers</h4>${slotGuideMarkup('heroDesktop',d.image,{focus:d.imageFocus,focusPath:'imageFocus',focusCb:'annSetFocus'})}<label>Image focus ${focusSel('imageFocus',d.imageFocus)}</label></div>
+      <div class="annSlot"><h4>Phones</h4>${d.mobileImage?slotGuideMarkup('heroMobile',d.mobileImage,{focus:d.mobileImageFocus||d.imageFocus,focusPath:'mobileImageFocus',focusCb:'annSetFocus'})+`<label>Image focus ${focusSel('mobileImageFocus',d.mobileImageFocus||d.imageFocus)}</label>`:`<p class="fieldHint"><b>No phone image:</b> phones will show this slide in the split layout (image on top, text below), so the headline never covers the product. Add a 4:5 phone image (1080 × 1350) designed with empty space at the bottom to use the overlay on phones too.</p>`}${phoneUpload}</div>`;
+  }
+  return `<div class="annSlots">${typeSel}${heroLayoutControls(d,'ann')}${guide}</div>${heroPreviewMarkup(d,texts)}`;
 }
+let _annPvT=null;
+function annPreviewSoon(){ clearTimeout(_annPvT); _annPvT=setTimeout(()=>{ if(document.getElementById('aMediaBlockInner')) renderAnnouncementMediaPreview(); },250); }
 function annSetFocus(evt,key){
   const r=evt.currentTarget.getBoundingClientRect();
   const x=Math.round(Math.max(0,Math.min(1,(evt.clientX-r.left)/r.width))*100), y=Math.round(Math.max(0,Math.min(1,(evt.clientY-r.top)/r.height))*100);
@@ -2639,7 +2747,8 @@ window.saveAnnouncement=async function(i){
     text:document.getElementById('aText').value.trim(),
     image:d.image||'', mediaType:d.mediaType||'image', posterUrl:d.posterUrl||'',
     mobileImage:d.mediaType==='video'?'':(d.mobileImage||''), imageType:d.imageType||'lifestyle', imageFocus:d.imageFocus||'center', mobileImageFocus:d.mobileImageFocus||'',
-    textPlacement:document.getElementById('aTextPlacement')?.value||'bottom',
+    textPlacement:d.textPlacement||'center', layout:d.layout||'split', mobileLayout:d.mobileLayout||'auto', overlayStrength:d.overlayStrength||'auto',
+    badge:document.getElementById('aBadge')?.value.trim()||'',
     showPrice:document.getElementById('aShowPrice').checked,
     announcementType:type, targetType:type==='product'?targetType:'',
     actionType, actionTarget, productId, comboId,
