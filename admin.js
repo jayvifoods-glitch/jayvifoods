@@ -518,12 +518,12 @@ async function fetchCombos(){
 async function fetchCategories(){
   const {data:rows,error}=await sb.from('categories').select('*').order('display_order',{ascending:true});
   if(error){ toast('Could not load categories: '+error.message); return []; }
-  const categories=(rows||[]).map(c=>({id:c.id, name:c.name||'', enabled:c.enabled, order:c.display_order||0, description:c.description||'', imageUrl:c.image_url||''}));
+  const categories=(rows||[]).map(c=>({id:c.id, name:c.name||'', enabled:c.enabled, order:c.display_order||0, description:c.description||'', imageUrl:c.image_url||'', imageType:c.image_type||'packshot'}));
   data.categories=categories;
   return categories;
 }
 async function saveCategoryToSupabase(c){
-  const {error}=await upsertWithV33Fallback('categories',{id:c.id, name:c.name, enabled:c.enabled, display_order:c.order, description:c.description||null, image_url:c.imageUrl||null},['description','image_url']);
+  const {error}=await upsertWithV33Fallback('categories',{id:c.id, name:c.name, enabled:c.enabled, display_order:c.order, description:c.description||null, image_url:c.imageUrl||null, image_type:c.imageType||'packshot'},['description','image_url','image_type']);
   if(error){ toast('Could not save category: '+error.message); return false; }
   return true;
 }
@@ -589,6 +589,7 @@ async function fetchAnnouncements(){
   const announcements=(rows||[]).map(a=>({
     id:a.id, label:a.label||'', title:a.title||'', em:a.em||'', text:a.text||'',
     image:a.image||'', mediaType:a.media_type||'image', posterUrl:a.poster_url||'',
+    mobileImage:a.mobile_image||'', imageType:a.image_type||'lifestyle', imageFocus:a.image_focus||'center', mobileImageFocus:a.mobile_image_focus||'', textPlacement:a.text_placement||'bottom',
     showPrice:a.show_price,
     // V32.3 (spec 3): announcementType/targetType are the explicit
     // "does this announcement belong to a product?" relationship —
@@ -611,8 +612,11 @@ async function saveAnnouncementToSupabase(a){
     announcement_type:a.announcementType||'general', target_type:a.targetType||null,
     action_type:a.actionType, action_target:a.actionTarget,
     product_id:a.productId||null, combo_id:a.comboId||null, active:a.active, display_order:a.order,
-    cta_label:a.ctaLabel||null, secondary_cta_label:a.secondaryLabel||null, secondary_cta_target:a.secondaryTarget||null
-  },['cta_label','secondary_cta_label','secondary_cta_target']);
+    cta_label:a.ctaLabel||null, secondary_cta_label:a.secondaryLabel||null, secondary_cta_target:a.secondaryTarget||null,
+    // V34 — supabase_migration_v34_hero_media.sql; skipped (with a toast) if not run yet
+    mobile_image:a.mobileImage||null, image_focus:a.imageFocus||null, mobile_image_focus:a.mobileImageFocus||null, text_placement:a.textPlacement||null,
+    image_type:a.imageType||'lifestyle'
+  },['cta_label','secondary_cta_label','secondary_cta_target','mobile_image','image_focus','mobile_image_focus','text_placement','image_type']);
   if(error){ toast('Could not save announcement: '+error.message); return false; }
   return true;
 }
@@ -1366,7 +1370,7 @@ async function categoriesPage(){
  await fetchCategories();
  return `<section class="panel">${liveCatalogNote()}<div class="panelHead"><div><h2>Categories</h2><p>Display position controls ordering. "Orders" is not used here.</p></div><button class="gold" onclick="categoryForm()">+ Add category</button></div><div class="categoryTable">${data.categories.map((c,i)=>`<div class="categoryRow"><span><b>${esc(c.name)}</b><small>ID: ${esc(c.id)}</small></span><strong>${c.order||i+1}</strong><span class="${c.enabled?'good':'danger'}">${c.enabled?'VISIBLE':'HIDDEN'}</span>${c.imageUrl?'<span class="tiny">🖼️</span>':''}<button class="outline" onclick="categoryForm(${i})">Edit</button></div>`).join('')}</div></section>`;
 }
-function categoryForm(index=-1){const c=index>=0?data.categories[index]:{id:'',name:'',enabled:true,order:data.categories.length+1,description:'',imageUrl:''};openModal(`<div class="eyebrow">CATEGORY</div><h2>${index<0?'Add category':'Edit category'}</h2><div class="formGrid"><label>ID<input id="catId" value="${esc(c.id)}" ${index>=0?'disabled':''}></label><label>Name<input id="catName" value="${esc(c.name)}"></label><label>Display position<input id="catOrder" type="number" value="${c.order||1}"></label><label class="fullLabel">Card description <small class="fieldHint">Shown on the homepage "Shop by category" card, e.g. "Add tradition to every meal".</small><input id="catDesc" maxlength="80" value="${esc(c.description||'')}"></label><label class="fullLabel">Card image <small class="fieldHint">Blank = the first product's pack image. Use real photography where possible.</small><input id="catImage" value="${esc(c.imageUrl||'')}" placeholder="https://… or images/…" oninput="document.getElementById('catImgPv').innerHTML=this.value?'<img src=&quot;'+esc(this.value)+'&quot; alt=&quot;&quot;>':''"></label><span class="scImgRow"><span class="scPreview" id="catImgPv">${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:''}</span><label class="outline uploadBtn">Upload image<input type="file" accept="image/webp,image/jpeg,image/png" style="display:none" onchange="uploadCategoryImage(event)"></label></span></div><label class="checkOnly"><input id="catEnabled" type="checkbox" ${c.enabled?'checked':''}> Visible on storefront</label><button class="gold full" onclick="saveCategory(${index})">Save category</button>`)}
+function categoryForm(index=-1){const c=index>=0?data.categories[index]:{id:'',name:'',enabled:true,order:data.categories.length+1,description:'',imageUrl:'',imageType:'packshot'};openModal(`<div class="eyebrow">CATEGORY</div><h2>${index<0?'Add category':'Edit category'}</h2><div class="formGrid"><label>ID<input id="catId" value="${esc(c.id)}" ${index>=0?'disabled':''}></label><label>Name<input id="catName" value="${esc(c.name)}"></label><label>Display position<input id="catOrder" type="number" value="${c.order||1}"></label><label class="fullLabel">Card description <small class="fieldHint">Shown on the homepage "Shop by category" card, e.g. "Add tradition to every meal".</small><input id="catDesc" maxlength="80" value="${esc(c.description||'')}"></label><label class="fullLabel">Card image <small class="fieldHint">Card shape 4:5 (e.g. 800 × 1000 px). Pack shots are shown whole — no special cropping needed. Lifestyle photos fill the card. Blank = the first product's pack image, shown whole.</small><input id="catImage" value="${esc(c.imageUrl||'')}" placeholder="https://… or images/…" oninput="document.getElementById('catImgPv').innerHTML=this.value?'<img src=&quot;'+esc(this.value)+'&quot; alt=&quot;&quot;>':''"></label><label class="fullLabel">Image type<select id="catImageType">${[['lifestyle','Lifestyle / food photo — fills the frame (edges may be cropped)'],['packshot','Product pack shot — whole pouch shown, never cropped']].map(([v,t])=>`<option value="${v}" ${v===(c.imageType||'packshot')?'selected':''}>${t}</option>`).join('')}</select><small class="fieldHint">Pack shots are shown whole on a warm background, so any pouch photo works without special cropping.</small></label><span class="scImgRow"><span class="scPreview" id="catImgPv">${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:''}</span><label class="outline uploadBtn">Upload image<input type="file" accept="image/webp,image/jpeg,image/png" style="display:none" onchange="uploadCategoryImage(event)"></label></span></div><label class="checkOnly"><input id="catEnabled" type="checkbox" ${c.enabled?'checked':''}> Visible on storefront</label><button class="gold full" onclick="saveCategory(${index})">Save category</button>`)}
 async function uploadCategoryImage(evt){
   const file=evt.target.files?.[0]; if(!file) return;
   const key=`categories/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'-').toLowerCase()}`;
@@ -1377,7 +1381,7 @@ async function uploadCategoryImage(evt){
 }
 async function saveCategory(i){
   const existingId=i>=0?data.categories[i].id:null;
-  const c={id:existingId||document.getElementById('catId').value.trim(),name:document.getElementById('catName').value.trim(),order:Number(document.getElementById('catOrder').value||1),enabled:document.getElementById('catEnabled').checked,description:document.getElementById('catDesc').value.trim(),imageUrl:document.getElementById('catImage').value.trim()};
+  const c={id:existingId||document.getElementById('catId').value.trim(),name:document.getElementById('catName').value.trim(),order:Number(document.getElementById('catOrder').value||1),enabled:document.getElementById('catEnabled').checked,description:document.getElementById('catDesc').value.trim(),imageUrl:document.getElementById('catImage').value.trim(),imageType:document.getElementById('catImageType')?.value||'packshot'};
   if(!c.id||!c.name){toast('Category ID and name are required');return}
   const ok=await saveCategoryToSupabase(c);
   if(!ok)return;
@@ -1386,7 +1390,7 @@ async function saveCategory(i){
 async function homepagePage(){await fetchAnnouncements();return `<section class="panel">${liveCatalogNote()}<div class="panelHead"><div><h2>Hero slides</h2><p>General announcements need no product. Product announcements are explicitly linked to a product or combo, which is used for both the click destination and the media fallback.</p></div><button class="gold" onclick="announcementForm()">+ Add announcement</button></div><div class="announcementAdmin">${data.announcements.sort((a,b)=>(a.order||0)-(b.order||0)).map((s,i)=>{
   const isProduct=s.announcementType==='product';
   const targetName=isProduct?(s.targetType==='combo'?(combo(s.comboId)?.name||'(deleted combo)'):(product(s.productId)?.name||'(deleted product)')):'';
-  return `<article><div class="announcementInfo"><span class="typeTag">${isProduct?'PRODUCT':'GENERAL'}</span><span class="typeTag">${esc(s.label||'ANNOUNCEMENT')}</span><h3>${esc(s.title||'')}</h3><p>${esc(s.text||'')}</p><small>${isProduct?`Linked to: ${esc(targetName)}`:`CTA: ${esc(s.actionType==='none'||!s.actionType?'None':s.actionType)}`} · ${s.mediaType==='video'?'🎬 Video':s.image?'🖼️ Image':'No media'} · ${s.active?'Active':'Inactive'}</small></div><div class="cardActions"><button class="outline" onclick="announcementForm(${i})">Edit</button><button class="outline dangerBtn" onclick="deleteAnnouncement('${esc(s.id)}')">Delete</button></div></article>`;
+  return `<article><div class="announcementInfo"><span class="typeTag">${isProduct?'PRODUCT':'GENERAL'}</span><span class="typeTag">${esc(s.label||'ANNOUNCEMENT')}</span><h3>${esc(s.title||'')}</h3><p>${esc(s.text||'')}</p><small>${isProduct?`Linked to: ${esc(targetName)}`:`CTA: ${esc(s.actionType==='none'||!s.actionType?'None':s.actionType)}`} · ${s.mediaType==='video'?'🎬 Video':s.image?'🖼️ Image':'No media'}${s.mobileImage?' + 📱 phone image':''} · ${s.active?'Active':'Inactive'}</small></div><div class="cardActions"><button class="outline" onclick="announcementForm(${i})">Edit</button><button class="outline dangerBtn" onclick="deleteAnnouncement('${esc(s.id)}')">Delete</button></div></article>`;
 }).join('')||'<div class="empty smallEmpty">No announcements yet.</div>'}</div></section>`}
 function combo(id){return data.combos.find(c=>c.id===id)}
 // NOTE (V32.3): announcementForm()/saveAnnouncement() used to be
@@ -2025,15 +2029,27 @@ document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='
 const SC_BLOCKS=[
   {id:'announcement_bar',title:'Announcement bar',desc:'The strip at the very top of every page. Use {freeShippingThreshold} or {shippingFlat} in a message to show the live value from Store settings. A message linking to #welcome opens the welcome popup and is hidden automatically while the popup is off.'},
   {id:'welcome_popup',title:'First-visit offer popup',desc:'Shown once to new visitors after the delay below. The coupon code is only revealed after someone submits the form, and is saved with their details in Leads. The code must also exist as an active coupon in Coupons & Offers — tip: untick "Show publicly" there so it is not advertised elsewhere.'},
+  {id:'promotions',title:'Offers & promotions',desc:'Run several offers at the same time. Each offer decides where it appears (cart, sign-up popup, homepage offers row), who sees it, when, and its priority (1 = first). Choose ONE offer for the floating offer button below — or none. IMPORTANT: an offer that uses a coupon code must also exist as a coupon in Coupons & Offers; that coupon is what checkout actually validates and charges, and the check next to each code tells you if the two disagree. Orders accept ONE coupon code each — combining offers is not available yet (it needs a backend change).'},
   {id:'homepage',title:'Homepage sections',desc:'Show/hide, reorder and edit every homepage section. Hero slides themselves are managed under Homepage; product-driven rows (You\'ll love these, categories, combos) read live catalogue data.'},
   {id:'brand',title:'Brand, contact, SEO & analytics',desc:'Brand colours recolour the whole storefront. Contact details feed the footer and menus. WhatsApp number and Instagram URL stay in Store settings → Customer updates; social links in Social Links.'}
 ];
-const SC_IMAGE_KEYS=new Set(['image','imageUrl','logoUrl','ogImage']);
+const SC_IMAGE_KEYS=new Set(['image','imageUrl','logoUrl','ogImage','mobileImage']);
 const SC_LONG_KEYS=new Set(['text','body','story','description','successText']);
+const SC_FOCUS_OPTS=[['center','Centre'],['top','Top'],['bottom','Bottom'],['left','Left'],['right','Right'],['top left','Top left'],['top right','Top right'],['bottom left','Bottom left'],['bottom right','Bottom right']];
 const SC_SELECTS={
   mode:[['rotate','Rotate one message at a time'],['marquee','Continuous scroll']],
   action:[['popup','Open the welcome popup'],['link','Go to a link']],
-  target:[['','Show matching products'],['combos','Jump to combos']]
+  target:[['','Show matching products'],['combos','Jump to combos']],
+  // V34
+  codeVisibility:[['show','Show the code openly'],['signup','Reveal the code only after sign-up (popup)'],['none','No code — automatic offer (e.g. combo price)']],
+  discountType:[['percentage','Percentage off'],['flat','Fixed amount off (₹)'],['bundle','Bundle price (e.g. any 2 for ₹199)'],['freeShipping','Free shipping'],['info','Information only']],
+  appliesTo:[['all','All products'],['categories','Selected categories'],['products','Selected products']],
+  audience:[['all','Everyone'],['new','New customers only'],['existing','Returning customers only']],
+  frequency:[['days','Again after the number of days below'],['session','Once per visit'],['once','Never again once closed']],
+  showOn:[['all','Phones and computers'],['mobile','Phones only'],['desktop','Computers only']],
+  textPlacement:[['bottom','Headline over the image (bottom on phones, left on computers)'],['top','Headline at the top'],['none','Artwork already has its own text — show only the button']],
+  imageFocus:SC_FOCUS_OPTS, mobileImageFocus:SC_FOCUS_OPTS,
+  imageType:[['lifestyle','Lifestyle / food photo — fills the frame (edges may be cropped)'],['packshot','Product pack shot — whole pouch shown, never cropped']]
 };
 const SC_HINTS={
   ctaTarget:'A section link like #shop, #best-sellers, #combos, #offers, #category/rice, #product/peanut — or a full https:// URL.',
@@ -2047,10 +2063,98 @@ const SC_HINTS={
   ga4Id:'Google Analytics 4 measurement ID, e.g. G-XXXXXXXXXX. Blank = no analytics script loaded.',
   progressMessage:'{amount} is replaced with the amount still needed.',
   maxItems:'Maximum products per tab.',
-  startDate:'Optional. Banner hides before this date.', endDate:'Optional. Banner hides after this date.'
+  startDate:'Optional. Hidden before this date.', endDate:'Optional. Hidden after this date.',
+  // V34
+  couponCode:'Must match a coupon in Coupons & Offers exactly (it is what checkout validates).',
+  shortTitle:'2–3 words, used on the floating button, e.g. "10% OFF". {discount} works here.',
+  priority:'1 shows first. The floating button shows the lowest number.',
+  canCombine:'', usageNote:'Short fine print, e.g. "One use per customer".',
+  discountValue:'Percent, ₹ amount or bundle price — shown to customers. The coupon decides the real discount.',
+  minOrderValue:'Shown to customers and used for the "add ₹X more" nudge.',
+  discountPercent:'Fills {discount} in the popup, strip and announcement copy. A promotion ticked "Show in popup" overrides it.',
+  reshowAfterDays:'Used when "How often" is "Again after…". 0 = never again.',
+  skipWhenCartHasItems:'', imageFocus:'Which part of the image to keep when the screen crops it. You can also click the preview.',
+  mobileImageFocus:'Same, for phones.',
+  label:'Blank = the top floating offer\'s short title.',
+  ogImageAlt:'Describe the share image for screen readers, e.g. "Jayvi Foods logo".',
+  imageType:'Pack shots are shown whole (never cropped). Lifestyle photos fill the frame.',
+  ratingCount:'Only with a genuine quoted rating, e.g. the number of Google reviews.',
+  signoff:'Short closing line shown in italics.',
+  order:'Lower numbers show first.',
+  description:''
 };
+const SC_KEY_LABELS={imageType:'Image type',promotionId:'Floating offer',ratingCount:'Rating count (optional)',ratingValue:'Quoted rating (optional)',signoff:'Sign-off line',codeVisibility:'How the code is revealed',canCombine:'Can be combined with other offers',showOnHomepage:'Show on homepage',showInPopup:'Show in sign-up popup',showFloating:'Show on floating button',showInCart:'Show in cart',couponCode:'Coupon code',appliesTo:'Applies to',categoryIds:'Categories',skipWhenCartHasItems:"Don't show while the basket has items",showOn:'Show on',frequency:'How often',audience:'Who sees it',imageFocus:'Image focus (desktop)',mobileImageFocus:'Image focus (phone)',mobileImage:'Mobile image',textPlacement:'Headline position',ogImage:'Share image (Google / WhatsApp / Facebook)',ogImageAlt:'Share image description',discountPercent:'Discount % (for {discount})'};
+/* ---------- V34: image slot guidance ----------
+   Maps an editor field to its JAYVI_IMAGE_SLOTS entry (site-content-defaults.js),
+   so every upload shows the real size/ratio, a crop preview with the safe
+   area, and a warning when the chosen file doesn't match. */
+function scSlotFor(path){
+  const r=[[/hero\.fallback\.mobileImage$/,'heroMobile'],[/hero\.fallback\.image$/,'heroDesktop'],[/sections\.promo\.image$/,'promo'],[/sections\.heritage\.image$/,'heritage'],[/sections\.about\.image$/,'about'],[/occasions\.items\.\d+\.image$/,'occasion'],[/howToEnjoy\.items\.\d+\.image$/,'enjoy'],[/social\.tiles\.\d+\.image$/,'social'],[/^welcome_popup\.image$/,'popup'],[/seo\.ogImage$/,'ogImage'],[/logoUrl$/,'logo'],[/^promotions\.items\.\d+\.image$/,'offerCard']];
+  const hit=r.find(([re])=>re.test(path)); return hit?hit[1]:'';
+}
+function focusCss(v){
+  const s=String(v||'').trim().toLowerCase();
+  const m=s.match(/^(\d{1,3}(?:\.\d+)?)%\s+(\d{1,3}(?:\.\d+)?)%$/); if(m) return `${m[1]}% ${m[2]}%`;
+  let x='50%',y='50%'; s.split(/[\s-]+/).forEach(t=>{ if(t==='left')x='0%'; if(t==='right')x='100%'; if(t==='top')y='0%'; if(t==='bottom')y='100%'; }); return `${x} ${y}`;
+}
+// Crop preview at the slot's real ratio, dashed safe area, shaded text zone.
+// `focusPath` (optional) makes the preview clickable to set the focal point.
+function slotGuideMarkup(slotId,url,opts={}){
+  const S=(typeof JAYVI_IMAGE_SLOTS!=='undefined'&&JAYVI_IMAGE_SLOTS[slotId])||null; if(!S) return '';
+  const box=(r,cls)=>r?`<i class="${cls}" style="left:${r.x*100}%;top:${r.y*100}%;width:${r.w*100}%;height:${r.h*100}%"></i>`:'';
+  const focus=focusCss(opts.focus);
+  const click=opts.focusPath?` onclick="${opts.focusCb||'scSetFocus'}(event,'${opts.focusPath}')" title="Click to set the focal point"`:'';
+  const pv=url?`<div class="slotPreview${opts.focusPath?' clickable':''}" style="aspect-ratio:${S.ratio}"${click}><img src="${esc(url)}" alt="" style="object-position:${focus}" onload="slotCheck(this,${S.w},${S.h})" onerror="this.closest('.slotGuide').querySelector('.slotCheck').textContent='⚠️ This image could not be loaded — check the URL.'">${box(S.text,'slotText')}${box(S.safe,'slotSafe')}${opts.focusPath?`<i class="slotDot" style="left:${focus.split(' ')[0]};top:${focus.split(' ')[1]}"></i>`:''}</div>`
+                :`<div class="slotPreview empty" style="aspect-ratio:${S.ratio}">${box(S.text,'slotText')}${box(S.safe,'slotSafe')}<span>${S.w} × ${S.h}</span></div>`;
+  return `<div class="slotGuide"><div class="slotSpec"><b>Recommended image: ${S.w} × ${S.h} px</b><span>Aspect ratio ${esc(S.ratioText)}</span><small>${esc(S.safeText)}${S.text?' <em>Shaded = covered by text. Dashed = keep important content here.</em>':S.safe?' <em>Dashed = keep important content here.</em>':''}</small>${opts.note?`<small class="slotNote">${esc(opts.note)}</small>`:''}</div>${pv}<small class="slotCheck"></small></div>`;
+}
+function slotCheck(img,w,h){
+  const out=img.closest('.slotGuide')?.querySelector('.slotCheck'); if(!out) return;
+  const nw=img.naturalWidth, nh=img.naturalHeight; if(!nw||!nh) return;
+  const want=w/h, got=nw/nh, off=Math.abs(got-want)/want;
+  const small=nw<w*0.6||nh<h*0.6;
+  out.className='slotCheck '+(off>0.08||small?'warn':'ok');
+  out.textContent=`Your image: ${nw} × ${nh} px (${(got).toFixed(2)}:1). `+(off>0.08?`Different shape from ${(want).toFixed(2)}:1 — the preview above shows exactly what will be cropped.`:'Shape matches.')+(small?` It is small for this slot — ${w} × ${h} px will look sharper.`:'');
+}
+function scSetFocus(evt,path){
+  const r=evt.currentTarget.getBoundingClientRect();
+  const x=Math.round(Math.max(0,Math.min(1,(evt.clientX-r.left)/r.width))*100), y=Math.round(Math.max(0,Math.min(1,(evt.clientY-r.top)/r.height))*100);
+  scSet(path,`${x}% ${y}%`); scRender();
+}
+/* ---------- V34: promotion ↔ coupon cross-check ---------- */
+let _scCoupons=[];
+function scPromoCouponStatus(i){
+  const pr=_sc.promotions?.items?.[i]; if(!pr) return '';
+  const code=String(pr.couponCode||'').trim().toUpperCase();
+  if(!code) return pr.codeVisibility==='show'?'⚠️ "Show the code openly" needs a coupon code.':(pr.codeVisibility==='signup'?'ℹ️ Blank = customers get the popup\'s coupon code (set in the First-visit offer popup tab).':'');
+  const c=_scCoupons.find(x=>String(x.code).toUpperCase()===code);
+  if(!c) return `⚠️ No coupon "${code}" in Coupons & Offers — customers would be told a code that checkout rejects.`;
+  const w=[];
+  if(!c.active) w.push('the coupon is disabled');
+  if(c.end_date && new Date(c.end_date)<new Date()) w.push('the coupon has expired');
+  const type={percentage:'percentage',fixed:'flat'}[c.discount_type];
+  if(['percentage','flat'].includes(pr.discountType) && (type!==pr.discountType || Number(c.discount_value)!==Number(pr.discountValue))) w.push(`the coupon gives ${c.discount_type==='percentage'?c.discount_value+'%':'₹'+c.discount_value} off but this offer says ${pr.discountType==='percentage'?pr.discountValue+'%':'₹'+pr.discountValue}`);
+  if(Number(c.min_order_value||0)!==Number(pr.minOrderValue||0)) w.push(`minimum order differs (coupon ₹${c.min_order_value||0}, offer ₹${pr.minOrderValue||0})`);
+  if(pr.codeVisibility==='signup' && _scCoupon.code && _scCoupon.code!==code) w.push(`the popup gives out "${_scCoupon.code}", not "${code}"`);
+  if(pr.codeVisibility==='show' && c.is_public===false) w.push('this coupon is private in Coupons & Offers but this offer shows it openly');
+  return w.length?`⚠️ Check: ${w.join('; ')}.`:`✅ Matches coupon "${code}".`;
+}
+function scCopyFromCoupon(i){
+  const pr=_sc.promotions.items[i], c=_scCoupons.find(x=>String(x.code).toUpperCase()===String(pr.couponCode||'').trim().toUpperCase());
+  if(!c){ toast('No matching coupon to copy from.'); return; }
+  pr.discountType=c.discount_type==='fixed'?'flat':'percentage'; pr.discountValue=Number(c.discount_value)||0; pr.minOrderValue=Number(c.min_order_value)||0;
+  pr.productIds=[...(c.applicable_products||[])]; pr.categoryIds=[...(c.applicable_categories||[])];
+  pr.appliesTo=pr.productIds.length?'products':pr.categoryIds.length?'categories':'all';
+  if(c.start_date) pr.startDate=String(c.start_date).slice(0,10); if(c.end_date) pr.endDate=String(c.end_date).slice(0,10);
+  scRender(); toast('Copied discount, minimum, restrictions and dates from the coupon — remember to Save.');
+}
+function scPromoAdd(){
+  const t=structuredClone(JAYVI_SITE_DEFAULTS.promotions.items[0]);
+  Object.assign(t,{id:'offer-'+Date.now().toString(36),active:false,name:'New offer',shortTitle:'',title:'',description:'',couponCode:'',codeVisibility:'show',audience:'all',showInPopup:false,canCombine:false,usageNote:'',ctaLabel:'Shop now',ctaTarget:'#shop',priority:(_sc.promotions.items||[]).length+1});
+  _sc.promotions.items=[...(_sc.promotions.items||[]),t]; scRender();
+}
 let _sc={}, _scCoupon={code:''}, _scTab='announcement_bar', _scLive=true, _scSection='hero', _scCouponCheck='';
-function scLabel(k){ return String(k).replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase()).replace(/\bIds\b/,'').replace(/\bCta\b/,'Button').trim(); }
+function scLabel(k){ if(SC_KEY_LABELS[k]) return SC_KEY_LABELS[k]; return String(k).replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase()).replace(/\bIds\b/,'').replace(/\bCta\b/,'Button').trim(); }
 function scGet(path,root=_sc){ return path.split('.').reduce((o,k)=>o==null?undefined:o[k],root); }
 function scSet(path,val){ const ks=path.split('.'); let o=_sc; ks.slice(0,-1).forEach((k,i)=>{ if(o[k]==null) o[k]=/^\d+$/.test(ks[i+1])?[]:{}; o=o[k]; }); o[ks[ks.length-1]]=val; }
 function scDefault(path){ return scGet(path.split('.').map(k=>/^\d+$/.test(k)?'0':k).join('.'),JAYVI_SITE_DEFAULTS); }
@@ -2060,6 +2164,9 @@ async function fetchSiteContent(){
   _sc={};
   Object.keys(JAYVI_SITE_DEFAULTS).forEach(k=>{ const r=(rows||[]).find(x=>x.id===k); _sc[k]=jayviDeepMerge(JAYVI_SITE_DEFAULTS[k], r?.data||{}); });
   const c=(rows||[]).find(x=>x.id==='welcome_popup_coupon'); _scCoupon={code:c?.data?.code||''};
+  // V34.1: per-offer "floating" flags were replaced by one Floating offer choice; stacking is not available yet.
+  (_sc.promotions?.items||[]).forEach(it=>{ delete it.showFloating; it.canCombine=false; });
+  if(_sc.promotions?.floatingButton){ delete _sc.promotions.floatingButton.enabled; if(!('promotionId' in _sc.promotions.floatingButton)) _sc.promotions.floatingButton.promotionId=''; }
   if(!error) await scCheckCoupon();
 }
 async function scCheckCoupon(){
@@ -2099,23 +2206,57 @@ function scField(path,key,value,def){
   const id=path.replace(/\./g,'_');
   if(key==='label' && path.split('.').length===4) return ''; // internal section name
   if(key==='id' && /\.tabs\.\d+\.id$/.test(path)) return `<label>Shows products flagged<input value="${esc({best:'Bestseller',new:'New',popular:'Popular',healthy:'Healthy'}[value]||value)}" disabled></label>`;
+  if(key==='showFloating') return ''; // V34.1: replaced by the single "Floating offer" choice
+  if(key==='promotionId' && path==='promotions.floatingButton.promotionId'){
+    const items=(_sc.promotions?.items||[]);
+    const sel=items.find(x=>x.id===value);
+    const warn=value&&!sel?'⚠️ The selected offer no longer exists — choose another or "No floating offer".':sel&&!sel.active?'⚠️ This offer is switched off, so no floating button will show until it is active.':'';
+    return `<label class="fullLabel">Floating offer<select onchange="scInput('${path}',this,'str');scRender()"><option value="">No floating offer</option>${items.map(x=>`<option value="${esc(x.id)}" ${x.id===value?'selected':''}>${esc((x.name||x.id)+(x.shortTitle?' — '+x.shortTitle:''))}${x.active?'':' (off)'}</option>`).join('')}</select><small class="fieldHint">Only ONE offer can use the floating button. It shows only while that offer is active, in date and meant for the visitor.</small>${warn?`<small class="couponMatch warn">${esc(warn)}</small>`:''}</label>`;
+  }
+  if(key==='canCombine') return `<label class="checkOnly disabledField" title="Needs backend support"><input type="checkbox" disabled> Combine with other offers <span class="needsBackend">Requires backend support — not available yet</span></label>`;
+  if(key==='icon' && /occasions\.items\.\d+\.icon$/.test(path)) return `<label>Icon<input value="${esc(value||'')}" onchange="scInput('${path}',this,'str')"><small class="fieldHint">An emoji (🥣) or a Font Awesome name (fa-mug-hot). Shown when there is no image.</small></label>`;
   if(typeof def==='boolean'||typeof value==='boolean') return `<label class="checkOnly"><input type="checkbox" ${value?'checked':''} onchange="scInput('${path}',this,'bool')"> ${lab}</label>`;
   if(typeof def==='number') return `<label>${lab}<input type="number" value="${esc(value)}" onchange="scInput('${path}',this,'num')">${hint}</label>`;
+  if(key==='categoryIds') return `<div class="formSection"><h3>${lab}</h3><p>Used when "Applies to" is "Selected categories".</p><div class="checkGrid">${(data.categories||[]).map(c=>`<label><input type="checkbox" ${(value||[]).includes(c.id)?'checked':''} onchange="scToggleIn('${path}','${esc(c.id)}',this.checked)"> ${esc(c.name)}</label>`).join('')||'<span class="tiny">No categories loaded.</span>'}</div></div>`;
+  if(key==='couponCode' && /^promotions\.items\.\d+\.couponCode$/.test(path)){
+    const i=Number(path.split('.')[2]), st=scPromoCouponStatus(i);
+    return `<label>${lab}<input value="${esc(value||'')}" style="text-transform:uppercase" onchange="scInput('${path}',this,'str');scSet('${path}',this.value.trim().toUpperCase());scRender()">${hint}${st?`<small class="couponMatch ${st.startsWith('✅')?'ok':'warn'}">${esc(st)}</small>`:''}${value?`<button type="button" class="outline small" onclick="scCopyFromCoupon(${i})">Copy values from coupon</button>`:''}</label>`;
+  }
   if(key==='productIds') return `<div class="formSection"><h3>${lab || 'Products'}</h3><p>Tick products to show. Leave all unticked to use keywords instead.</p><div class="checkGrid">${(data.products||[]).map(p=>`<label><input type="checkbox" ${(value||[]).includes(p.id)?'checked':''} onchange="scToggleIn('${path}','${esc(p.id)}',this.checked)"> ${esc(p.name)}</label>`).join('')||'<span class="tiny">No products loaded.</span>'}</div></div>`;
   if(key==='productId') return `<label>Product<select onchange="scInput('${path}',this,'str')"><option value="">— use keyword —</option>${(data.products||[]).map(p=>`<option value="${esc(p.id)}" ${p.id===value?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>`;
   if(Array.isArray(def)||Array.isArray(value)){
     const sample=(def&&def[0]!==undefined)?def[0]:(value||[])[0];
     if(sample===undefined||typeof sample!=='object') return `<label class="fullLabel">${lab}<input value="${esc((value||[]).join(', '))}" onchange="scInput('${path}',this,'list')">${hint}</label>`;
-    const rows=(value||[]).map((row,i)=>`<div class="scRow"><div class="scRowHead"><b>${esc(row.title||row.label||row.text||row.caption||(key==='tabs'?row.id:'')||('Item '+(i+1)))}</b><span><button class="outline" onclick="scRowMove('${path}',${i},-1)" aria-label="Move up">↑</button><button class="outline" onclick="scRowMove('${path}',${i},1)" aria-label="Move down">↓</button><button class="outline dangerBtn" onclick="scRowDel('${path}',${i})">Remove</button></span></div><div class="formGrid">${Object.keys({...sample,...row}).map(k=>scField(`${path}.${i}.${k}`,k,row[k],sample[k])).join('')}</div></div>`).join('');
-    return `<div class="formSection"><h3>${lab}</h3>${hint}${rows||'<div class="empty smallEmpty">None yet.</div>'}<button class="outline" onclick="scRowAdd('${path}')">+ Add</button></div>`;
+    const rows=(value||[]).map((row,i)=>`<div class="scRow"><div class="scRowHead"><b>${esc(row.name||row.title||row.label||row.text||row.caption||(key==='tabs'?row.id:'')||('Item '+(i+1)))}${path==='promotions.items'?` <span class="promoState ${row.active?'on':''}">${row.active?'Active':'Off'}${row.id&&row.id===_sc.promotions?.floatingButton?.promotionId?' · floating offer':''}</span>`:''}</b><span><button class="outline" onclick="scRowMove('${path}',${i},-1)" aria-label="Move up">↑</button><button class="outline" onclick="scRowMove('${path}',${i},1)" aria-label="Move down">↓</button><button class="outline dangerBtn" onclick="scRowDel('${path}',${i})">Remove</button></span></div><div class="formGrid">${Object.keys({...sample,...row}).map(k=>scField(`${path}.${i}.${k}`,k,row[k],sample[k])).join('')}</div></div>`).join('');
+    const addFn=path==='promotions.items'?'scPromoAdd()':`scRowAdd('${path}')`;
+    return `<div class="formSection"><h3>${path==='promotions.items'?'Offers':lab}</h3>${hint}${rows||'<div class="empty smallEmpty">None yet.</div>'}<button class="outline" onclick="${addFn}">+ Add${path==='promotions.items'?' offer':''}</button></div>`;
   }
   if(def&&typeof def==='object'&&!Array.isArray(def)){
     if(path.endsWith('.colors')) return `<div class="formSection"><h3>Brand colours</h3><p>Only these six base colours are needed — every tint and shade on the site is derived from them.</p><div class="formGrid">${Object.keys(def).map(k=>`<label>${esc(scLabel(k))}<span class="colorRow"><input type="color" value="${esc(value?.[k]||def[k])}" onchange="scInput('${path}.${k}',this,'str');this.nextElementSibling.value=this.value"><input value="${esc(value?.[k]||def[k])}" maxlength="7" onchange="scInput('${path}.${k}',this,'str');this.previousElementSibling.value=this.value"></span></label>`).join('')}</div><button class="outline" onclick="scSet('${path}',structuredClone(JAYVI_SITE_DEFAULTS.brand.colors));scRender()">Reset to Jayvi palette</button></div>`;
     return `<div class="formSection"><h3>${lab}</h3><div class="formGrid">${Object.keys({...def,...(value||{})}).map(k=>scField(`${path}.${k}`,k,value?.[k],def[k])).join('')}</div></div>`;
   }
-  if(SC_SELECTS[key]) return `<label>${lab}<select onchange="scInput('${path}',this,'str')">${SC_SELECTS[key].map(([v,t])=>`<option value="${v}" ${v===(value||'')?'selected':''}>${esc(t)}</option>`).join('')}</select>${hint}</label>`;
+  if(SC_SELECTS[key]){
+    const opts=[...SC_SELECTS[key]]; if(value && !opts.some(([v])=>v===value)) opts.push([value,`Custom (${value})`]);
+    const rerender=/Focus$|^textPlacement$|^appliesTo$|^codeVisibility$/.test(key)?';scRender()':'';
+    return `<label>${lab}<select onchange="scInput('${path}',this,'str')${rerender}">${opts.map(([v,t])=>`<option value="${esc(v)}" ${v===(value||'')?'selected':''}>${esc(t)}</option>`).join('')}</select>${hint}</label>`;
+  }
   if(key==='startDate'||key==='endDate') return `<label>${lab}<input type="date" value="${esc(value||'')}" onchange="scInput('${path}',this,'str')">${hint}</label>`;
-  if(SC_IMAGE_KEYS.has(key)) return `<label class="fullLabel">${lab}<input value="${esc(value||'')}" placeholder="Upload, or paste an image URL / images/… path" oninput="scInput('${path}',this,'img')"><span class="scImgRow"><span class="scPreview" id="pv_${id}">${value?`<img src="${esc(value)}" alt="">`:''}</span><label class="outline uploadBtn">Upload image<input type="file" accept="image/webp,image/jpeg,image/png,image/avif" style="display:none" onchange="scUpload(event,'${path}')"></label></span><small class="fieldHint">Use real photography or your original pack shots — WebP, ideally under 300 KB.</small></label>`;
+  if(SC_IMAGE_KEYS.has(key)){
+    const slot=scSlotFor(path), parent=path.split('.').slice(0,-1).join('.');
+    let guide='';
+    if(slot){
+      const isHeroD=slot==='heroDesktop', isHeroM=slot==='heroMobile';
+      const desktopImg=isHeroM?scGet(parent+'.image'):'';
+      const shown=value||(isHeroM?desktopImg:'');
+      const pack=scGet(parent+'.imageType')==='packshot';
+      guide=pack&&shown?`<div class="slotGuide"><div class="slotSpec"><b>Pack shot</b><span>Shown whole — never cropped</span><small>Any pouch photo works. It is centred on a warm background inside the ${esc((JAYVI_IMAGE_SLOTS[slot]||{}).ratioText||'')} frame. A transparent PNG/WebP looks best.</small></div><div class="slotPreview" style="aspect-ratio:${(JAYVI_IMAGE_SLOTS[slot]||{}).ratio||'1/1'};background:#FFF7E8"><img src="${esc(shown)}" alt="" style="object-fit:contain;padding:6%"></div><small class="slotCheck"></small></div>`:slotGuideMarkup(slot,shown,{
+        focus:isHeroD?scGet(parent+'.imageFocus'):isHeroM?(scGet(parent+'.mobileImageFocus')||scGet(parent+'.imageFocus')):'',
+        focusPath:isHeroD?parent+'.imageFocus':isHeroM&&shown?parent+'.mobileImageFocus':'',
+        note:isHeroM&&!value&&desktopImg?'No mobile image yet — this preview shows how phones will crop the desktop image.':''
+      });
+    }
+    return `<label class="fullLabel">${lab}<input value="${esc(value||'')}" placeholder="Upload, or paste an image URL / images/… path" onchange="scInput('${path}',this,'img');scRender()"><span class="scImgRow"><label class="outline uploadBtn">Upload image<input type="file" accept="image/webp,image/jpeg,image/png,image/avif" style="display:none" onchange="scUpload(event,'${path}')"></label>${value?`<button type="button" class="outline dangerBtn" onclick="scSet('${path}','');scRender()">Remove</button>`:''}</span>${guide||(value?`<span class="scPreview" id="pv_${id}"><img src="${esc(value)}" alt=""></span>`:'')}<small class="fieldHint">Use real photography or your original pack shots — never recreated packaging. WebP or JPG, ideally under 300 KB.</small></label>`;
+  }
   if(SC_LONG_KEYS.has(key) && !/\.(messages|items|tiles)\.\d+\.text$/.test(path)) return `<label class="fullLabel">${lab}<textarea rows="${key==='story'?7:3}" onchange="scInput('${path}',this,'str')">${esc(value||'')}</textarea>${hint}</label>`;
   return `<label>${lab}<input value="${esc(value??'')}" onchange="scInput('${path}',this,'str')">${hint}</label>`;
 }
@@ -2143,11 +2284,34 @@ function siteContentMarkup(){
   <p class="scDesc">${esc(b.desc)}</p>${coupon}${body}
   <div class="scSaveBar"><button class="outline" onclick="scResetBlock('${_scTab}')">Reset this tab to defaults</button><button class="gold" onclick="scSave('${_scTab}')">Save ${esc(b.title.toLowerCase())}</button></div></section>`;
 }
-function scRender(){ if(tab==='sitecontent') app.innerHTML=siteContentMarkup(); }
+// V34: blur the focused field BEFORE replacing the editor, so its pending
+// change event is applied first (and can't fire mid-replace), and ignore
+// re-entrant calls made from that change handler.
+let _scRendering=false;
+function scRender(){
+  if(tab!=='sitecontent' || _scRendering) return;
+  _scRendering=true;
+  try{ const f=document.activeElement; if(f && app.contains(f)) f.blur(); app.innerHTML=siteContentMarkup(); }
+  finally{ _scRendering=false; }
+}
 function scResetBlock(id){ if(!confirm('Reset this tab to the built-in defaults? (Nothing is saved until you press Save.)')) return; _sc[id]=structuredClone(JAYVI_SITE_DEFAULTS[id]); scRender(); }
 async function scSave(id){
   if(id==='welcome_popup' && _sc.welcome_popup.enabled && !_scCoupon.code){ toast('Enter the coupon code customers should receive before enabling the popup.'); return; }
   if(id==='brand'){ const bad=Object.entries(_sc.brand.colors||{}).filter(([,v])=>!/^#[0-9a-f]{6}$/i.test(v||'')); if(bad.length){ toast('Colours must be 6-digit hex values like #9E1B32: '+bad.map(x=>x[0]).join(', ')); return; } }
+  if(id==='promotions'){
+    const seen=new Set();
+    for(const [i,pr] of (_sc.promotions.items||[]).entries()){
+      pr.id=String(pr.id||'').trim().toLowerCase().replace(/[^a-z0-9_-]+/g,'-')||('offer-'+(i+1));
+      while(seen.has(pr.id)) pr.id+='-2'; seen.add(pr.id);
+      pr.couponCode=String(pr.couponCode||'').trim().toUpperCase();
+      if(pr.active && !(pr.title||pr.shortTitle)){ toast(`Offer ${i+1} (${pr.name||pr.id}) is active but has no title or short title.`); return; }
+      if(pr.active && pr.codeVisibility==='show' && !pr.couponCode){ toast(`Offer "${pr.name||pr.id}" shows its code openly but has no coupon code.`); return; }
+      if(pr.startDate && pr.endDate && pr.endDate<pr.startDate){ toast(`Offer "${pr.name||pr.id}" ends before it starts.`); return; }
+      pr.canCombine=false; delete pr.showFloating;
+    }
+    const fid=_sc.promotions.floatingButton?.promotionId||'';
+    if(fid && !seen.has(fid)){ toast('The selected floating offer no longer exists — choose another or "No floating offer".'); return; }
+  }
   const rows=[{id,data:_sc[id],is_public:true}];
   if(id==='welcome_popup') rows.push({id:'welcome_popup_coupon',data:{code:(_scCoupon.code||'').toUpperCase()},is_public:false});
   const {error}=await sb.from('site_content').upsert(rows);
@@ -2155,7 +2319,12 @@ async function scSave(id){
   if(id==='welcome_popup') await scCheckCoupon();
   toast('Saved — live on the storefront.'); scRender();
 }
-async function siteContentPage(){ await fetchProducts(); await fetchSiteContent(); return siteContentMarkup(); }
+async function siteContentPage(){
+  await fetchProducts(); await fetchCategories(); await fetchSiteContent();
+  const {data:cps}=await sb.from('coupons').select('code,discount_type,discount_value,min_order_value,active,is_public,start_date,end_date,applicable_products,applicable_categories');
+  _scCoupons=cps||[];
+  return siteContentMarkup();
+}
 
 /* ---------- Leads (welcome popup sign-ups) ---------- */
 let _leadsSearch='', _leadsRows=[];
@@ -2198,11 +2367,20 @@ async function deleteLead(id){
    the admin what to run. */
 async function upsertWithV33Fallback(table,row,cols,op='upsert',matchId=null){
   const run=r=>op==='update'?sb.from(table).update(r).eq('id',matchId):op==='insert'?sb.from(table).insert(r):sb.from(table).upsert(r);
-  let {error}=await run(row);
-  if(error && cols.some(c=>(error.message||'').includes(c))){
-    const r={...row}; cols.forEach(c=>delete r[c]);
+  // V34: drop ONLY the column(s) the database says are missing, one retry
+  // per missing column — so a not-yet-run V34 migration can never also
+  // strip V33 fields that do exist.
+  let r={...row}, skipped=[];
+  let {error}=await run(r);
+  for(let guard=0; error && guard<cols.length; guard++){
+    const missing=cols.filter(c=>c in r && new RegExp(`\\b${c}\\b`).test(error.message||''));
+    if(!missing.length) break;
+    missing.forEach(c=>{ delete r[c]; skipped.push(c); });
     ({error}=await run(r));
-    if(!error) toast('Saved — but the new V33 fields were skipped. Run supabase_migration_v33_brand_upgrade.sql to enable them.');
+  }
+  if(!error && skipped.length){
+    const v34=skipped.some(c=>['mobile_image','image_focus','mobile_image_focus','text_placement','image_type'].includes(c));
+    toast(v34?'Saved — but the V34 image fields (phone image / focus / headline position / image type) were skipped. Run supabase_migration_v34_hero_media.sql to enable them.':'Saved — but the new V33 fields were skipped. Run supabase_migration_v33_brand_upgrade.sql to enable them.');
   }
   return {error};
 }
@@ -2287,6 +2465,9 @@ window.renderAnnouncementTypeFields = function(){ return renderAnnouncementTypeF
 window.updateCtaTargetVisibility = function(){ return updateCtaTargetVisibility.apply(this, arguments); };
 window.uploadAnnouncementFile = function(){ return uploadAnnouncementFile.apply(this, arguments); };
 window.removeAnnouncementMedia = function(){ return removeAnnouncementMedia.apply(this, arguments); };
+// V34 additions used from inline handlers in the announcement modal
+window.renderAnnouncementMediaPreview = function(){ return renderAnnouncementMediaPreview.apply(this, arguments); };
+window.annSetFocus = function(){ return annSetFocus.apply(this, arguments); };
 window.galleryPage = function(){ return galleryPage.apply(this, arguments); };
 window.uploadGalleryFiles = function(){ return uploadGalleryFiles.apply(this, arguments); };
 window.updateGalleryCaption = function(){ return updateGalleryCaption.apply(this, arguments); };
@@ -2305,7 +2486,7 @@ window.deleteGalleryItem = function(){ return deleteGalleryItem.apply(this, argu
 window.announcementForm=function(index=-1){
  const s=index>=0?data.announcements[index]:{id:'',label:'',title:'',em:'',text:'',image:'',mediaType:'image',posterUrl:'',showPrice:true,announcementType:'general',targetType:'',actionType:'shop',actionTarget:'',productId:'',comboId:'',active:true,order:data.announcements.length+1};
  window._announcementDraft=s;
- window._annDraft={image:s.image||'',mediaType:s.mediaType||'image',posterUrl:s.posterUrl||''};
+ window._annDraft={image:s.image||'',mediaType:s.mediaType||'image',posterUrl:s.posterUrl||'',mobileImage:s.mobileImage||'',imageType:s.imageType||'lifestyle',imageFocus:s.imageFocus||'center',mobileImageFocus:s.mobileImageFocus||''};
  openModal(`<div class="eyebrow">HOMEPAGE ANNOUNCEMENT</div><h2>${index<0?'Add announcement':'Edit announcement'}</h2><div class="formGrid"><label>Label<input id="aLabel" value="${esc(s.label||'')}"></label><label>Title<input id="aTitle" value="${esc(s.title||'')}"></label><label>Emphasis<input id="aEm" value="${esc(s.em||'')}"></label><label>Display position<input id="aOrder" type="number" value="${s.order||1}"></label><label class="fullLabel">Message<textarea id="aText" rows="3">${esc(s.text||'')}</textarea></label><label>Main button text <small class="fieldHint">Blank = "Shop now"</small><input id="aCtaLabel" value="${esc(s.ctaLabel||'')}" placeholder="Shop now"></label><label>Second button text <small class="fieldHint">Blank = the default from Site content</small><input id="aSecLabel" value="${esc(s.secondaryLabel||'')}" placeholder="Explore bestsellers"></label><label class="fullLabel">Second button link<input id="aSecTarget" value="${esc(s.secondaryTarget||'')}" placeholder="#best-sellers, #combos, #category/rice or https://…"></label></div>
 <div class="formSection">
   <h3>Announcement type</h3>
@@ -2316,10 +2497,12 @@ window.announcementForm=function(index=-1){
 </div>
 <div class="formSection">
   <h3>Announcement media</h3>
-  <p>Optional. One image <b>or</b> one video — never both. If a Product announcement has no custom media, the linked product/combo's own image is used automatically.</p>
+  <p>Optional. One image <b>or</b> one video — never both. If a Product announcement has no custom media, the linked product/combo's own pack image is shown whole (never cropped) automatically.</p>
+  <p><b>Design your artwork as a normal rectangle</b> — the website no longer uses a shaped frame. Desktop: <b>1920 × 840 px (16:7)</b>. Phones: <b>1080 × 1350 px (4:5)</b>, optional. The previews below show exactly what each screen keeps.</p>
   <div id="aMediaBlockInner"></div>
   <div id="aMediaUploadStatus" class="mediaUploadStatus"></div>
 </div>
+<label class="fullLabel">Headline position<select id="aTextPlacement">${[['bottom','Headline over the image (bottom on phones, left on computers)'],['top','Headline at the top'],['none','Artwork already has its own text — show only the button']].map(([v,t])=>`<option value="${v}" ${v===(s.textPlacement||'bottom')?'selected':''}>${t}</option>`).join('')}</select><small class="fieldHint">Choose the last option for campaign artwork with text baked in, so the website doesn't print a second headline over it.</small></label>
 <label class="checkOnly"><input id="aShowPrice" type="checkbox" ${s.showPrice!==false?'checked':''}> Show price badge (Product announcements only)</label>
 <label class="checkOnly"><input id="aActive" type="checkbox" ${s.active!==false?'checked':''}> Active</label>
 <button class="gold full" onclick="saveAnnouncement(${index})">Save announcement</button>`);
@@ -2369,11 +2552,12 @@ function updateCtaTargetVisibility(){
 function renderAnnouncementMediaPreview(){
   const box=document.getElementById('aMediaBlockInner'); if(!box) return;
   const d=window._annDraft||{};
+  const guides=annGuidesMarkup(d);
   if(!d.image){
     box.innerHTML=`<div class="mediaUploadRow">
       <label class="outline uploadBtn">📷 + Add Photo<input type="file" accept="image/webp,image/jpeg,image/png,image/avif" style="display:none" onchange="uploadAnnouncementFile(event,'image')"></label>
       <label class="outline uploadBtn">🎬 + Add Video<input type="file" accept="video/mp4,video/webm" style="display:none" onchange="uploadAnnouncementFile(event,'video')"></label>
-    </div>`;
+    </div>${guides}`;
     return;
   }
   const preview = d.mediaType==='video'
@@ -2382,9 +2566,28 @@ function renderAnnouncementMediaPreview(){
   box.innerHTML=`<div class="mediaSinglePreview">${preview}<div class="mediaUploadRow">
       <label class="outline small uploadBtn">Replace<input type="file" accept="${d.mediaType==='video'?'video/mp4,video/webm':'image/webp,image/jpeg,image/png,image/avif'}" style="display:none" onchange="uploadAnnouncementFile(event,'${d.mediaType}')"></label>
       <button type="button" class="outline small dangerBtn" onclick="removeAnnouncementMedia()">Remove</button>
-    </div></div>`;
+    </div></div>${guides}`;
 }
-function removeAnnouncementMedia(){ window._annDraft.image=''; window._annDraft.mediaType='image'; window._annDraft.posterUrl=''; renderAnnouncementMediaPreview(); }
+// V34: recommended sizes + crop previews for the desktop and phone versions.
+function annGuidesMarkup(d){
+  if(d.mediaType==='video') return '<p class="fieldHint">Video fills the banner like a photo (cropped to fit, centred). Use 16:9 or wider footage and keep the subject centred.</p>';
+  const focusSel=(key,val)=>`<select onchange="window._annDraft.${key}=this.value;renderAnnouncementMediaPreview()">${[...SC_FOCUS_OPTS,...(val&&!SC_FOCUS_OPTS.some(([v])=>v===val)?[[val,'Custom ('+val+')']]:[])].map(([v,t])=>`<option value="${esc(v)}" ${v===(val||'center')?'selected':''}>${esc(t)}</option>`).join('')}</select>`;
+  const pack=d.imageType==='packshot';
+  const typeSel=d.image?`<label>Image type<select onchange="window._annDraft.imageType=this.value;renderAnnouncementMediaPreview()">${[['lifestyle','Lifestyle / food photo — fills the frame (edges may be cropped)'],['packshot','Product pack shot — whole pouch shown, never cropped']].map(([v,t])=>`<option value="${v}" ${v===(d.imageType||'lifestyle')?'selected':''}>${t}</option>`).join('')}</select></label>`:'';
+  if(pack && d.image) return `<div class="annSlots"><div class="annSlot">${typeSel}<p class="fieldHint">Pack shot: the whole pouch is shown on a warm Jayvi background (right side on computers, top on phones), with the headline beside/below it. Any pouch photo works — no special cropping needed. A transparent PNG/WebP looks best.</p><div class="slotPreview" style="aspect-ratio:16/7;background:linear-gradient(90deg,#4a1e22 0 38%,#FFF7E8 54%)"><img src="${esc(d.image)}" alt="" style="object-fit:contain;left:54%;width:41%;top:8%;height:84%"></div></div></div>`;
+  const desk=`<div class="annSlot"><h4>Desktop &amp; tablet</h4>${typeSel}${slotGuideMarkup('heroDesktop',d.image,{focus:d.imageFocus,focusPath:d.image?'imageFocus':'',focusCb:'annSetFocus'})}${d.image?`<label>Image focus ${focusSel('imageFocus',d.imageFocus)}</label>`:''}</div>`;
+  const mobShown=d.mobileImage||d.image;
+  const mob=`<div class="annSlot"><h4>Phones</h4>${slotGuideMarkup('heroMobile',mobShown,{focus:d.mobileImageFocus||d.imageFocus,focusPath:mobShown?'mobileImageFocus':'',focusCb:'annSetFocus',note:!d.mobileImage&&d.image?'No phone image — this is how phones will crop the desktop image. Upload a 4:5 version for best results.':''})}
+    <div class="mediaUploadRow"><label class="outline small uploadBtn">${d.mobileImage?'Replace phone image':'📱 + Add phone image (optional)'}<input type="file" accept="image/webp,image/jpeg,image/png,image/avif" style="display:none" onchange="uploadAnnouncementFile(event,'mobile')"></label>${d.mobileImage?`<button type="button" class="outline small dangerBtn" onclick="window._annDraft.mobileImage='';renderAnnouncementMediaPreview()">Remove phone image</button>`:''}</div>
+    ${mobShown?`<label>Image focus ${focusSel('mobileImageFocus',d.mobileImageFocus||d.imageFocus)}</label>`:''}</div>`;
+  return `<div class="annSlots">${desk}${mob}</div>`;
+}
+function annSetFocus(evt,key){
+  const r=evt.currentTarget.getBoundingClientRect();
+  const x=Math.round(Math.max(0,Math.min(1,(evt.clientX-r.left)/r.width))*100), y=Math.round(Math.max(0,Math.min(1,(evt.clientY-r.top)/r.height))*100);
+  window._annDraft[key]=`${x}% ${y}%`; renderAnnouncementMediaPreview();
+}
+function removeAnnouncementMedia(){ window._annDraft.image=''; window._annDraft.mediaType='image'; window._annDraft.posterUrl=''; window._annDraft.imageFocus='center'; renderAnnouncementMediaPreview(); }
 // Same Storage upload pattern as uploadMediaFile() for products/combos,
 // into the dedicated 'announcement-media' bucket — see
 // supabase_migration_v32_12_1.sql for the bucket + policies. The old
@@ -2405,7 +2608,10 @@ async function uploadAnnouncementFile(evt,kind){
     evt.target.value=''; return;
   }
   const {data:pub}=sb.storage.from('announcement-media').getPublicUrl(path);
-  window._annDraft={image:pub.publicUrl, mediaType:kind, posterUrl:''};
+  // V34: keep the other slot (desktop ↔ phone) and focus settings when uploading one of them.
+  const prevDraft=window._annDraft||{};
+  if(kind==='mobile') window._annDraft={...prevDraft, mobileImage:pub.publicUrl};
+  else window._annDraft={...prevDraft, image:pub.publicUrl, mediaType:kind, posterUrl:'', mobileImage:kind==='video'?'':(prevDraft.mobileImage||'')};
   renderAnnouncementMediaPreview();
   if(statusEl) statusEl.textContent=`Uploaded ${file.name}.`;
   evt.target.value='';
@@ -2432,6 +2638,8 @@ window.saveAnnouncement=async function(i){
     em:document.getElementById('aEm').value.trim(),
     text:document.getElementById('aText').value.trim(),
     image:d.image||'', mediaType:d.mediaType||'image', posterUrl:d.posterUrl||'',
+    mobileImage:d.mediaType==='video'?'':(d.mobileImage||''), imageType:d.imageType||'lifestyle', imageFocus:d.imageFocus||'center', mobileImageFocus:d.mobileImageFocus||'',
+    textPlacement:document.getElementById('aTextPlacement')?.value||'bottom',
     showPrice:document.getElementById('aShowPrice').checked,
     announcementType:type, targetType:type==='product'?targetType:'',
     actionType, actionTarget, productId, comboId,
@@ -2449,6 +2657,7 @@ window.saveAnnouncement=async function(i){
   // cleanupAnnouncementMedia() for why this is safe against shared use.
   const oldImage=prev.image||'', oldPoster=prev.posterUrl||'';
   if(oldImage && oldImage!==s.image) await cleanupAnnouncementMedia([oldImage,oldPoster]);
+  if(prev.mobileImage && prev.mobileImage!==s.mobileImage) await cleanupAnnouncementMedia([prev.mobileImage]);
   closeModal(); render();
 };
 // =====================================================================

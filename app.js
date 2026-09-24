@@ -1,6 +1,7 @@
 /* =========================================================
-   Jayvi Foods — v33.0 storefront logic (V33 brand/content layer: see
-   the 'V33 — Site content' block below)
+   Jayvi Foods — v34.0 storefront logic (V33 brand/content layer: see
+   the 'V33 — Site content' block below; V34 promotions + immersive hero:
+   see 'V34 — Promotions' and heroShow())
    Data model and localStorage keys are unchanged from v27/28
    so existing Admin-entered data keeps working after this
    upgrade. All UI/interaction code has been rewritten as a
@@ -106,8 +107,8 @@ const EMBEDDED_CONFIG = {
         "chapati",
         "rice"
       ],
-      "rating": 4.8,
-      "reviewCount": 18
+      "rating": 0,
+      "reviewCount": 0
     },
     {
       "id": "flaxseed",
@@ -145,8 +146,8 @@ const EMBEDDED_CONFIG = {
         "chapati",
         "rice"
       ],
-      "rating": 4.8,
-      "reviewCount": 12
+      "rating": 0,
+      "reviewCount": 0
     },
     {
       "id": "pudi",
@@ -184,8 +185,8 @@ const EMBEDDED_CONFIG = {
         "chapati",
         "rice"
       ],
-      "rating": 4.8,
-      "reviewCount": 9
+      "rating": 0,
+      "reviewCount": 0
     },
     {
       "id": "puffora",
@@ -209,8 +210,8 @@ const EMBEDDED_CONFIG = {
         }
       ],
       "mealTags": [],
-      "rating": 4.7,
-      "reviewCount": 4
+      "rating": 0,
+      "reviewCount": 0
     }
   ],
   "combos": [
@@ -589,7 +590,8 @@ async function loadCategoriesAndMealTagsFromSupabase(){
 
     CONFIG.categories=[...dbCategories].sort((a,b)=>(a.display_order||0)-(b.display_order||0)).map(c=>({
       id:c.id, name:c.name, enabled:c.enabled, order:c.display_order||0,
-      description:c.description||'', imageUrl:c.image_url||''
+      description:c.description||'', imageUrl:c.image_url||'',
+      imageType:c.image_type||'packshot' // V34.1 (optional column) — category photos default to "show whole"
     }));
     CONFIG.mealTags=[...dbMealTags].sort((a,b)=>(a.display_order||0)-(b.display_order||0)).map(t=>({
       id:t.id, name:t.name, enabled:t.enabled, order:t.display_order||0
@@ -638,6 +640,8 @@ async function loadSettingsAnnouncementsReviewsFromSupabase(){
     CONFIG.announcements=(dbAnn||[]).sort((a,b)=>(a.display_order||0)-(b.display_order||0)).map(a=>({
       id:a.id, label:a.label, title:a.title, em:a.em, text:a.text,
       image:a.image, mediaType:a.media_type||'image', posterUrl:a.poster_url||'',
+      // V34 (supabase_migration_v34_hero_media.sql — optional columns; absent = old behaviour)
+      mobileImage:a.mobile_image||'', imageType:a.image_type||'lifestyle', imageFocus:a.image_focus||'', mobileImageFocus:a.mobile_image_focus||'', textPlacement:a.text_placement||'',
       showPrice:a.show_price,
       ctaLabel:a.cta_label||'', secondaryLabel:a.secondary_cta_label||'', secondaryTarget:a.secondary_cta_target||'',
       // V32.3 (spec 3): the explicit product/combo ASSOCIATION, separate
@@ -1012,7 +1016,7 @@ function renderCategoryCards(){
     const count=inCat.length?`${inCat.length} product${inCat.length>1?'s':''}`:`${combos.length} combo${combos.length>1?'s':''}`;
     const action=inCat.length?`filterByCategory('${c.id}')`:`navigate('#combos')`;
     return `<button class="catCard" type="button" onclick="${action}">
-      <div class="catImg${c.imageUrl?'':' contain'}">${imgTag(img,'(max-width:767px) 45vw, 280px',c.name)}</div>
+      <div class="catImg${isPackshot(c.imageType,!c.imageUrl)?' contain':''}">${imgTag(img,'(max-width:767px) 45vw, 280px',c.name)}</div>
       <h3>${escapeHtml(c.name)}</h3><p>${escapeHtml(categoryCopy(c)||count)}</p><span class="catLink">Shop now →</span>
     </button>`;
   }).filter(Boolean).join('');
@@ -1029,24 +1033,40 @@ function renderCategoryCards(){
 // name keywords. A card with no matching products is hidden. If Admin has
 // removed every card, falls back to the pre-V33 meal-tag cards.
 let occasionItems=[];
+// V34.1: every occasion is Admin data — title, description, icon OR a
+// dedicated lifestyle image, products, button, order, active. The picture is
+// ONLY ever the occasion's own image; with none, its icon is shown. Product
+// pouches are never borrowed as occasion pictures.
+function occasionIconMarkup(icon){
+  const v=String(icon||'').trim();
+  if(/^fa-[a-z0-9-]+$/.test(v)) return `<i class="fa-solid ${v}" aria-hidden="true"></i>`;
+  return escapeHtml(v||'🍽️');
+}
 function renderOccasionCards(){
   const box=$('occasionGrid'), section=$('occasionSection');
   if(!box||!section) return;
   const combos=(CONFIG.combos||[]).filter(c=>c.active);
-  occasionItems=(sec('occasions').items||[]).filter(Boolean)
-    .map(it=>({...it,list:it.target==='combos'?[]:resolveProducts(it.productIds,it.keywords)}))
-    .filter(it=>it.target==='combos'?combos.length:it.list.length);
+  occasionItems=(sec('occasions').items||[]).filter(it=>it && it.title && it.active!==false)
+    .map((it,i)=>({...it,_i:i,list:it.target==='combos'?[]:resolveProducts(it.productIds,it.keywords)}))
+    // A card must lead somewhere: its own button link, the combos, or at least one product.
+    .filter(it=>it.ctaTarget || (it.target==='combos'?combos.length:it.list.length))
+    .sort((a,b)=>(Number(a.order)||999)-(Number(b.order)||999) || a._i-b._i);
+  const card=(it,i)=>{
+    const icon=occasionIconMarkup(it.icon||it.emoji);
+    const media=it.image
+      ? `<div class="occImg${isPackshot(it.imageType)?'':' cover'}">${imgTag(it.image,'(max-width:767px) 45vw, 220px',it.title)}</div>`
+      : `<div class="occImg occIconOnly"><span class="occIcon">${icon}</span></div>`;
+    const sub=it.description||(it.target==='combos'?combos.map(c=>c.name):it.list.map(p=>p.name)).slice(0,3).join(', ');
+    return `<button class="occCard" type="button" onclick="setOccasion(${i})">${media}<div class="occBody"><h3>${escapeHtml(it.title)}</h3>${sub?`<p>${escapeHtml(sub)}</p>`:''}${it.ctaLabel?`<span class="occCta">${escapeHtml(it.ctaLabel)} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>`:''}</div></button>`;
+  };
   let cards='';
   if(occasionItems.length){
-    cards=occasionItems.map((it,i)=>{
-      const img=it.image||(it.target==='combos'?firstRealImage(combos):firstRealImage(it.list))||'';
-      const sub=(it.target==='combos'?combos.map(c=>c.name):it.list.map(p=>p.name)).slice(0,3).join(' · ');
-      return `<button class="occCard" type="button" onclick="setOccasion(${i})"><div class="occImg${it.image?' cover':''}">${imgTag(img,'(max-width:767px) 45vw, 220px',it.title)}${it.emoji?`<span class="occEmoji" aria-hidden="true">${escapeHtml(it.emoji)}</span>`:''}</div><div class="occBody"><h3>${escapeHtml(it.title)}</h3><p>${escapeHtml(sub)}</p></div></button>`;
-    }).join('');
-  } else {
+    cards=occasionItems.map(card).join('');
+  } else if(!(sec('occasions').items||[]).length){
+    // Nothing configured at all → meal tags, shown with an icon (never a pouch).
     cards=mealTagList.map(t=>{
       const m=products.filter(p=>(p.mealTags||[]).includes(t.id)); if(!m.length) return '';
-      return `<button class="occCard" type="button" onclick="setMealFilter('${t.id}')"><div class="occImg">${imgTag(m.find(p=>p.image)?.image,'(max-width:767px) 45vw, 220px',t.name)}</div><div class="occBody"><h3>${escapeHtml(t.name)}</h3><p>${m.length} product${m.length>1?'s':''}</p></div></button>`;
+      return `<button class="occCard" type="button" onclick="setMealFilter('${t.id}')"><div class="occImg occIconOnly"><span class="occIcon">🍽️</span></div><div class="occBody"><h3>${escapeHtml(t.name)}</h3><p>${m.length} product${m.length>1?'s':''}</p></div></button>`;
     }).filter(Boolean).join('');
   }
   section.style.display=cards?'':'none';
@@ -1054,10 +1074,11 @@ function renderOccasionCards(){
 }
 function setOccasion(i){
   const it=occasionItems[i]; if(!it) return;
+  if(it.ctaTarget){ const t=it.ctaTarget; if(t.startsWith('#')) navigate(t); else location.href=safeHref(t); return; }
   if(it.target==='combos'){ navigate('#combos'); return; }
   occasionFilter={label:it.title,ids:it.list.map(p=>p.id)}; mealFilter=null; discoveryFilter=null; cat='all';
   renderCategories(); renderProducts(); scrollToSection('shop');
-  track('view_item_list',{item_list_id:'occasion_'+it.id,item_list_name:it.title});
+  track('view_item_list',{item_list_id:'occasion_'+(it.id||i),item_list_name:it.title});
 }
 // Offers homepage section — reads the SAME activeOffers array already
 // fetched for the floating offer button/announcement (fetchActiveOffers()),
@@ -1081,9 +1102,13 @@ function offerTarget(o){
 function renderOffersSection(){
   const box=$('offersSectionGrid'); const section=$('offersSection');
   if(!box||!section) return;
-  if(!activeOffers.length){ section.style.display='none'; return; }
+  // V34: configured promotions first (priority order), then any live public
+  // coupon they don't already cover — so several offers can run at once.
+  const promos=promotionsConfigured()?livePromotions('homepage'):[];
+  const coupons=promos.length?uncoveredCoupons(promos):activeOffers;
+  if(!promos.length && !coupons.length){ section.style.display='none'; return; }
   section.style.display='';
-  box.innerHTML=activeOffers.map(o=>{
+  box.innerHTML=promos.map(p=>promoCardMarkup(p,'home')).join('')+coupons.map(o=>{
     const target=offerTarget(o);
     const cta=target?`<button class="btn gold" onclick="${target.type==='category'?`filterByCategory('${target.id}')`:`openProduct('${target.id}')`}">${escapeHtml(target.label)}</button>`:'';
     return `<article class="promoOfferCard">
@@ -1428,7 +1453,7 @@ async function renderReviews(){
     const {data} = await sb.from('website_reviews').select('rating').eq('status','approved').limit(1000);
     if(data?.length){ ratedCount=data.length; avg=data.reduce((t,r)=>t+Number(r.rating||0),0)/data.length; }
   }catch{}
-  const card=(rating,text,name,meta,featured)=>`<article class="reviewCard">${featured?'<span class="pcTag popular" style="position:static;align-self:flex-start">Featured</span>':''}<div class="stars" aria-label="${Number(rating)||0} out of 5">${starsMarkup(rating)}</div><p>“${escapeHtml(text)}”</p><b>${escapeHtml(name)}</b><small>${escapeHtml(meta)}</small></article>`;
+  const card=(rating,text,name,meta,featured)=>`<article class="reviewCard">${featured?'<span class="pcTag popular" style="position:static;align-self:flex-start">Featured</span>':''}${Number(rating)>0?`<div class="stars" aria-label="${Number(rating)} out of 5">${starsMarkup(rating)}</div>`:''}<p>“${escapeHtml(text)}”</p><b>${escapeHtml(name)}</b><small>${escapeHtml(meta)}</small></article>`;
   let cards = curated.map(r=>card(r.rating,r.text,r.name,r.verifiedPurchase?'Verified purchase':'Customer review')).join('')
     + live.map(r=>card(r.rating,r.review_text,r.customer_name,'Verified Jayvi customer',r.featured)).join('');
   if(liveCount>live.length) cards += `<article class="reviewCard action"><i class="fa-solid fa-list" aria-hidden="true"></i><p>${liveCount} customer reviews</p><a href="#" onclick="openAllReviews();return false">View all reviews →</a></article>`;
@@ -1436,11 +1461,18 @@ async function renderReviews(){
   $('reviewGrid').innerHTML = cards;
   const sum=$('reviewSummary');
   if(sum){
-    const manual=parseFloat(cfg.ratingValue);
-    if(manual>0 && manual<=5) sum.innerHTML=`<span class="reviewScore">${manual.toFixed(1)}<small>/5</small></span><span class="starsBig" aria-hidden="true">${starsMarkup(manual)}</span><span class="src">${escapeHtml(cfg.ratingSource?cfg.ratingSource+' rating':'Customer rating')}</span>`;
-    else if(avg) sum.innerHTML=`<span class="reviewScore">${avg.toFixed(1)}<small>/5</small></span><span class="starsBig" aria-hidden="true">${starsMarkup(avg)}</span><span class="src">Based on ${ratedCount} review${ratedCount===1?'':'s'}</span>`;
+    // V34.1: the score is ALWAYS real — either the average + count of
+    // approved website reviews, or a public rating Admin quotes WITH its
+    // source (e.g. Google). No reviews and no quoted rating → no score.
+    const manual=parseFloat(cfg.ratingValue), manualCount=parseInt(cfg.ratingCount,10);
+    const total=Math.max(liveCount,ratedCount);
+    if(manual>0 && manual<=5 && cfg.ratingSource) sum.innerHTML=`<span class="reviewScore">${manual.toFixed(1)}<small>/5</small></span><span class="starsBig" aria-hidden="true">${starsMarkup(manual)}</span><span class="src">${escapeHtml(cfg.ratingSource)} rating${manualCount>0?` · ${manualCount} review${manualCount===1?'':'s'}`:''}</span>`;
+    else if(avg>0 && total>0) sum.innerHTML=`<span class="reviewScore">${avg.toFixed(1)}<small>/5</small></span><span class="starsBig" aria-hidden="true">${starsMarkup(avg)}</span><span class="src">Based on ${total} review${total===1?'':'s'}</span>`;
     else sum.innerHTML='';
   }
+  // "View all reviews" only when there is something to view.
+  const va=document.querySelector('.reviewActions a[onclick^="openAllReviews"]'); if(va) va.hidden=!liveCount;
+  const wr=document.querySelector('.reviewActions a[onclick^="openReviewForm"]'); if(wr) wr.hidden=!(curated.length||live.length); // the empty-state card already offers it
   const g=$('googleReviewsTop');
   if(g){ if(CONFIG.store.googleReviewsUrl){ g.href=CONFIG.store.googleReviewsUrl; g.hidden=false; } else g.hidden=true; }
 }
@@ -1499,7 +1531,19 @@ function heroSlides(){
   if(a.length) return a;
   // V33: no active hero slide → the brand slide from Site content → Homepage → Hero.
   const f=sec('hero').fallback||{};
-  return [{id:'fallback',label:f.eyebrow||'',title:f.title||'',em:f.em||'',text:f.text||'',image:f.image||'',mediaType:'image',announcementType:'general',actionType:'hash',actionTarget:f.ctaTarget||'#shop',ctaLabel:f.ctaLabel||'',showPrice:false,active:true}];
+  return [{id:'fallback',label:f.eyebrow||'',title:f.title||'',em:f.em||'',text:f.text||'',image:f.image||'',mobileImage:f.mobileImage||'',imageType:f.imageType||'lifestyle',imageFocus:f.imageFocus||'',mobileImageFocus:f.mobileImageFocus||'',textPlacement:f.textPlacement||'',mediaType:'image',announcementType:'general',actionType:'hash',actionTarget:f.ctaTarget||'#shop',ctaLabel:f.ctaLabel||'',showPrice:false,active:true}];
+}
+// V34: focal point → CSS object-position. Accepts the Admin presets
+// ('center', 'top', 'bottom left', …) or an explicit "x% y%".
+const FOCUS_WORDS={left:'0%',center:'50%',right:'100%',top:'0%',bottom:'100%'};
+function focusToCss(v){
+  const s=String(v||'').trim().toLowerCase();
+  if(!s||s==='center') return '50% 50%';
+  const m=s.match(/^(\d{1,3}(?:\.\d+)?)%\s+(\d{1,3}(?:\.\d+)?)%$/);
+  if(m) return `${Math.min(100,+m[1])}% ${Math.min(100,+m[2])}%`;
+  const w=s.split(/[\s-]+/); let x='50%',y='50%';
+  w.forEach(t=>{ if(t==='left'||t==='right') x=FOCUS_WORDS[t]; else if(t==='top'||t==='bottom') y=FOCUS_WORDS[t]; });
+  return `${x} ${y}`;
 }
 function heroShow(){
   if(!$('heroLabel'))return;
@@ -1512,7 +1556,7 @@ function heroShow(){
   const combo = isProductAnn && s.targetType==='combo' && s.comboId ? getCombo(s.comboId) : null;
   const linkBroken = isProductAnn && !p && !combo;
   $('heroLabel').textContent=s.label||'';
-  $('heroTitle').innerHTML=`${escapeHtml(s.title||'')}${s.em?`<em>${escapeHtml(s.em)}</em>`:''}`;
+  $('heroTitle').innerHTML=`${escapeHtml(s.title||'')}${s.em?` <em>${escapeHtml(s.em)}</em>`:''}`;
   $('heroDesc').textContent=s.text||'';
   const priceEl=$('heroPrice')?.closest('.heroPrice');
   if(isProductAnn && !linkBroken && s.showPrice!==false){
@@ -1524,6 +1568,13 @@ function heroShow(){
   // linked product/combo pack, else the first bestseller pack (contained,
   // never cropped — packaging is always shown whole and unaltered).
   const heroImgEl=$('heroImg'), heroVideoEl=$('heroVideo'), box=$('heroImageBox');
+  const stage=$('heroStage'), mSrc=$('heroMobileSrc');
+  if(stage){
+    const tp=['top','none'].includes(s.textPlacement)?s.textPlacement:'bottom';
+    stage.dataset.text=tp;
+    stage.style.setProperty('--focus',focusToCss(s.imageFocus));
+    stage.style.setProperty('--focus-m',focusToCss(s.mobileImageFocus||s.imageFocus));
+  }
   if(s.image && s.mediaType==='video'){
     heroVideoEl.src=s.image; if(s.posterUrl) heroVideoEl.poster=s.posterUrl;
     heroVideoEl.style.display='block'; heroImgEl.style.display='none';
@@ -1533,12 +1584,19 @@ function heroShow(){
     heroVideoEl.style.display='none'; heroImgEl.style.display='block';
     const fallbackImg=p?.image||combo?.image||firstRealImage(products.filter(x=>x.best))||firstRealImage(products)||'images/brand/placeholder.svg';
     const src=s.image||fallbackImg;
-    const attrs=responsiveImgAttrs(src,'(max-width:767px) 92vw, 520px');
+    // Photography fills the full-bleed stage; a pack shot is shown whole.
+    const pack=isPackshot(s.imageType,!s.image);
+    const attrs=responsiveImgAttrs(src,pack?'(max-width:767px) 70vw, 45vw':'100vw');
     heroImgEl.src=attrs.src;
     if(attrs.srcset){ heroImgEl.srcset=attrs.srcset; heroImgEl.sizes=attrs.sizes; } else heroImgEl.removeAttribute('srcset');
+    // Optional phone-specific artwork (4:5) via <picture><source media>.
+    if(mSrc){
+      if(s.image && s.mobileImage){ const m=responsiveImgAttrs(s.mobileImage,'100vw'); mSrc.srcset=m.srcset||m.src; if(m.srcset) mSrc.sizes='100vw'; else mSrc.removeAttribute('sizes'); }
+      else { mSrc.removeAttribute('srcset'); mSrc.removeAttribute('sizes'); }
+    }
     heroImgEl.alt=[s.title,s.em].filter(Boolean).join(' ')||'Jayvi Foods';
-    heroImgEl.onerror=()=>{ heroImgEl.onerror=null; heroImgEl.removeAttribute('srcset'); heroImgEl.src='images/brand/placeholder.svg'; };
-    box?.classList.toggle('contain',!s.image);
+    heroImgEl.onerror=()=>{ heroImgEl.onerror=null; heroImgEl.removeAttribute('srcset'); mSrc?.removeAttribute('srcset'); heroImgEl.src='images/brand/placeholder.svg'; };
+    box?.classList.toggle('contain',pack);
   }
   const btn=$('heroShop');
   if(btn){
@@ -1571,6 +1629,11 @@ function startHero(){
   const n=(CONFIG.announcements||[]).filter(x=>x.active).length;
   if(CONFIG.homepage.heroAutoplay&&n>1)heroTimer=setInterval(()=>{heroIndex=(heroIndex+1)%n;heroShow()},CONFIG.homepage.heroSeconds*1000);
 }
+// V34: lets CSS move the floating buttons out of the way of the hero CTA on phones.
+function observeHeroVisibility(){
+  const st=$('heroStage'); if(!st||!('IntersectionObserver' in window)) return;
+  new IntersectionObserver(([e])=>document.body.classList.toggle('heroInView',e.intersectionRatio>0.35),{threshold:[0,0.35,0.6,1]}).observe(st);
+}
 function enableHeroSwipe(){
   const hero=document.querySelector('.hero');
   if(!hero)return;
@@ -1581,6 +1644,27 @@ function enableHeroSwipe(){
     const n=(CONFIG.announcements||[]).filter(x=>x.active).length;
     if(n>1&&Math.abs(dx)>35){heroIndex=(heroIndex+(dx<0?1:-1)+n)%n;heroShow();restartHero()}
   },{passive:true});
+}
+
+/* ---------- V34.1: product ratings come from real approved reviews ----------
+   Product-card / product-page stars and the Product JSON-LD aggregateRating
+   are computed from approved website_reviews (product_id + rating). A
+   product with no approved reviews shows no stars. If the reviews query
+   itself fails (e.g. offline), the stored products.rating/review_count are
+   left as they were rather than guessed. */
+let _approvedRatingRows=null;
+async function fetchApprovedRatings(){
+  try{
+    const {data,error}=await sb.from('website_reviews').select('product_id,rating').eq('status','approved').limit(5000);
+    if(error) throw error;
+    _approvedRatingRows=data||[];
+  }catch(err){ _approvedRatingRows=null; console.warn('Could not load approved review ratings — keeping stored product ratings:', err?.message||err); }
+}
+function applyApprovedRatings(){
+  if(!_approvedRatingRows) return;
+  const agg={};
+  _approvedRatingRows.forEach(r=>{ const k=r.product_id, v=Number(r.rating); if(!k||!(v>0)) return; (agg[k]=agg[k]||{t:0,n:0}); agg[k].t+=v; agg[k].n++; });
+  (CONFIG.products||[]).forEach(p=>{ const a=agg[p.id]; p.rating=a?Math.round(a.t/a.n*10)/10:0; p.reviewCount=a?a.n:0; });
 }
 
 /* ---------- Coupons & Offers (Workstream 1) ---------- */
@@ -1606,12 +1690,30 @@ function saveCoupon(c){ if(c) localStorage.setItem('jayviCouponV1', JSON.stringi
 let appliedCoupon = loadCoupon(); // {code,name,discountType,discountValue,minOrderValue,discountAmount} | null — the UI-side preview only; server re-validates authoritatively at place_order() time (see placeOrder()).
 
 function offerLabel(o){ return o.discount_type==='percentage' ? `${o.discount_value}% OFF` : `${money(o.discount_value)} OFF`; }
+// V34.1: exactly ONE promotion can occupy the floating button — the one
+// chosen in Admin (promotions.floatingButton.promotionId). No selection, or
+// the selected offer is off / out of date / not for this visitor → no
+// floating button at all. Never "10% OFF +1", never an automatic pick.
+function floatingPromotion(){
+  const cfg=SITE.promotions||{};
+  if(cfg.enabled===false) return null;
+  const id=String(cfg.floatingButton?.promotionId||'').trim();
+  if(!id) return null;
+  const p=(cfg.items||[]).find(x=>x&&x.id===id);
+  return promoLive(p)?p:null;
+}
 function renderFloatingOffer(){
   const btn=$('offerFloatBtn'); if(!btn)return;
-  if(!activeOffers.length){ btn.style.display='none'; return; }
-  $('offerFloatLabel').textContent = activeOffers.length===1 ? offerLabel(activeOffers[0]) : 'Offers';
+  const p=floatingPromotion();
+  if(!p){ btn.style.display='none'; return; }
+  const fb=SITE.promotions.floatingButton||{};
+  const label=fillOfferText(fb.label||promoHeadline(p));
+  $('offerFloatLabel').textContent=label;
+  btn.setAttribute('aria-label',`View offer: ${label}`);
   btn.style.display='flex';
 }
+// Live public coupons that no configured promotion already describes.
+function uncoveredCoupons(promos){ const codes=new Set(promos.map(promoCode).filter(Boolean)); return activeOffers.filter(o=>!codes.has(String(o.code||'').toUpperCase())); }
 // V32.12.1 (spec 2/3/17): "View all active offers" now shows every
 // offer's LOCK STATE relative to the customer's current cart — not
 // just a flat list — so the offer itself becomes a sales motivator
@@ -1624,8 +1726,11 @@ function renderFloatingOffer(){
 // same as any other ineligible attempt.
 function openOffersPanel(){
   const sub = cart.length ? cartTotals().sub : 0;
-  $('offersPanelList').innerHTML = activeOffers.length
-    ? activeOffers.map(o=>{
+  const promos=promotionsConfigured()?(SITE.promotions.items||[]).filter(promoLive).sort((a,b)=>(Number(a.priority)||99)-(Number(b.priority)||99)):[];
+  const coupons=promos.length?uncoveredCoupons(promos):activeOffers;
+  const promoHtml=promos.map(p=>promoCardMarkup(p,cart.length?'cart':'panel')).join('');
+  $('offersPanelList').innerHTML = (promoHtml||coupons.length)
+    ? promoHtml + coupons.map(o=>{
         const min = o.min_order_value||0;
         const unlocked = !cart.length ? false : sub >= min;
         const remaining = money(Math.max(0, min - sub));
@@ -1640,6 +1745,7 @@ function openOffersPanel(){
         </div>`;
       }).join('')
     : '<div class="empty smallEmpty">No active offers right now.</div>';
+  if(promos.length || coupons.length) $('offersPanelList').insertAdjacentHTML('beforeend','<p class="tiny promoStackNote">One coupon code can be used per order.</p>');
   $('offersOverlay').classList.add('open'); document.body.classList.add('modalOpen');
 }
 function closeOffersPanel(){ $('offersOverlay').classList.remove('open'); document.body.classList.remove('modalOpen'); }
@@ -1684,6 +1790,9 @@ async function applyCouponFromCart(code){
     return;
   }
   const meta = eligibleCartOffers.find(o=>o.code.toUpperCase()===code.toUpperCase()) || activeOffers.find(o=>o.code.toUpperCase()===code.toUpperCase());
+  // V34: orders accept ONE coupon code (enforced by place_order()). Say so
+  // rather than silently swapping one code for another.
+  const replaced = appliedCoupon && appliedCoupon.code!==code.toUpperCase() ? appliedCoupon.code : '';
   appliedCoupon = {
     code: code.toUpperCase(), coupon_id: row.coupon_id,
     name: meta?.name||'', discountType: meta?.discount_type||null,
@@ -1698,7 +1807,9 @@ async function applyCouponFromCart(code){
   };
   saveCoupon(appliedCoupon);
   renderCart(); updateCheckoutSummary();
-  showToast(`Coupon applied: ${appliedCoupon.code} — Discount ${money(appliedCoupon.discountAmount)}`);
+  showToast(replaced
+    ? `${appliedCoupon.code} applied instead of ${replaced} — one coupon code per order. Discount ${money(appliedCoupon.discountAmount)}`
+    : `Coupon applied: ${appliedCoupon.code} — Discount ${money(appliedCoupon.discountAmount)}`);
   track('coupon_applied',{coupon:appliedCoupon.code,value:appliedCoupon.discountAmount,currency:'INR'});
 }
 function removeAppliedCoupon(){
@@ -1809,7 +1920,8 @@ function nearestLockedOffer(sub){
 function couponSectionMarkup(){
   const t=cartTotals();
   if(appliedCoupon){
-    return `<div class="couponSection"><div class="couponApplied"><b>Coupon applied: ${escapeHtml(appliedCoupon.code)} · Discount ${money(currentDiscount(t.sub))}</b><button onclick="removeAppliedCoupon()">Remove coupon</button></div></div>`;
+    const stack=`<small class="couponStackNote">One coupon code can be used per order.</small>`;
+    return `<div class="couponSection"><div class="couponApplied"><b>Coupon applied: ${escapeHtml(appliedCoupon.code)} · Discount ${money(currentDiscount(t.sub))}</b><button onclick="removeAppliedCoupon()">Remove coupon</button></div>${stack}</div>`;
   }
   const eligible = eligibleCartOffers;
   let nudge = '';
@@ -1821,9 +1933,17 @@ function couponSectionMarkup(){
     }
   }
   const wc=welcomeState().code;
-  const welcomeHint=wc?`<div class="welcomeCodeHint"><span>Your welcome code <b>${escapeHtml(wc)}</b></span><button type="button" onclick="applyCouponFromCart('${escapeHtml(wc)}')">Apply</button></div>`:'';
+  const coveredByPromo=promotionsConfigured() && livePromotions('cart').some(p=>p.codeVisibility==='signup');
+  const welcomeHint=wc&&!coveredByPromo?`<div class="welcomeCodeHint"><span>Your welcome code <b>${escapeHtml(wc)}</b></span><button type="button" onclick="applyCouponFromCart('${escapeHtml(wc)}')">Apply</button></div>`:'';
+  // V34: configured cart promotions as compact cards (code ones get Apply).
+  const cartPromos=promotionsConfigured()?livePromotions('cart'):[];
+  const promoList=cartPromos.length?`<div class="cartPromos">${cartPromos.map(p=>{
+      const min=Number(p.minOrderValue)||0, locked=min>t.sub;
+      const note=locked?`Add ${money(min-t.sub)} more to unlock`:(p.description?fillOfferText(p.description):'');
+      return `<div class="cartPromo${locked?' locked':''}"><div><b>${escapeHtml(fillOfferText(p.title||promoHeadline(p)))}</b>${note?`<small>${escapeHtml(note)}</small>`:''}</div>${locked?'':promoActionMarkup(p,'cart')}</div>`;
+    }).join('')}</div>`:'';
   const codeEntry=`<div class="codeEntry"><input id="couponCodeInput" placeholder="Have a code? Enter it here" maxlength="30" aria-label="Coupon code" onkeydown="if(event.key==='Enter'){event.preventDefault();applyTypedCoupon()}"><button type="button" onclick="applyTypedCoupon()">Apply</button></div>`;
-  return `<div class="couponSection">${welcomeHint}${nudge}<label><b>Apply coupon</b>
+  return `<div class="couponSection">${welcomeHint}${promoList}${nudge}<label><b>Apply coupon</b>
     <select id="couponSelect" onchange="this.value&&applyCouponFromCart(this.value)">
       <option value="">${eligible.length?'Select an offer…':(activeOffers.length?'No offers eligible for the items in your cart':'No offers available right now')}</option>
       ${eligible.map(o=>`<option value="${escapeHtml(o.code)}">${escapeHtml(o.code)} – ${offerLabel(o)}</option>`).join('')}
@@ -2740,6 +2860,7 @@ async function submitUpiProof(orderNumber, phone){
   showOrderSuccess({ order_number:orderNumber, phone, status:'Payment verification pending', total:null });
 }
 function showOrderSuccess(o){
+  markDeviceOrdered(); // V34: lets "new customer" offers/popup step aside on this device
   $('accountContent').innerHTML=`<div class="successIcon"><i class="fa-solid fa-check"></i></div><div class="eyebrow">ORDER RECEIVED</div><h2>${escapeHtml(o.order_number)}</h2>
     <p class="muted">${escapeHtml(o.status)}. We'll update the order status as it moves through fulfilment.</p>
     <div class="trackMini">${renderTimeline(o)}</div>
@@ -3188,6 +3309,10 @@ function imgTag(path,sizes,alt,extra=''){
   const a=responsiveImgAttrs(path,sizes);
   return `<img src="${escapeHtml(a.src)}"${a.srcset?` srcset="${escapeHtml(a.srcset)}" sizes="${escapeHtml(a.sizes)}"`:''} alt="${escapeHtml(alt||'')}" loading="lazy" decoding="async" onerror="this.onerror=null;this.removeAttribute('srcset');this.src='images/brand/placeholder.svg'" ${extra}>`;
 }
+// V34.1 — image types. 'packshot' = product/pouch shot → shown whole
+// (object-fit:contain), never cropped. 'lifestyle' = food/lifestyle photo →
+// fills its frame (cover). Anything borrowed from a product is a packshot.
+function isPackshot(type,borrowedFromProduct){ return borrowedFromProduct || type==='packshot'; }
 function fmtDate(d){ try{ return new Date(d+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short'}); }catch{ return d; } }
 function scrollToSection(id){
   const el=$(id); if(!el) return;
@@ -3236,10 +3361,21 @@ function applyBrandTheme(){
   Object.entries(map).forEach(([k,v])=>{ if(/^#[0-9a-f]{6}$/i.test(c[k]||'')) document.documentElement.style.setProperty(v,c[k]); });
   if(/^#[0-9a-f]{6}$/i.test(c.maroon||'')) setMeta('name','theme-color',c.maroon);
   if(b.logoUrl) document.querySelectorAll('[data-brand-logo]').forEach(img=>{ img.removeAttribute('srcset'); img.src=b.logoUrl; });
+  // V34: Admin SEO overrides now keep og:*, twitter:* and the share-image
+  // alt/dimensions in step. NOTE: social scrapers (WhatsApp, Facebook…)
+  // do not run JavaScript — they always read the static tags in
+  // index.html, which were made brand-wide in V34. These runtime
+  // overrides mainly help Google (which renders JS) and in-browser shares.
   const seo=b.seo||{};
-  if(seo.homeTitle){ document.title=seo.homeTitle; setMeta('property','og:title',seo.homeTitle); }
-  if(seo.homeDescription){ setMeta('name','description',seo.homeDescription); setMeta('property','og:description',seo.homeDescription); }
-  if(seo.ogImage) setMeta('property','og:image',seo.ogImage);
+  if(seo.homeTitle){ document.title=seo.homeTitle; setMeta('property','og:title',seo.homeTitle); setMeta('name','twitter:title',seo.homeTitle); }
+  if(seo.homeDescription){ setMeta('name','description',seo.homeDescription); setMeta('property','og:description',seo.homeDescription); setMeta('name','twitter:description',seo.homeDescription); }
+  if(seo.ogImage){
+    let abs=seo.ogImage; try{ abs=new URL(seo.ogImage,location.href).href; }catch{}
+    setMeta('property','og:image',abs); setMeta('property','og:image:secure_url',abs); setMeta('name','twitter:image',abs);
+    // A replacement image may not be 1200×630 — drop the static size hints rather than state wrong ones.
+    ['og:image:width','og:image:height','og:image:type'].forEach(k=>document.querySelector(`meta[property="${k}"]`)?.remove());
+  }
+  if(seo.ogImageAlt){ setMeta('property','og:image:alt',seo.ogImageAlt); setMeta('name','twitter:image:alt',seo.ogImageAlt); }
   BASE_SEO={title:document.title, desc:document.querySelector('meta[name="description"]')?.getAttribute('content')||''};
 }
 function waUrl(text){
@@ -3280,7 +3416,7 @@ function applySectionConfig(){
 let annTimer=null, annIndex=0;
 function annMessages(){
   const cfg=SITE.announcement_bar||{};
-  const fill=t=>String(t||'').replace(/\{freeShippingThreshold\}/g,money(CONFIG.store.freeShippingThreshold)).replace(/\{shippingFlat\}/g,money(CONFIG.store.shippingFlat));
+  const fill=t=>fillOfferText(String(t||'').replace(/\{freeShippingThreshold\}/g,money(CONFIG.store.freeShippingThreshold)).replace(/\{shippingFlat\}/g,money(CONFIG.store.shippingFlat)));
   let msgs=(cfg.messages||[]).filter(m=>m&&m.enabled!==false&&m.text).map(m=>({text:fill(m.text),link:m.link||''}));
   // Never advertise the welcome offer when the popup that delivers it is off.
   if(!welcomeEnabled()) msgs=msgs.filter(m=>m.link!=='#welcome');
@@ -3430,9 +3566,9 @@ function renderWelcomeStrip(){
     box.innerHTML=`<div><div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2>Your welcome code is ready</h2><p>Use <b>${escapeHtml(st.code)}</b> at checkout.</p></div><a class="btn onDark" href="#shop">Shop now <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>`;
     return;
   }
-  const label=escapeHtml(c.ctaLabel||'Shop now');
+  const label=escapeHtml(fillOfferText(c.ctaLabel||'Shop now'));
   const btn=usesPopup?`<button class="btn onDark" onclick="openWelcomePopup('strip')">${label}</button>`:`<a class="btn onDark" href="${escapeHtml(safeHref(c.link))}">${label}</a>`;
-  box.innerHTML=`<div><div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2>${escapeHtml(c.title||'')}</h2>${c.text?`<p>${escapeHtml(c.text)}</p>`:''}</div>${btn}`;
+  box.innerHTML=`<div><div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2>${escapeHtml(fillOfferText(c.title||''))}</h2>${c.text?`<p>${escapeHtml(fillOfferText(c.text))}</p>`:''}</div>${btn}`;
 }
 function inDateRange(start,end){
   const now=new Date();
@@ -3449,7 +3585,7 @@ function renderPromo(){
     ${items.length?`<div class="pairings" style="margin-top:14px">${items.map(p=>`<span>${escapeHtml(p.name)}</span>`).join('')}</div>`:''}
     ${c.ctaLabel&&c.ctaTarget?`<div class="heroBtns"><a class="btn onDark" href="${escapeHtml(safeHref(c.ctaTarget))}">${escapeHtml(c.ctaLabel)} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></div>`:''}
     ${c.endDate?`<div class="promoDates">Offer ends ${escapeHtml(fmtDate(c.endDate))}</div>`:''}</div>
-    ${c.image?`<div class="promoImg">${imgTag(c.image,'(max-width:767px) 92vw, 560px',c.title)}</div>`:''}`;
+    ${c.image?`<div class="promoImg${isPackshot(c.imageType)?' contain':''}">${imgTag(c.image,'(max-width:767px) 92vw, 560px',c.title)}</div>`:''}`;
 }
 function renderWhy(){
   const box=$('whyGrid'); if(!box) return;
@@ -3463,8 +3599,9 @@ function renderHowToEnjoy(){
     const p=findProduct(it.productId,it.keyword);
     if(!p && !it.image) return '';
     const img=it.image||p?.image||'';
+    const pack=isPackshot(it.imageType,!it.image);
     const pair=(Array.isArray(it.pairings)?it.pairings:String(it.pairings||'').split(',')).map(s=>String(s).trim()).filter(Boolean);
-    return `<button class="enjoyCard" type="button"${p?` onclick="openProduct('${p.id}')"`:''}><div class="enjoyImg${it.image?'':' contain'}">${imgTag(img,'(max-width:767px) 72vw, 300px',it.title||p?.name)}</div><div class="enjoyBody"><h3>${escapeHtml(it.title||p?.name||'')}</h3><div class="pairings">${pair.map(x=>`<span>${escapeHtml(x)}</span>`).join('')}</div></div></button>`;
+    return `<button class="enjoyCard" type="button"${p?` onclick="openProduct('${p.id}')"`:''}><div class="enjoyImg${pack?' contain':''}">${imgTag(img,'(max-width:767px) 72vw, 300px',it.title||p?.name)}</div><div class="enjoyBody"><h3>${escapeHtml(it.title||p?.name||'')}</h3><div class="pairings">${pair.map(x=>`<span>${escapeHtml(x)}</span>`).join('')}</div></div></button>`;
   }).filter(Boolean).join('');
   el.hidden=c.enabled===false||!cards;
   box.innerHTML=cards;
@@ -3476,7 +3613,7 @@ function renderHeritage(){
   if(c.enabled===false||!target){ el.hidden=true; return; }
   el.hidden=false;
   const img=c.image||p?.image||'';
-  box.innerHTML=`<div class="heritageImg${c.image?'':' contain'}">${imgTag(img,'(max-width:767px) 92vw, 440px',c.title)}</div>
+  box.innerHTML=`<div class="heritageImg${isPackshot(c.imageType,!c.image)?' contain':''}">${imgTag(img,'(max-width:767px) 92vw, 440px',c.title)}</div>
     <div class="heritageCopy"><div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2>${escapeHtml(c.title||'')}</h2>${c.text?`<p>${escapeHtml(c.text)}</p>`:''}
     ${c.ctaLabel?`<a class="btn primary" href="${escapeHtml(safeHref(target))}">${escapeHtml(c.ctaLabel)} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>`:''}</div>`;
 }
@@ -3492,9 +3629,9 @@ function renderSocialSection(){
 }
 function renderAbout(){
   const el=$('about'), box=$('aboutInner'), c=sec('about'); if(!el||!box) return;
-  box.innerHTML=`<div><div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2>${escapeHtml(c.title||'')}</h2>${c.text?`<p class="lead">${escapeHtml(c.text)}</p>`:''}${c.body?`<p>${escapeHtml(c.body)}</p>`:''}
+  box.innerHTML=`<div><div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2>${escapeHtml(c.title||'')}</h2>${c.text?`<p class="lead">${escapeHtml(c.text)}</p>`:''}${c.body?`<p>${escapeHtml(c.body)}</p>`:''}${c.signoff?`<p class="aboutSignoff">${escapeHtml(c.signoff)}</p>`:''}
     ${c.ctaLabel&&c.story?`<div class="heroBtns"><a class="btn secondary" href="#story">${escapeHtml(c.ctaLabel)} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></div>`:''}</div>
-    ${c.image?`<div class="aboutImg">${imgTag(c.image,'(max-width:767px) 92vw, 560px',c.title)}</div>`:''}`;
+    ${c.image?`<div class="aboutImg${isPackshot(c.imageType)?' contain':''}">${imgTag(c.image,'(max-width:767px) 92vw, 560px',c.title)}</div>`:''}`;
 }
 function renderNewsletter(){
   const el=$('newsletter'), box=$('newsInner'), c=sec('newsletter'); if(!el||!box) return;
@@ -3529,17 +3666,32 @@ function saveWelcomeState(s){ try{ localStorage.setItem(WELCOME_KEY,JSON.stringi
 // Supabase — never from built-in defaults, because submitting needs the
 // live submit_welcome_lead() RPC to issue the code.
 function welcomeEnabled(){ return !!(SITE.welcome_popup&&SITE.welcome_popup.enabled) && siteContentLive; }
+// V34 display rules (all Admin-configured in Site content → First-visit
+// offer popup): audience, frequency, device, and "not while shopping".
+// These only decide whether the popup is SHOWN automatically; the #welcome
+// link / "Unlock" buttons can still open it on request.
+function welcomeAutoAllowed(){
+  const c=SITE.welcome_popup||{}, st=welcomeState();
+  if(st.code) return false;
+  if(c.audience!=='all' && isKnownCustomer()) return false;
+  const mobile=window.matchMedia('(max-width:767px)').matches;
+  if(c.showOn==='mobile'&&!mobile || c.showOn==='desktop'&&mobile) return false;
+  if(c.skipWhenCartHasItems && cart.length) return false;
+  const freq=c.frequency||'days';
+  if(st.dismissedAt){
+    if(freq==='once') return false;
+    if(freq==='days'){ const days=Number(c.reshowAfterDays)||0; if(!days || Date.now()-st.dismissedAt < days*864e5) return false; }
+  }
+  try{ if(sessionStorage.getItem('jayviWelcomeShown')) return false; }catch{}
+  return true;
+}
 function initWelcomePopup(){
   if(!welcomeEnabled()) return;
-  const st=welcomeState();
-  if(st.code) return;
-  if(st.dismissedAt){
-    const days=Number(SITE.welcome_popup.reshowAfterDays)||0;
-    if(!days || Date.now()-st.dismissedAt < days*864e5) return;
-  }
-  try{ if(sessionStorage.getItem('jayviWelcomeShown')) return; }catch{}
+  if(!welcomeAutoAllowed()) return;
   const delay=Math.max(0,Number(SITE.welcome_popup.delaySeconds)||0)*1000;
   const tryShow=(attempt)=>{
+    // Re-checked at show time: the visitor may have signed in / filled the cart during the delay.
+    if(!welcomeAutoAllowed()) return;
     // Never interrupt an open cart/checkout/product/menu — wait and retry.
     if(document.querySelector('.overlay.open')||$('mobileMenu')?.classList.contains('open')){ if(attempt<6) setTimeout(()=>tryShow(attempt+1),5000); return; }
     openWelcomePopup('auto');
@@ -3549,25 +3701,31 @@ function initWelcomePopup(){
 function welcomeFormMarkup(){
   const c=SITE.welcome_popup, f=c.fields||{};
   const field=(key,label,type,attrs)=>f[key]?.show===false?'':`<label for="wm_${key}">${label}${f[key]?.required?' *':''}<input id="wm_${key}" name="${key}" type="${type}" ${attrs}${f[key]?.required?' required':''}></label>`;
-  return `${c.image?`<img class="wmImg" src="${escapeHtml(c.image)}" alt="" decoding="async">`:''}<div class="wmTop"><div class="wmEyebrow">${escapeHtml(c.eyebrow||'')}</div>${c.discountLabel?`<div class="wmDiscount">${escapeHtml(c.discountLabel)}</div>`:''}<h2 id="wmTitle">${escapeHtml(c.title||'')}</h2></div>
-  <form class="wmBody" onsubmit="submitWelcomeLead(event)" novalidate>${c.description?`<p>${escapeHtml(c.description)}</p>`:''}
+  const T=x=>escapeHtml(fillOfferText(x));
+  return `${c.image?`<img class="wmImg${isPackshot(c.imageType)?' contain':''}" src="${escapeHtml(c.image)}" alt="" decoding="async">`:''}<div class="wmTop"><div class="wmEyebrow">${T(c.eyebrow||'')}</div>${c.discountLabel?`<div class="wmDiscount">${T(c.discountLabel)}</div>`:''}<h2 id="wmTitle">${T(c.title||'')}</h2></div>
+  <form class="wmBody" onsubmit="submitWelcomeLead(event)" novalidate>${c.description?`<p>${T(c.description)}</p>`:''}
     ${field('name','Name','text','autocomplete="name" maxlength="120"')}
     ${field('mobile','Mobile number','tel','inputmode="numeric" autocomplete="tel-national" maxlength="10" placeholder="10-digit mobile"')}
     ${field('email','Email','email','autocomplete="email" maxlength="200" placeholder="you@example.com"')}
     <div class="wmErr" id="wmErr" role="alert"></div>
-    <button class="btn primary full" type="submit" id="wmSubmit">${escapeHtml(c.ctaLabel||'Get my offer')}</button>
-    ${c.expiryText?`<p class="wmFine">${escapeHtml(c.expiryText)}</p>`:''}
+    <button class="btn primary full" type="submit" id="wmSubmit">${T(c.ctaLabel||'Get my offer')}</button>
+    ${c.expiryText?`<p class="wmFine">${T(c.expiryText)}</p>`:''}
     <p class="wmFine">We use your details only to share Jayvi offers and updates. <a href="legal.html#privacy" style="text-decoration:underline">Privacy</a></p>
   </form>`;
 }
 function welcomeSuccessMarkup(code){
-  const c=SITE.welcome_popup;
-  const cta=cart.length?`<button class="btn primary full" onclick="closeWelcomePopup();applyCouponFromCart('${escapeHtml(code)}');openCart()">Apply to my basket</button>`:`<a class="btn primary full" href="#shop" onclick="closeWelcomePopup()">Start shopping</a>`;
-  return `<div class="wmTop"><div class="wmEyebrow">🎉</div><h2 id="wmTitle">${escapeHtml(c.successTitle||'Your offer is ready')}</h2></div>
-  <div class="wmBody">${c.successText?`<p>${escapeHtml(c.successText)}</p>`:''}<div class="wmCode"><b>${escapeHtml(code)}</b><button type="button" onclick="copyWelcomeCode('${escapeHtml(code)}')">Copy code</button></div>${c.expiryText?`<p class="wmFine">${escapeHtml(c.expiryText)}</p>`:''}${cta}</div>`;
+  const c=SITE.welcome_popup, T=x=>escapeHtml(fillOfferText(x)), q=escapeHtml(code);
+  const shop=`<a class="btn primary full" href="#shop" onclick="closeWelcomePopup()">${T(c.shopLabel||'Shop now')} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>`;
+  const apply=cart.length?`<button class="btn secondary full wmApply" onclick="closeWelcomePopup();applyCouponFromCart('${q}');openCart()">Apply to my basket</button>`:'';
+  return `<div class="wmTop"><div class="wmEyebrow">🎉</div><h2 id="wmTitle">${T(c.successTitle||'Your offer is ready')}</h2></div>
+  <div class="wmBody">${c.successText?`<p>${T(c.successText)}</p>`:''}
+    <div class="wmCode"><span class="wmCodeText"><small>${T(c.codeLabel||'Your coupon:')}</small><b>${q}</b></span><button type="button" onclick="copyWelcomeCode('${q}')">${T(c.copyLabel||'Copy code')}</button></div>
+    ${c.expiryText?`<p class="wmFine">${T(c.expiryText)}</p>`:''}${shop}${apply}</div>`;
 }
+let _welcomeSource='';
 function openWelcomePopup(source='manual'){
   if(!welcomeEnabled()){ if(source!=='auto') goToOffers(); return; }
+  _welcomeSource=String(source||'').replace(/[^a-z0-9_-]/gi,'').slice(0,20);
   if(source==='auto' && $('checkoutOverlay')?.classList.contains('open')) return;
   try{ sessionStorage.setItem('jayviWelcomeShown','1'); }catch{}
   const st=welcomeState();
@@ -3601,19 +3759,140 @@ async function submitWelcomeLead(e){
   const btn=$('wmSubmit'), label=btn.textContent;
   btn.disabled=true; btn.textContent='Unlocking your offer…';
   try{
-    const {data,error}=await sb.rpc('submit_welcome_lead',{p_name:name||null,p_mobile:mobile||null,p_email:email||null,p_source_page:(location.pathname+location.search).slice(0,300)});
+    // V34: the popup's linked promotion (campaign) and what opened it are
+    // appended to source_page — the existing column, so no RPC/schema
+    // change is needed. Timestamp = leads.created_at (server-set).
+    const lp=livePromotions('popup')[0];
+    const tag=[lp?`campaign=${lp.id||lp.name}`:'', `via=${_welcomeSource||'popup'}`].filter(Boolean).join('&');
+    const sourcePage=(location.pathname+location.search+(tag?(location.search?'&':'?')+tag:'')).slice(0,300);
+    const {data,error}=await sb.rpc('submit_welcome_lead',{p_name:name||null,p_mobile:mobile||null,p_email:email||null,p_source_page:sourcePage});
     if(error) throw error;
     const row=Array.isArray(data)?data[0]:data;
     if(!row?.ok || !row.coupon_code){ err(row?.message||'Could not unlock the offer. Please try again.'); btn.disabled=false; btn.textContent=label; return; }
     saveWelcomeState({code:row.coupon_code,at:Date.now()});
     $('welcomeContent').innerHTML=welcomeSuccessMarkup(row.coupon_code);
     track('generate_lead',{source:'welcome_popup'}); track('popup_submit',{});
-    renderWelcomeStrip(); renderNewsletter(); renderCart();
+    renderWelcomeStrip(); renderNewsletter(); renderCart(); renderOffersSection(); renderFloatingOffer();
   }catch(ex){
     console.warn('Welcome lead submit failed:', ex?.message||ex);
     err('We could not connect just now. Please check your connection and try again.');
     btn.disabled=false; btn.textContent=label;
   }
+}
+
+/* =========================================================================
+   V34 — Promotions (several offers at once)
+   Source: site_content 'promotions' (Admin → Site content → Offers &
+   promotions), merged over JAYVI_SITE_DEFAULTS.promotions (all inactive).
+   A promotion is DISPLAY + RULE METADATA: where it shows, for whom, when,
+   its priority. (Combining offers is NOT supported yet.) Whenever it carries a
+   coupon code, the discount actually charged is still decided by that
+   coupon in Coupons & Offers — validate_coupon() previews it and
+   place_order() re-validates it server-side. Nothing here can make the
+   server grant a discount it wouldn't otherwise grant.
+   If no promotion is configured, every surface falls back to exactly the
+   V33 behaviour (live public coupons from list_active_offers()).
+   ========================================================================= */
+const ORDERED_KEY='jayviHasOrderedV1';
+function deviceHasOrdered(){ try{ return !!localStorage.getItem(ORDERED_KEY); }catch{ return false; } }
+function markDeviceOrdered(){ try{ localStorage.setItem(ORDERED_KEY,String(Date.now())); }catch{} }
+// "Existing customer" as far as the browser can tell: signed in, or this
+// device has placed an order. Display only — first-order-only enforcement
+// belongs to the coupon (per-customer limit / a server rule).
+function isKnownCustomer(){ return !!currentUser || deviceHasOrdered(); }
+function audienceOk(a){ if(a==='new') return !isKnownCustomer(); if(a==='existing') return isKnownCustomer(); return true; }
+function promoCode(p){ return String(p?.couponCode||'').trim().toUpperCase(); }
+function promoLive(p){
+  if(!p || p.active!==true || !(p.title||p.shortTitle||p.name) || !inDateRange(p.startDate,p.endDate) || !audienceOk(p.audience)) return false;
+  // A sign-up offer is only offered while the popup that delivers its code can run (or the visitor already has the code).
+  if(p.codeVisibility==='signup' && !welcomeEnabled() && !welcomeState().code) return false;
+  return true;
+}
+const PROMO_PLACES={homepage:'showOnHomepage',cart:'showInCart',popup:'showInPopup'};
+function livePromotions(place){
+  const cfg=SITE.promotions||{};
+  if(cfg.enabled===false) return [];
+  const flag=PROMO_PLACES[place];
+  return (cfg.items||[]).filter(p=>promoLive(p) && (!flag || p[flag]===true))
+    .sort((a,b)=>(Number(a.priority)||99)-(Number(b.priority)||99));
+}
+function promotionsConfigured(){ const c=SITE.promotions||{}; return c.enabled!==false && (c.items||[]).some(p=>p&&p.active===true); }
+function promoForCode(code){ const c=String(code||'').toUpperCase(); return c ? (SITE.promotions?.items||[]).find(p=>p&&p.active===true&&promoCode(p)===c) || null : null; }
+function promoValueLabel(p){
+  const v=Number(p.discountValue)||0;
+  if(p.discountType==='percentage') return v?`${v}% OFF`:'';
+  if(p.discountType==='flat') return v?`${money(v)} OFF`:'';
+  if(p.discountType==='bundle') return v?`${money(v)}`:'';
+  if(p.discountType==='freeShipping') return 'FREE SHIPPING';
+  return '';
+}
+function promoHeadline(p){ return p.shortTitle||promoValueLabel(p)||p.title||p.name||'Offer'; }
+function promoRuleNotes(p){
+  const n=[];
+  if(Number(p.minOrderValue)>0) n.push(`Min order ${money(p.minOrderValue)}`);
+  if(p.appliesTo==='products' && (p.productIds||[]).length){ const names=(p.productIds||[]).map(id=>getProduct(id)?.name).filter(Boolean); if(names.length) n.push(`On ${names.slice(0,3).join(', ')}${names.length>3?'…':''}`); }
+  if(p.appliesTo==='categories' && (p.categoryIds||[]).length){ const names=(p.categoryIds||[]).map(catName).filter(Boolean); if(names.length) n.push(`On ${names.join(', ')}`); }
+  if(p.audience==='new') n.push('New customers');
+  else if(p.audience==='existing') n.push('Returning customers');
+  if(p.endDate) n.push(`Ends ${fmtDate(p.endDate)}`);
+  if(p.usageNote) n.push(p.usageNote);
+  // V34.1: no "can/cannot be combined" claims — combining offers needs
+  // backend support that does not exist yet (one coupon code per order).
+  return n;
+}
+// One action per promotion, resolved from its configuration:
+//  signup → open the sign-up popup (or apply/show the code already earned)
+//  show   → reveal the code + Apply (in cart) / Copy
+//  none   → just the CTA link (automatic offers such as combo pricing)
+function promoActionMarkup(p,context){
+  const id=escapeHtml(p.id||'');
+  const code=promoCode(p);
+  if(p.codeVisibility==='signup'){
+    const wc=welcomeState().code;
+    if(wc) return context==='cart'
+      ? `<button type="button" class="btn light small" data-promo-act="apply" data-code="${escapeHtml(wc)}">Apply ${escapeHtml(wc)}</button>`
+      : `<span class="promoCode"><b>${escapeHtml(wc)}</b><button type="button" data-promo-act="copy" data-code="${escapeHtml(wc)}">Copy</button></span>`;
+    return `<button type="button" class="btn ${context==='cart'?'light small':'gold'}" data-promo-act="popup" data-promo="${id}">${escapeHtml(fillOfferText(p.ctaLabel)||'Unlock offer')}</button>`;
+  }
+  if(p.codeVisibility==='show' && code){
+    return context==='cart'
+      ? `<button type="button" class="btn light small" data-promo-act="apply" data-code="${escapeHtml(code)}">Apply ${escapeHtml(code)}</button>`
+      : `<span class="promoCode"><b>${escapeHtml(code)}</b><button type="button" data-promo-act="copy" data-code="${escapeHtml(code)}">Copy</button></span>${p.ctaTarget&&p.ctaLabel?`<a class="btn gold" href="${escapeHtml(safeHref(p.ctaTarget))}">${escapeHtml(p.ctaLabel)}</a>`:''}`;
+  }
+  if(context!=='cart' && p.ctaTarget && p.ctaLabel) return `<a class="btn gold" href="${escapeHtml(safeHref(p.ctaTarget))}">${escapeHtml(fillOfferText(p.ctaLabel))}</a>`;
+  return '';
+}
+function promoCardMarkup(p,context='home'){
+  const notes=promoRuleNotes(p);
+  const img=context==='home'&&p.image?`<div class="promoCardImg${isPackshot(p.imageType)?' contain':''}">${imgTag(p.image,'(max-width:767px) 92vw, 380px',p.title||p.name)}</div>`:'';
+  return `<article class="promoOfferCard v34Promo">${img}
+    <span class="promoOfferEyebrow">${escapeHtml(p.name||'Jayvi offer')}</span>
+    <h3 class="promoOfferHeadline">${escapeHtml(fillOfferText(promoHeadline(p)))}</h3>
+    ${p.title&&p.title!==p.shortTitle?`<b class="promoTitle">${escapeHtml(fillOfferText(p.title))}</b>`:''}
+    ${p.description?`<p>${escapeHtml(fillOfferText(p.description))}</p>`:''}
+    <ul class="promoNotes">${notes.map(t=>`<li>${escapeHtml(t)}</li>`).join('')}</ul>
+    <div class="promoActions">${promoActionMarkup(p,context)}</div>
+  </article>`;
+}
+function initPromoActions(){
+  document.addEventListener('click',e=>{
+    const b=e.target.closest('[data-promo-act]'); if(!b) return;
+    const act=b.dataset.promoAct, code=b.dataset.code||'';
+    if(act==='popup'){ e.preventDefault(); closeOffersPanel(); if($('cartOverlay')?.classList.contains('open')) closeCart(); openWelcomePopup('promo'); }
+    else if(act==='copy'){ e.preventDefault(); copyWelcomeCode(code); }
+    else if(act==='apply'){ e.preventDefault(); if(!cart.length){ showToast('Add something to your basket first'); return; } closeOffersPanel(); applyCouponFromCart(code).then(()=>openCart()); }
+  });
+}
+// {discount} in any offer copy → the welcome offer's value ("10%", "₹100").
+function welcomeDiscountText(){
+  const lp=livePromotions('popup')[0];
+  if(lp){ const v=Number(lp.discountValue)||0; if(lp.discountType==='percentage'&&v) return `${v}%`; if(lp.discountType==='flat'&&v) return money(v); }
+  const n=Number(SITE.welcome_popup?.discountPercent);
+  return n>0?`${n}%`:'';
+}
+function fillOfferText(t){
+  const d=welcomeDiscountText();
+  return String(t??'').replace(/\{discount\}/g,d||'a special').replace(/\s{2,}/g,' ').trim();
 }
 
 /* ---------- Cart: free-shipping progress + typed coupon ---------- */
@@ -3712,12 +3991,13 @@ async function init(){
   // Reviews — see loadSettingsAnnouncementsReviewsFromSupabase() above.
   // All three fetches run in parallel; a failure in any one has no
   // effect on the others.
-  await Promise.all([loadCatalogFromSupabase(), loadCategoriesAndMealTagsFromSupabase(), loadSettingsAnnouncementsReviewsFromSupabase(), fetchActiveOffers(), loadSiteContent()]);
+  await Promise.all([loadCatalogFromSupabase(), loadCategoriesAndMealTagsFromSupabase(), loadSettingsAnnouncementsReviewsFromSupabase(), fetchActiveOffers(), loadSiteContent(), fetchApprovedRatings()]);
+  applyApprovedRatings();
   sync();
   // V33: brand theme, contact links, analytics, section order/visibility,
   // navigation and the announcement bar — all from Admin-managed data.
   applyBrandTheme(); applyContactLinks(); initAnalytics(); initOutboundTracking();
-  applySectionConfig(); renderNavigation(); initMegaMenu(); renderAnnouncementBar();
+  applySectionConfig(); renderNavigation(); initMegaMenu(); renderAnnouncementBar(); initPromoActions();
   renderFloatingOffer(); renderOfferAnnouncement(); renderOffersSection();
   if(CONFIG.store.vacationMode){
     const b=$('vacationBanner');
@@ -3728,7 +4008,7 @@ async function init(){
   updateWishlistBadge();
   renderFooterSocialLinks();
   renderBrandGallery();
-  heroShow();startHero();enableHeroSwipe();setupAnnouncementTicker();
+  heroShow();startHero();enableHeroSwipe();observeHeroVisibility();setupAnnouncementTicker();
   renderV33Sections();
   applyVacation();
   initRouter();
@@ -3741,6 +4021,7 @@ async function init(){
   // Supabase, never from this device's localStorage).
   currentUser = await getSessionUser();
   if(currentUser) await refreshProfile();
+  if(currentUser){ renderFloatingOffer(); renderOffersSection(); } // V34: audience-targeted offers depend on sign-in
   sb.auth.onAuthStateChange((_event, session) => {
     currentUser = session?.user || null;
     if(!currentUser) currentProfile = null;

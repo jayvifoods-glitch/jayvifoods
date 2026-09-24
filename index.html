@@ -3,26 +3,61 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<!-- Title/description below are the fallbacks; Admin → Site content → Brand → SEO overrides them at runtime. -->
-<title>Jayvi Foods — Traditional Karnataka Chutney Powders, Rice &amp; Snacks</title>
-<meta name="description" content="Shop Jayvi Foods online: traditional Karnataka chutney powders, Idli Dosa Pudi, heritage Rajamudi rice and crunchy snacks. Freshly packed and delivered across India.">
+<!-- SEO fallbacks. Admin → Site content → Brand → SEO can override title,
+     description and share image at runtime, but crawlers and link previews
+     read THESE static values — keep them brand-wide, not product-specific. -->
+<title>Jayvi Foods | Authentic Indian Flavours, Traditionally Crafted</title>
+<meta name="description" content="Discover Jayvi Foods — authentic Indian flavours inspired by tradition, thoughtfully crafted for today's homes. Freshly packed and delivered across India.">
 <link rel="canonical" href="https://jayvifoods.com/">
+<meta name="robots" content="index,follow,max-image-preview:large">
 <meta name="theme-color" content="#9E1B32">
+<meta name="application-name" content="Jayvi Foods">
+<meta name="apple-mobile-web-app-title" content="Jayvi Foods">
+
+<!-- Favicons — all generated from the original Jayvi Foods logo (unaltered, padded to a square) -->
+<link rel="icon" href="favicon.ico" sizes="48x48">
+<link rel="icon" type="image/png" sizes="16x16" href="images/brand/icons/favicon-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="images/brand/icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="images/brand/icons/favicon-48.png">
+<link rel="icon" type="image/png" sizes="96x96" href="images/brand/icons/favicon-96.png">
+<link rel="icon" type="image/png" sizes="192x192" href="images/brand/icons/favicon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="images/brand/icons/apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
+
+<!-- Open Graph / social preview — a brand-wide image, never a single product -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Jayvi Foods">
-<meta property="og:title" content="Jayvi Foods — Purely Traditional. Simply Delicious.">
-<meta property="og:description" content="Traditional Karnataka chutney powders, heritage rice and snacks, delivered across India.">
+<meta property="og:locale" content="en_IN">
+<meta property="og:title" content="Jayvi Foods | Authentic Indian Flavours, Traditionally Crafted">
+<meta property="og:description" content="Authentic Indian flavours inspired by tradition, thoughtfully crafted for today's homes. Freshly packed and delivered across India.">
 <meta property="og:url" content="https://jayvifoods.com/">
-<meta property="og:image" content="https://jayvifoods.com/images/brand/jayvi-foods-logo-640w.webp">
+<meta property="og:image" content="https://jayvifoods.com/images/brand/jayvi-foods-social-1200x630.jpg">
+<meta property="og:image:secure_url" content="https://jayvifoods.com/images/brand/jayvi-foods-social-1200x630.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Jayvi Foods logo with the line: Authentic Indian flavours, traditionally crafted">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" type="image/webp" href="images/brand/jayvi-foods-logo-160w.webp">
+<meta name="twitter:title" content="Jayvi Foods | Authentic Indian Flavours, Traditionally Crafted">
+<meta name="twitter:description" content="Authentic Indian flavours inspired by tradition, thoughtfully crafted for today's homes. Freshly packed and delivered across India.">
+<meta name="twitter:image" content="https://jayvifoods.com/images/brand/jayvi-foods-social-1200x630.jpg">
+<meta name="twitter:image:alt" content="Jayvi Foods logo with the line: Authentic Indian flavours, traditionally crafted">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-<link rel="stylesheet" href="style.css?v=33.0">
+<link rel="stylesheet" href="style.css?v=34.1">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Organization","name":"Jayvi Foods","url":"https://jayvifoods.com/","logo":"https://jayvifoods.com/images/brand/jayvi-foods-logo-640w.webp","slogan":"Purely Traditional. Simply Delicious."}
+{"@context":"https://schema.org","@graph":[
+ {"@type":"Organization","@id":"https://jayvifoods.com/#organization","name":"Jayvi Foods","url":"https://jayvifoods.com/",
+  "logo":{"@type":"ImageObject","url":"https://jayvifoods.com/images/brand/icons/favicon-512.png","width":512,"height":512},
+  "image":"https://jayvifoods.com/images/brand/jayvi-foods-social-1200x630.jpg",
+  "slogan":"Purely Traditional. Simply Delicious.",
+  "description":"Authentic Indian flavours inspired by tradition, thoughtfully crafted for today's homes.",
+  "email":"jayvifoods@gmail.com","telephone":"+91-8861981003",
+  "sameAs":["https://instagram.com/jayvifoods"]},
+ {"@type":"WebSite","@id":"https://jayvifoods.com/#website","url":"https://jayvifoods.com/","name":"Jayvi Foods","alternateName":"Jayvi","inLanguage":"en-IN","publisher":{"@id":"https://jayvifoods.com/#organization"}}
+]}
 </script>
 </head>
 <body>
@@ -88,21 +123,29 @@
 
 <main id="home">
 
-  <section class="hero" id="heroSection" data-section="hero"><div class="wrap heroGrid">
-    <div class="heroCopy">
-      <div class="eyebrow" id="heroLabel">Authentic Karnataka flavours</div>
-      <h1 id="heroTitle">Purely Traditional.<br><em>Simply Delicious.</em></h1>
-      <p id="heroDesc">Traditional favourites made for everyday moments.</p>
-      <div class="heroBtns"><button id="heroShop" class="btn primary">Shop now <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button><a id="heroSecondary" class="btn secondary" href="#best-sellers">Explore bestsellers</a></div>
-      <div class="heroTrust" id="heroTrust"></div>
-      <div id="heroDots" class="dots"></div>
+  <!-- V34 hero: one plain rectangular image stage (desktop 16:7, mobile 4:5 —
+       see JAYVI_IMAGE_SLOTS) with the copy overlaid on a readability
+       gradient. Artwork is never shaped by a decorative frame. -->
+  <section class="hero" id="heroSection" data-section="hero">
+    <div class="heroStage heroGrid" id="heroStage" data-text="bottom">
+      <div class="heroImage" id="heroImageBox">
+        <picture id="heroPicture"><source id="heroMobileSrc" media="(max-width:767px)"><img id="heroImg" src="images/brand/placeholder.svg" alt="Jayvi Foods" fetchpriority="high" decoding="async"></picture>
+        <video id="heroVideo" style="display:none" autoplay muted loop playsinline></video>
+      </div>
+      <div class="heroScrim" aria-hidden="true"></div>
+      <div class="wrap heroCopyWrap">
+        <div class="heroCopy">
+          <div class="eyebrow" id="heroLabel">Authentic Karnataka flavours</div>
+          <h1 id="heroTitle">Purely Traditional. <em>Simply Delicious.</em></h1>
+          <p id="heroDesc">Traditional favourites made for everyday moments.</p>
+          <div class="heroBtns"><button id="heroShop" class="btn primary">Shop now <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button><a id="heroSecondary" class="heroLink" href="#best-sellers">Explore bestsellers</a></div>
+          <div class="heroPrice" style="display:none"><span>from</span><b id="heroPrice"></b></div>
+        </div>
+      </div>
+      <div id="heroDots" class="dots heroDots"></div>
     </div>
-    <div class="heroImage" id="heroImageBox">
-      <img id="heroImg" src="images/brand/placeholder.svg" alt="Jayvi Foods products" fetchpriority="high" decoding="async">
-      <video id="heroVideo" style="display:none" autoplay muted loop playsinline></video>
-      <div class="heroPrice" style="display:none"><span>from</span><b id="heroPrice"></b></div>
-    </div>
-  </div></section>
+    <div class="wrap"><div class="heroTrust" id="heroTrust"></div></div>
+  </section>
 
   <section class="welcomeStrip" id="welcomeOffer" data-section="welcomeOffer" hidden><div class="wrap"><div class="welcomeCard" id="welcomeCard"></div></div></section>
 
@@ -216,7 +259,7 @@
   <div><b>Connect</b><span id="footerSocialLinks"><a href="#" data-wa-link target="_blank" rel="noopener">WhatsApp</a><a href="https://instagram.com/jayvifoods" target="_blank" rel="noopener" data-ig-link>Instagram</a></span><a href="mailto:jayvifoods@gmail.com" data-brand-email>jayvifoods@gmail.com</a><a href="tel:+918861981003" data-brand-phone>+91 88619 81003</a></div>
   <div class="footerCompliance"><b>Food Safety &amp; Business</b><div class="fssaiBadge" aria-label="FSSAI"><img src="images/compliance/fssai-logo.png" alt="FSSAI" loading="lazy"></div><p>FSSAI Lic. No. <strong data-brand-fssai>21226177001087</strong></p><p>UDYAM Registered MSME</p><p data-brand-udyam>UDYAM-KR-03-0681597</p><div class="footerBadges"><span>FSSAI Registered</span><span>Udyam MSME</span></div></div>
 </div>
-<div class="wrap copyright"><span>© <span id="copyYear">2026</span> Jayvi Foods</span><span>Delivered across India</span><span class="siteVersion" id="siteVersion">Website v33.0</span></div></footer>
+<div class="wrap copyright"><span>© <span id="copyYear">2026</span> Jayvi Foods</span><span>Delivered across India</span><span class="siteVersion" id="siteVersion">Website v34.1</span></div></footer>
 
 <a class="whatsappFloat" href="#" data-wa-link data-wa-text="Hi Jayvi Foods, I need help with my order." target="_blank" rel="noopener" aria-label="Chat with Jayvi's team on WhatsApp"><i class="fa-brands fa-whatsapp"></i><span>Chat with us</span></a>
 
@@ -269,8 +312,8 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="supabase-config.js?v=33.0"></script>
-<script src="site-content-defaults.js?v=33.0"></script>
-<script src="app.js?v=33.0"></script>
+<script src="supabase-config.js?v=34.1"></script>
+<script src="site-content-defaults.js?v=34.1"></script>
+<script src="app.js?v=34.1"></script>
 </body>
 </html>

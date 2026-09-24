@@ -313,3 +313,36 @@ header h1{font:600 38px 'Fraunces',Georgia,serif;margin:6px 0}
 .scSecEditor .formSection h3,.scRow .formSection h3{font-size:14px;margin:12px 0 4px}
 .fieldHint{display:block;font-weight:500;color:var(--ink-faint);font-size:11.5px;margin-top:4px}
 @media(max-width:700px){.scSecEditor .formGrid,.scRow .formGrid{grid-template-columns:1fr}}
+
+/* ---------- V34: image slot guidance, promotions ---------- */
+.slotGuide{display:grid;grid-template-columns:minmax(0,1fr) minmax(160px,300px);gap:10px 16px;align-items:start;margin-top:10px;padding:12px;border:1px dashed var(--line);border-radius:var(--radius-md);background:var(--surface)}
+@media(max-width:700px){.slotGuide{grid-template-columns:1fr}}
+.slotSpec{display:flex;flex-direction:column;gap:3px;font-weight:500}
+.slotSpec b{font-size:13.5px;color:var(--ink)}
+.slotSpec span{font-size:12.5px;font-weight:800;color:var(--brand-dark)}
+.slotSpec small{font-size:11.5px;color:var(--ink-soft);line-height:1.45}
+.slotSpec small em{display:block;font-style:normal;color:var(--ink-faint);margin-top:3px}
+.slotSpec .slotNote{color:#8a5a00;font-weight:700}
+.slotPreview{position:relative;width:100%;overflow:hidden;border-radius:8px;background:repeating-conic-gradient(#eee 0 25%,#fafafa 0 50%) 0 0/16px 16px;box-shadow:inset 0 0 0 1px var(--line)}
+.slotPreview.clickable{cursor:crosshair}
+.slotPreview img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.slotPreview i{position:absolute;pointer-events:none}
+.slotPreview .slotSafe{border:2px dashed #fff;outline:1px dashed rgba(0,0,0,.55);border-radius:4px}
+.slotPreview .slotText{background:rgba(41,34,31,.45)}
+.slotPreview .slotDot{width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:#fff;border:3px solid var(--brand);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.slotPreview.empty span{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;font-weight:800;color:var(--ink-faint)}
+.slotCheck{grid-column:1/-1;font-size:11.5px;font-weight:700}
+.slotCheck:empty{display:none}
+.slotCheck.ok{color:#1a7a3d}.slotCheck.warn{color:#9a5b00}
+.annSlots{display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px}
+.annSlot h4{margin:6px 0 0;font-size:13px}
+.annSlot label{display:block;font-size:11px;font-weight:800;margin:8px 0 0;color:var(--ink-soft)}
+.annSlot select{display:block;width:100%;margin-top:4px}
+.couponMatch{display:block;font-size:11.5px;font-weight:700;margin:6px 0}
+.couponMatch.ok{color:#1a7a3d}.couponMatch.warn{color:#9a5b00}
+.promoState{display:inline-block;margin-left:6px;font:800 10.5px/1 inherit;letter-spacing:.04em;padding:4px 8px;border-radius:99px;background:var(--surface-2);color:var(--ink-faint);vertical-align:middle}
+.promoState.on{background:#e9f7ee;color:#1a7a3d}
+.scImgRow .dangerBtn{padding:8px 12px}
+/* V34.1 */
+.disabledField{opacity:.7}
+.needsBackend{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:800;letter-spacing:.03em;padding:3px 8px;border-radius:99px;background:#fff3d6;color:#8a5a00}
