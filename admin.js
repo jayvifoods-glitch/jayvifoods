@@ -2509,11 +2509,33 @@ function scHomepageMarkup(){
   const hp=_sc.homepage, defs=JAYVI_SITE_DEFAULTS.homepage.sections;
   const order=[...hp.sectionOrder]; Object.keys(defs).forEach(k=>{ if(!order.includes(k)) order.push(k); }); hp.sectionOrder=order;
   if(!defs[_scSection]) _scSection=order[0];
-  const list=order.map((k,i)=>{ const s=hp.sections[k]||{}; return `<div class="scSecRow ${k===_scSection?'active':''}"><button class="scSecName" onclick="_scSection='${k}';scRender()">${esc(defs[k]?.label||k)}</button><label class="scSwitch" title="Show on homepage"><input type="checkbox" ${s.enabled!==false?'checked':''} onchange="scSet('homepage.sections.${k}.enabled',this.checked);scRender()"> ${s.enabled!==false?'Visible':'Hidden'}</label><span><button class="outline" onclick="scMoveSection(${i},-1)" aria-label="Move up">↑</button><button class="outline" onclick="scMoveSection(${i},1)" aria-label="Move down">↓</button></span></div>`; }).join('');
+  const list=order.map((k,i)=>{ const s=hp.sections[k]||{}; return `<div class="scSecRow ${k===_scSection?'active':''}"><button class="scSecName" ${k===_scSection?'aria-current="true"':''} onclick="scSelectSection('${k}')">${esc(defs[k]?.label||k)}</button><label class="scSwitch" title="Show on homepage"><input type="checkbox" ${s.enabled!==false?'checked':''} onchange="scSet('homepage.sections.${k}.enabled',this.checked);scRender()"> ${s.enabled!==false?'Visible':'Hidden'}</label><span><button class="outline" onclick="scMoveSection(${i},-1)" aria-label="Move up">↑</button><button class="outline" onclick="scMoveSection(${i},1)" aria-label="Move down">↓</button></span></div>`; }).join('');
   const d=defs[_scSection], v=hp.sections[_scSection]||{};
   const editor=Object.keys(d).filter(k=>k!=='enabled').map(k=>scField(`homepage.sections.${_scSection}.${k}`,k,v[k],d[k])).join('');
-  return `<div class="scHomeGrid"><div class="scSecList"><h3>Order &amp; visibility</h3>${list}</div><div class="scSecEditor"><h3>${esc(d.label||_scSection)}</h3>${editor||'<p class="tiny">No editable fields — this section reads live data.</p>'}</div></div>`;
+  const shown=(hp.sections[_scSection]||{}).enabled!==false;
+  return `<div class="scHomeWrap"><div class="scHomeGrid"><nav class="scSecList" aria-label="Homepage sections"><h3>Order &amp; visibility</h3>${list}</nav><div class="scSecEditor" id="scSecEditor"><div class="scEditHead"><button type="button" class="scBackToList" onclick="scBackToSections()">← All sections</button><span class="scEditState ${shown?'on':'off'}">${shown?'Visible on homepage':'Hidden on homepage'}</span></div><h3 id="scEditTitle" tabindex="-1">${esc(d.label||_scSection)}</h3>${editor||'<p class="tiny">No editable fields — this section reads live data.</p>'}</div></div></div>`;
 }
+// V34.5 (Homepage Sections fix): selecting a section makes its editor the
+// active, visible workspace — on every section and at every width. The
+// list scrolls independently (see admin.css), and the editor is brought
+// into view + focused after the re-render instead of staying wherever the
+// page happened to be scrolled (which left it off-screen or under the list).
+function scSelectSection(k){
+  _scSection=k; scRender();
+  requestAnimationFrame(()=>{
+    const ed=document.getElementById('scSecEditor'), t=document.getElementById('scEditTitle'); if(!ed||!t) return;
+    const r=ed.getBoundingClientRect();
+    if(r.top<8 || r.top>innerHeight*0.6) ed.scrollIntoView({block:'start', behavior:scReducedMotion()?'auto':'smooth'});
+    t.focus({preventScroll:true});
+    const row=document.querySelector('.scSecRow.active'); if(row && scStacked()===false) row.scrollIntoView({block:'nearest'});
+  });
+}
+function scBackToSections(){
+  const row=document.querySelector('.scSecRow.active')||document.querySelector('.scSecList');
+  row?.scrollIntoView({block:'center', behavior:scReducedMotion()?'auto':'smooth'}); row?.querySelector('button')?.focus({preventScroll:true});
+}
+function scStacked(){ const g=document.querySelector('.scHomeGrid'); return g ? getComputedStyle(g).gridTemplateColumns.split(' ').length<2 : null; }
+function scReducedMotion(){ return matchMedia('(prefers-reduced-motion: reduce)').matches; }
 function scMoveSection(i,d){ const o=_sc.homepage.sectionOrder; const j=i+d; if(j<0||j>=o.length) return; [o[i],o[j]]=[o[j],o[i]]; scRender(); }
 function siteContentMarkup(){
   const b=SC_BLOCKS.find(x=>x.id===_scTab);
@@ -2532,7 +2554,12 @@ let _scRendering=false;
 function scRender(){
   if(tab!=='sitecontent' || _scRendering) return;
   _scRendering=true;
-  try{ const f=document.activeElement; if(f && app.contains(f)) f.blur(); app.innerHTML=siteContentMarkup(); }
+  try{
+    const f=document.activeElement; if(f && app.contains(f)) f.blur();
+    const listTop=document.querySelector('.scSecList')?.scrollTop||0; // V34.5: keep the section list where it was
+    app.innerHTML=siteContentMarkup();
+    const l=document.querySelector('.scSecList'); if(l) l.scrollTop=listTop;
+  }
   finally{ _scRendering=false; }
 }
 function scResetBlock(id){ if(!confirm('Reset this tab to the built-in defaults? (Nothing is saved until you press Save.)')) return; _sc[id]=structuredClone(JAYVI_SITE_DEFAULTS[id]); scRender(); }

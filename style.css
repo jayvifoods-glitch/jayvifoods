@@ -1574,3 +1574,70 @@ main#home{overflow-x:clip}
 .occTile .occIcon{font-size:26px;line-height:1;color:inherit}
 .occCard .occBody h3{font-size:17px}
 .occCard .occBody p{font-size:13px;line-height:1.4}
+
+/* =====================================================================
+   V34.5 — Visual refinement layer (UI/UX only)
+   One type scale + one spacing rhythm, applied on top of the earlier
+   V31–V34 layers (which redefine several selectors). Brand colours,
+   fonts, content and photography are unchanged. To roll back V34.5's
+   storefront refinement, delete this block.
+   Scale (px):  section title 22→30 · feature title 24→36 · hero title 26→40
+                section padding 28→44 · heading-to-content 14→18
+   ===================================================================== */
+:root{
+  --v345-title:   clamp(22px, 1.1vw + 16px, 30px);
+  --v345-feature: clamp(24px, 1.6vw + 16px, 36px);
+  --v345-hero:    clamp(26px, 1.9vw + 16px, 40px);
+  --v345-section: clamp(28px, 1.8vw + 20px, 44px);
+  --v345-head-gap:clamp(14px, .5vw + 12px, 18px);
+}
+/* Section rhythm */
+.v33Section{padding-top:var(--v345-section);padding-bottom:var(--v345-section)}
+.v33Section .sectionHead{margin-bottom:var(--v345-head-gap)}
+.sectionHead .motif.short{margin-top:8px}
+/* Section titles: one size everywhere */
+.sectionHead h2,.v33Section .sectionHead h2,.reviewSection h2,.smallAbout h2{font-size:var(--v345-title);line-height:1.15}
+/* Feature titles (story / promo / newsletter bands) */
+.aboutGrid h2,.heritageCopy h2,.promoGrid h2,.newsBand h2,.welcomeCard h2,.finalCta h2{font-size:var(--v345-feature);line-height:1.1}
+.heritageCopy h2,.aboutGrid h2{margin:8px 0 12px}
+/* Hero: title stays the largest text on the page, on every screen */
+.heroCopy h1{font-size:var(--v345-hero);line-height:1.08}
+@media(min-width:768px){
+  .heroCopy p{font-size:16px}
+  .heroBtns{margin-top:18px}
+  .heroBtns .btn{min-height:46px;padding:12px 24px}
+  .heroTrust{padding:12px 0 10px}
+}
+@media(max-width:767px){
+  .heroCopy h1{margin:4px 0 6px}
+  .heroCopy p{font-size:14.5px;line-height:1.45}
+  .heroBtns{margin-top:12px}
+  .heroTrust{padding:10px 0 8px;font-size:12px;gap:4px 14px}
+}
+/* Product cards: calmer text block under the photo (photo size unchanged) */
+.pcBody{padding:11px 12px 12px;gap:4px}
+.pcBody h3{font-size:15.5px;line-height:1.25}
+.pcBody p{font-size:13px;line-height:1.4}
+.price b{font-size:18px}
+.pcActions{padding-top:6px}
+@media(pointer:fine){
+  .pcActions.single button,.inlineQty{min-height:40px}
+}
+/* Category / occasion tiles: title follows the scale */
+.catCard h3{font-size:16px;margin:10px 0 2px}
+.socialHead h2{font-size:var(--v345-title);line-height:1.15}
+@media(max-width:767px){
+  .heroStage[data-mlayout="split"] .heroCopyWrap{padding:14px 18px 10px}
+  .heroPrice{margin-top:6px}
+}
+/* Product detail: the original ".productModal .modal" rules never matched —
+   both classes sit on the SAME element (<div class="modal productModal">),
+   so the modal fell back to the 560px generic width and squeezed its two
+   columns. Same values as intended originally. */
+.modal.productModal{padding-top:24px}
+@media(min-width:768px){ .modal.productModal{max-width:820px} }
+/* Legal page title follows the same scale as Help */
+.legalTop h1{font-size:clamp(26px,1.8vw + 18px,36px)}
+/* keep the modal's close button clear of the badges/title in the wider layout */
+.modal.productModal .detailTopRow{padding-right:48px}
+.modal.productModal .detailCopy h2{padding-right:48px}

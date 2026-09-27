@@ -279,12 +279,39 @@ header h1{font:600 38px 'Fraunces',Georgia,serif;margin:6px 0}
 .scRowHead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
 .scRowHead span{display:flex;gap:6px}
 .scRowHead button{padding:6px 10px}
-.scHomeGrid{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:20px;align-items:start}
-@media(max-width:1000px){.scHomeGrid{grid-template-columns:1fr}}
-.scSecList{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:12px;position:sticky;top:12px}
+/* V34.5 — Homepage Sections workspace. The layout follows the width of the
+   Admin CONTENT area (container query), not the browser window — the
+   sidebar made the old 1000px viewport breakpoint squeeze the editor.
+   Two columns: the section list is a fixed-height, independently scrolling
+   column, so choosing a lower section never scrolls the editor away.
+   Stacked: nothing is sticky, so the list can never cover the editor. */
+.scHomeWrap{container-type:inline-size}
+.scHomeGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}
+.scSecList{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:10px;position:static}
+.scEditHead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 4px}
+.scBackToList{background:none;border:0;padding:4px 0;font:inherit;font-size:12px;font-weight:700;color:var(--brand);cursor:pointer}
+.scEditState{margin-left:auto;font-size:11px;font-weight:700;border-radius:var(--radius-pill);padding:3px 10px}
+.scEditState.on{background:var(--success-soft);color:var(--success)}
+.scEditState.off{background:var(--surface-2);color:var(--ink-soft)}
+#scEditTitle:focus{outline:none}
+#scEditTitle:focus-visible{outline:2px solid var(--brand);outline-offset:3px;border-radius:4px}
+@container (min-width:720px){
+  .scHomeGrid{grid-template-columns:minmax(230px,290px) minmax(0,1fr)}
+  .scSecList{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;overscroll-behavior:contain}
+  .scBackToList{display:none}
+}
+@supports not (container-type:inline-size){
+  @media(min-width:1100px){
+    .scHomeGrid{grid-template-columns:minmax(230px,290px) minmax(0,1fr)}
+    .scSecList{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+    .scBackToList{display:none}
+  }
+}
 .scSecList h3,.scSecEditor h3{margin:4px 4px 10px;font:600 18px 'Fraunces',Georgia,serif}
 .scSecRow{display:flex;align-items:center;gap:6px;padding:6px;border-radius:var(--radius-sm)}
-.scSecRow.active{background:var(--brand-soft)}
+.scSecRow.active{background:var(--brand-soft);box-shadow:inset 3px 0 0 var(--brand)}
+.scSecRow.active .scSecName{color:var(--brand-dark)}
+.scSecRow .scSecName:focus-visible{outline:2px solid var(--brand);outline-offset:1px;border-radius:6px}
 .scSecRow .scSecName{flex:1;text-align:left;background:none;border:0;font-weight:800;font-size:13px;cursor:pointer;color:var(--ink);padding:6px}
 .scSecRow span{display:flex;gap:4px}
 .scSecRow span button{padding:4px 8px}
@@ -406,3 +433,39 @@ header h1{font:600 38px 'Fraunces',Georgia,serif;margin:6px 0}
 .occPvInfo{flex:1;min-width:220px;display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--ink-soft)}
 .occPvInfo b{color:var(--ink)}
 .warnTxt{color:#9a5b00;font-weight:700}
+
+/* =====================================================================
+   V34.5 — Admin consistency layer (CSS only; no behaviour changes)
+   One control size, one checkbox size, a compact page header and a
+   sidebar that always fits. To roll back, delete this block.
+   ===================================================================== */
+:root{--ctl-h:40px}
+/* Page header: smaller title, less space before the content */
+header{margin-bottom:18px;align-items:center}
+header h1{font-size:clamp(24px,1.1vw + 15px,30px);margin:2px 0 0;line-height:1.15}
+/* Sidebar: every item reachable at laptop heights (was sticky + min-height, not scrollable) */
+aside{height:100vh;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px 12px;scrollbar-width:thin}
+.adminBrand{padding:4px 10px 12px}
+.adminBrand img{width:104px}
+.nav,.storeLink,.logout{padding:9px 12px}
+/* Form controls: same height, font, border and background everywhere */
+.settingCard textarea,.modal textarea,.scSecEditor textarea,.scRow textarea,#app .panel>.formSection textarea{font:inherit;font-size:13px;font-weight:500;line-height:1.5}
+.settingCard input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),.settingCard select,
+.modal input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),.modal select,
+.scSecEditor input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),.scSecEditor select,
+.scRow input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),.scRow select,
+#app .panel>.formSection input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),#app .panel>.formSection select,
+.ordersToolbar select,.ordersToolbar label.tiny input{
+  box-sizing:border-box;min-height:var(--ctl-h);height:var(--ctl-h);padding:0 12px;font:inherit;font-size:13px;font-weight:500;
+  border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink)
+}
+.ordersToolbar{align-items:flex-end;gap:10px}
+.ordersToolbar label.tiny{color:var(--ink-soft);font-weight:700}
+/* Checkboxes: one size, brand colour, never squeezed by long labels */
+#app input[type=checkbox],.modal input[type=checkbox]{width:18px;height:18px;min-height:0;padding:0;accent-color:var(--brand);flex:0 0 18px}
+.toggleRow input[type=checkbox]{flex:0 0 20px}
+#app .panel input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]):not([type=range]),#app .panel select{
+  box-sizing:border-box;min-height:var(--ctl-h);padding:0 12px;font:inherit;font-size:13px;font-weight:500;
+  border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink)
+}
+.checkOnly input[type=checkbox]{width:18px!important;height:18px;vertical-align:-3px}

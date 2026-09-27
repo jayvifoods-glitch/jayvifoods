@@ -4044,7 +4044,7 @@ function renderSocialSection(){
   const tiles=(c.tiles||[]).filter(t=>t&&t.image);
   if(c.enabled===false||(!url&&!tiles.length)){ el.hidden=true; return; }
   el.hidden=false;
-  box.innerHTML=`<div class="socialHead"><div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2 style="font-size:clamp(26px,5.6vw,38px)">${escapeHtml(c.title||'')}</h2>${c.handle?`<span class="handle">${escapeHtml(c.handle)}</span>`:''}</div>
+  box.innerHTML=`<div class="socialHead"><div class="eyebrow">${escapeHtml(c.eyebrow||'')}</div><h2>${escapeHtml(c.title||'')}</h2>${c.handle?`<span class="handle">${escapeHtml(c.handle)}</span>`:''}</div>
     ${tiles.length?`<div class="socialGrid">${tiles.map(t=>`<a href="${escapeHtml(safeHref(t.link||url))}" target="_blank" rel="noopener" aria-label="${escapeHtml(t.caption||'Instagram post')}">${imgTag(t.image,'(max-width:767px) 33vw, 300px',t.caption||'')}</a>`).join('')}</div>`:''}
     ${url?`<div class="socialCta"><a class="btn primary" href="${escapeHtml(safeHref(url))}" target="_blank" rel="noopener"><i class="fa-brands fa-instagram" aria-hidden="true"></i> ${escapeHtml(c.ctaLabel||'Follow us')}</a></div>`:''}`;
 }
