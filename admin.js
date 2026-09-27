@@ -853,6 +853,7 @@ async function render(){title.textContent=tab==='variants'?'Variants & sizes':ta
  if(tab==='sitecontent')h=await siteContentPage();
  if(tab==='leads')h=await leadsPage();
  app.innerHTML=h;
+ if(tab==='settings') checkRazorpayServerConfig(); // Razorpay: async server-side configuration check (no secrets returned)
 }
 // V32.6 (item 11): one single, documented definition of "counts as a
 // successful sale" — used everywhere revenue/sales/product-sales are
@@ -946,11 +947,38 @@ async function orderView(orderNumber){
   const {data: allowed} = await sb.from('status_transitions').select('to_status').eq('from_status', o.status);
   const nextOptions = (allowed||[]).map(a=>a.to_status);
   const statusOptions = [o.status, ...nextOptions].map(s=>`<option value="${esc(s)}" ${s===o.status?'selected':''}>${esc(s)}${s===o.status?' (current)':''}</option>`).join('');
-  openModal(`<div class="eyebrow">ORDER</div><h2>${esc(o.order_number)}</h2><div class="detailColumns"><div><h3>Customer</h3><p><b>${esc(o.guest_name||'Guest')}</b><br>${esc(o.guest_phone||'')}</p><h3>Delivery</h3><p>${esc(o.address_line1||'')}<br>${esc(o.address_city||'')}, ${esc(o.address_state||'')} ${esc(o.address_pincode||'')}</p><h3>Delivery estimate</h3><p>${esc(o.estimated_delivery||'—')}${o.dispatch_date?'<br>Dispatched: '+esc(o.dispatch_date):''}</p></div><div><h3>Payment</h3><p>${esc(o.payment_method||'')}<br>UTR: ${esc(o.utr||'Not provided')}</p><label>Payment status<select id="paymentStatus"><option value="pending" ${o.payment_status==='pending'?'selected':''}>Pending</option><option value="proof_submitted" ${o.payment_status==='proof_submitted'?'selected':''}>Proof submitted / verification</option><option value="verified" ${o.payment_status==='verified'?'selected':''}>Verified</option><option value="failed" ${o.payment_status==='failed'?'selected':''}>Failed</option><option value="refund_pending" ${o.payment_status==='refund_pending'?'selected':''}>Refund pending</option><option value="refunded" ${o.payment_status==='refunded'?'selected':''}>Refunded</option></select></label><h3>Items</h3>${(o.order_items||[]).map(i=>`<div class="miniLine"><span>${esc(i.name)} ${i.variant_label?'· '+esc(i.variant_label):''} × ${i.qty}</span><b>${money(i.line_total)}</b></div>`).join('')}<div class="miniLine total"><span>Total</span><b>${money(o.total)}</b></div></div></div><div class="statusEditor"><label>Order status <small class="v22-admin-help">Only valid next statuses are shown, per the approved transition rules.</small><select id="orderStatus">${statusOptions}</select></label><label>Delivery partner<input id="deliveryPartner" value="${esc(o.delivery_partner||'')}"></label><div class="two"><label>Tracking number<input id="trackingNumber" value="${esc(o.tracking_number||'')}"></label><label>Reference number<input id="referenceNumber" value="${esc(o.reference_number||'')}"></label></div><label>Tracking URL<input id="trackingUrl" value="${esc(o.tracking_url||'')}"></label><label>Dispatch date<input id="dispatchDate" type="date" value="${esc(o.dispatch_date||'')}"></label><button class="gold full" onclick="updateOrder('${esc(o.order_number)}','${o.id}')">Update order</button></div><div class="timeline"><h3>Order timeline</h3>${timeline||'<div class="empty smallEmpty">No timeline yet.</div>'}</div><div class="notificationBox"><b>Customer update</b><p>Message is generated automatically from the current order status. If the customer doesn't have WhatsApp, use Copy Message and send it via SMS/email/phone instead.</p><div class="cardActions"><button class="outline" onclick="manualWhatsApp('${esc(o.guest_phone||'')}','${esc(o.order_number)}','${esc(o.status)}','${esc(o.tracking_number||'')}','${esc(o.estimated_delivery||'')}')">WhatsApp Customer</button><button class="outline" onclick="copyOrderMessage('${esc(o.order_number)}','${esc(o.status)}','${esc(o.tracking_number||'')}','${esc(o.estimated_delivery||'')}')">Copy Message</button></div></div>`);
+  openModal(`<div class="eyebrow">ORDER</div><h2>${esc(o.order_number)}</h2><div class="detailColumns"><div><h3>Customer</h3><p><b>${esc(o.guest_name||'Guest')}</b><br>${esc(o.guest_phone||'')}</p><h3>Delivery</h3><p>${esc(o.address_line1||'')}<br>${esc(o.address_city||'')}, ${esc(o.address_state||'')} ${esc(o.address_pincode||'')}</p><h3>Delivery estimate</h3><p>${esc(o.estimated_delivery||'—')}${o.dispatch_date?'<br>Dispatched: '+esc(o.dispatch_date):''}</p></div><div><h3>Payment</h3><p>${esc(o.payment_method||'')}${o.payment_method==='razorpay'?'':`<br>UTR: ${esc(o.utr||'Not provided')}`}</p>${o.payment_method==='razorpay'?razorpayOrderPanel(o):''}<label>Payment status<select id="paymentStatus" data-initial="${esc(o.payment_status||'')}"><option value="pending" ${o.payment_status==='pending'?'selected':''}>Pending</option><option value="proof_submitted" ${o.payment_status==='proof_submitted'?'selected':''}>Proof submitted / verification</option><option value="verified" ${o.payment_status==='verified'?'selected':''}>Verified</option><option value="failed" ${o.payment_status==='failed'?'selected':''}>Failed</option><option value="refund_pending" ${o.payment_status==='refund_pending'?'selected':''}>Refund pending</option><option value="refunded" ${o.payment_status==='refunded'?'selected':''}>Refunded</option></select></label><h3>Items</h3>${(o.order_items||[]).map(i=>`<div class="miniLine"><span>${esc(i.name)} ${i.variant_label?'· '+esc(i.variant_label):''} × ${i.qty}</span><b>${money(i.line_total)}</b></div>`).join('')}<div class="miniLine total"><span>Total</span><b>${money(o.total)}</b></div></div></div><div class="statusEditor"><label>Order status <small class="v22-admin-help">Only valid next statuses are shown, per the approved transition rules.</small><select id="orderStatus">${statusOptions}</select></label><label>Delivery partner<input id="deliveryPartner" value="${esc(o.delivery_partner||'')}"></label><div class="two"><label>Tracking number<input id="trackingNumber" value="${esc(o.tracking_number||'')}"></label><label>Reference number<input id="referenceNumber" value="${esc(o.reference_number||'')}"></label></div><label>Tracking URL<input id="trackingUrl" value="${esc(o.tracking_url||'')}"></label><label>Dispatch date<input id="dispatchDate" type="date" value="${esc(o.dispatch_date||'')}"></label><button class="gold full" onclick="updateOrder('${esc(o.order_number)}','${o.id}')">Update order</button></div><div class="timeline"><h3>Order timeline</h3>${timeline||'<div class="empty smallEmpty">No timeline yet.</div>'}</div><div class="notificationBox"><b>Customer update</b><p>Message is generated automatically from the current order status. If the customer doesn't have WhatsApp, use Copy Message and send it via SMS/email/phone instead.</p><div class="cardActions"><button class="outline" onclick="manualWhatsApp('${esc(o.guest_phone||'')}','${esc(o.order_number)}','${esc(o.status)}','${esc(o.tracking_number||'')}','${esc(o.estimated_delivery||'')}')">WhatsApp Customer</button><button class="outline" onclick="copyOrderMessage('${esc(o.order_number)}','${esc(o.status)}','${esc(o.tracking_number||'')}','${esc(o.estimated_delivery||'')}')">Copy Message</button></div></div>`);
+  if(o.payment_method==='razorpay') loadRazorpayAttempts(o.order_number); // Razorpay attempt trace (admin-only RLS)
+}
+// Razorpay (v34.3): gateway trace for an order — Jayvi order → Razorpay
+// order → Razorpay payment, plus refund totals. Attempts come from
+// razorpay_payments (admin-read-only RLS); failure to load is non-fatal.
+function razorpayOrderPanel(o){
+  const rows=[
+    ['Razorpay order', o.razorpay_order_id], ['Razorpay payment', o.razorpay_payment_id],
+    ['Verified', o.payment_verified_at?new Date(o.payment_verified_at).toLocaleString('en-IN')+(o.payment_verification_method?' · '+o.payment_verification_method:''):null],
+    ['Amount paid', o.payment_amount_paid!=null?money(o.payment_amount_paid):null],
+    ['Refunded', Number(o.payment_amount_refunded)>0?money(o.payment_amount_refunded):null]
+  ].filter(r=>r[1]);
+  const unverified = o.payment_status!=='verified' && o.payment_status!=='refunded' && o.payment_status!=='refund_pending';
+  return `<div class="infoBox" style="margin:8px 0"><b>Razorpay</b>${rows.length?rows.map(r=>`<p style="margin:2px 0"><small>${esc(r[0])}:</small> <code>${esc(r[1])}</code></p>`).join(''):'<p>No payment received yet.</p>'}
+    ${unverified?'<p class="tiny">Paid status is set automatically after server verification. Only mark it Verified manually after checking the payment in the Razorpay Dashboard.</p>':''}
+    ${o.razorpay_payment_id?`<p class="tiny">Refunds: Razorpay Dashboard → Payments → ${esc(o.razorpay_payment_id)} → Refund. The refund is recorded here automatically via webhook.</p>`:''}
+    <div id="rzpAttempts" data-order="${esc(o.order_number)}"></div></div>`;
+}
+async function loadRazorpayAttempts(orderNumber){
+  const box=document.getElementById('rzpAttempts'); if(!box) return;
+  const {data:rows,error}=await sb.from('razorpay_payments').select('razorpay_order_id,razorpay_payment_id,amount_paise,status,verification_method,failure_reason,refunded_amount_paise,created_at').eq('order_number',orderNumber).order('created_at',{ascending:false});
+  if(error||!rows?.length) return;
+  const flag=rows.some(r=>r.status==='duplicate_paid'||r.status==='paid_after_cancel'||r.status==='amount_mismatch');
+  box.innerHTML=`${flag?'<p style="color:#a11"><b>⚠ Needs attention:</b> a duplicate / after-cancellation / mismatched payment was received — refund it from the Razorpay Dashboard.</p>':''}<details><summary class="tiny">Payment attempts (${rows.length})</summary>${rows.map(r=>`<p class="tiny" style="margin:4px 0">${new Date(r.created_at).toLocaleString('en-IN')} · <code>${esc(r.razorpay_order_id)}</code> · ${money(r.amount_paise/100)} · <b>${esc(r.status)}</b>${r.razorpay_payment_id?' · '+esc(r.razorpay_payment_id):''}${r.failure_reason?' · '+esc(r.failure_reason):''}${r.refunded_amount_paise?' · refunded '+money(r.refunded_amount_paise/100):''}</p>`).join('')}</details>`;
 }
 async function updateOrder(orderNumber, orderId){
   const ns=document.getElementById('orderStatus').value;
   const ps=document.getElementById('paymentStatus').value;
+  const rzpBox=document.getElementById('rzpAttempts');
+  if(rzpBox && ps==='verified' && document.getElementById('paymentStatus').dataset.initial!=='verified'
+     && !confirm('This is a Razorpay order and the server has not verified a payment for it.\n\nOnly continue if you have confirmed the payment in the Razorpay Dashboard. Mark as Verified?')) return;
   const deliveryPartner=document.getElementById('deliveryPartner').value.trim();
   const trackingNumber=document.getElementById('trackingNumber').value.trim();
   const referenceNumber=document.getElementById('referenceNumber').value.trim();
@@ -1969,7 +1997,7 @@ async function settingsPage(){
  <article class="settingCard"><span class="typeTag">PAYMENT</span><h2>Payment methods</h2>
  <label class="toggleRow"><span>UPI QR<small>Primary payment method.</small></span><input id="setUpi" type="checkbox" ${s.upiEnabled!==false?'checked':''}></label>
  <label class="toggleRow"><span>Cash on Delivery<small>Show/hide COD at checkout.</small></span><input id="setCod" type="checkbox" ${s.codEnabled?'checked':''}></label>
- <label class="toggleRow"><span>Razorpay<small>Optional future gateway.</small></span><input id="setRazor" type="checkbox" ${s.razorpayEnabled?'checked':''}></label>
+ <label class="toggleRow"><span>Razorpay (pay online)<small>UPI apps, cards, net banking &amp; wallets. Orders are confirmed automatically once the payment is verified on the server.</small></span><input id="setRazor" type="checkbox" ${s.razorpayEnabled?'checked':''}></label>
  <label>UPI ID<input id="setUpiId" value="${esc(s.upiId||'')}" placeholder="yourupi@bank"></label><label>UPI display name<input id="setUpiName" value="${esc(s.upiName||'Jayvi Foods')}"></label>
  <label>Merchant Category Code (MCC) <small class="v22-admin-help">Required for the "Pay with UPI app" deep link to work on this VPA — get it from ICICI/Eazypay onboarding (not something we can guess). Without it, some UPI apps reject the link with "receiver not accepting payments" / "not permitted by PSP" even though the same VPA works fine when paid to manually.</small><input id="setUpiMc" value="${esc(s.upiMc||'')}" placeholder="e.g. 5411" maxlength="4"></label>
  <label>UPI QR code <small class="v22-admin-help">Upload the QR image below — it's stored in Supabase Storage and works on the live site regardless of repo file paths. You can still paste a path/URL directly in the field instead if you prefer.</small></label>
@@ -1977,7 +2005,8 @@ async function settingsPage(){
  <input id="setQr" value="${esc(s.upiQrImage||'')}" placeholder="images/jayvi-upi.webp or a full https:// URL" oninput="document.getElementById('upiQrPreviewBox').innerHTML=renderUpiQrPreview(this.value)">
  <div id="upiQrUploadStatus" style="font-size:11px;color:#888;margin-top:4px"></div>
  <label class="outline uploadBtn" style="margin-top:8px">📷 Upload QR image<input type="file" accept="image/webp,image/jpeg,image/png" style="display:none" onchange="uploadUpiQrFile(event)"></label>
- <label>Razorpay Key ID<input id="setRzp" value="${esc(s.razorpayKeyId||'')}" placeholder="Add later"></label>
+ <label>Razorpay Key ID <small class="v22-admin-help">Public key only — starts with <code>rzp_test_</code> or <code>rzp_live_</code>. The Key <b>Secret</b> is never entered here: it is stored only as the Supabase Edge Function secret <code>RAZORPAY_KEY_SECRET</code> (see RAZORPAY_SETUP.md).</small><input id="setRzp" value="${esc(s.razorpayKeyId||'')}" placeholder="rzp_live_XXXXXXXXXXXXXX" autocomplete="off" spellcheck="false"></label>
+ <div id="rzpConfigStatus">${razorpayLocalWarnings(s)}</div>
  <button class="gold full" onclick="savePayments()">Save payment settings</button></article>
  <article class="settingCard"><span class="typeTag">CUSTOMER LOGIN</span><h2>Authentication</h2><div class="infoBox"><b>User ID = mobile number</b><p>Password login is active. OTP is a future option and can remain disabled until a provider is configured.</p></div>
  <label class="toggleRow"><span>Password login<small>Current primary login.</small></span><input type="checkbox" checked disabled></label>
@@ -2036,7 +2065,44 @@ async function uploadUpiQrFile(evt){
   if(statusEl) statusEl.textContent=`Uploaded ${file.name}. Click "Save payment settings" to apply.`;
   evt.target.value='';
 }
-async function savePayments(){data.store.upiEnabled=document.getElementById('setUpi').checked;data.store.codEnabled=document.getElementById('setCod').checked;data.store.razorpayEnabled=document.getElementById('setRazor').checked;data.store.upiId=document.getElementById('setUpiId').value.trim();data.store.upiName=document.getElementById('setUpiName').value.trim();data.store.upiMc=document.getElementById('setUpiMc').value.trim();data.store.upiQrImage=document.getElementById('setQr').value.trim();data.store.razorpayKeyId=document.getElementById('setRzp').value.trim();const ok=await saveStoreSettingsToSupabase();if(!ok)return;render()}
+/* ---------- Razorpay configuration checks (v34.3) ----------
+   Only the PUBLIC Key ID is stored in store_settings. The secret lives in
+   Supabase Edge Function secrets; the server check below reports whether
+   it is configured and whether it pairs with this Key ID — without ever
+   returning a secret. */
+const RZP_KEY_ID_RE = /^rzp_(test|live)_[A-Za-z0-9]{6,}$/;
+function razorpayLocalWarnings(s){
+  const key=String(s.razorpayKeyId||'').trim(), w=[];
+  if(s.razorpayEnabled && !key) w.push('Razorpay is enabled but no Key ID is set — customers will not see the Razorpay option until a valid Key ID is saved.');
+  if(key && !RZP_KEY_ID_RE.test(key)) w.push('This does not look like a Razorpay Key ID (it should start with rzp_test_ or rzp_live_). Never paste the Key Secret here.');
+  if(RZP_KEY_ID_RE.test(key) && key.startsWith('rzp_test_')) w.push('Test mode key — payments are simulated and no real money is collected. Switch to your rzp_live_ key before going live.');
+  if(!w.length) return s.razorpayEnabled ? '<div class="infoBox" id="rzpServerCheck"><b>Checking server configuration…</b></div>' : '';
+  return `<div class="catalogWarning"><b>Razorpay</b>${w.map(x=>`<p>${esc(x)}</p>`).join('')}</div>`+(s.razorpayEnabled&&RZP_KEY_ID_RE.test(key)?'<div class="infoBox" id="rzpServerCheck"><b>Checking server configuration…</b></div>':'');
+}
+async function checkRazorpayServerConfig(){
+  const box=document.getElementById('rzpServerCheck'); if(!box) return;
+  const key=String(data.store.razorpayKeyId||'').trim();
+  let r=null;
+  try{
+    const res=await fetch(EDGE_FUNCTIONS_URL+'/create-razorpay-order',{method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY},body:JSON.stringify({action:'status',admin_key_id:key})});
+    r=await res.json().catch(()=>null);
+  }catch{}
+  if(!document.body.contains(box)) return;
+  const p=[];
+  if(!r||!r.ok){ box.className='catalogWarning'; box.innerHTML='<b>Razorpay server check failed</b><p>The create-razorpay-order Edge Function could not be reached. Deploy the Razorpay Edge Functions (RAZORPAY_SETUP.md) — until then online payment will fail at checkout.</p>'; return; }
+  if(!r.server_configured) p.push('Supabase secrets RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET are not set — checkout will show "Payment could not be completed".');
+  if(r.server_configured && r.admin_key_matches===false) p.push(`The Key ID saved here does not match the server key (${r.key_id}). Save the same Key ID as the RAZORPAY_KEY_ID secret.`);
+  if(!r.webhook_configured) p.push('RAZORPAY_WEBHOOK_SECRET is not set — payments still work, but payments completed after a lost connection will only be confirmed when the customer returns. Configure the webhook for automatic confirmation.');
+  if(!p.length){ box.className='infoBox'; box.innerHTML=`<b>✅ Razorpay server configuration OK</b><p>${r.key_mode==='live'?'Live mode':'Test mode'} · Key ${esc(r.key_id||'')} · Webhook secret set.</p>`; return; }
+  box.className='catalogWarning'; box.innerHTML='<b>Razorpay needs attention</b>'+p.map(x=>`<p>${esc(x)}</p>`).join('');
+}
+async function savePayments(){
+  const rzpOn=document.getElementById('setRazor').checked, rzpKey=document.getElementById('setRzp').value.trim();
+  if(rzpKey && !RZP_KEY_ID_RE.test(rzpKey)){ toast('Razorpay Key ID must start with rzp_test_ or rzp_live_ (never paste the Key Secret here).'); return; }
+  if(rzpOn && !rzpKey){ toast('Enter the Razorpay Key ID before enabling Razorpay.'); return; }
+  return savePaymentsCore();
+}
+async function savePaymentsCore(){data.store.upiEnabled=document.getElementById('setUpi').checked;data.store.codEnabled=document.getElementById('setCod').checked;data.store.razorpayEnabled=document.getElementById('setRazor').checked;data.store.upiId=document.getElementById('setUpiId').value.trim();data.store.upiName=document.getElementById('setUpiName').value.trim();data.store.upiMc=document.getElementById('setUpiMc').value.trim();data.store.upiQrImage=document.getElementById('setQr').value.trim();data.store.razorpayKeyId=document.getElementById('setRzp').value.trim();const ok=await saveStoreSettingsToSupabase();if(!ok)return;render()}
 async function saveAuth(){data.store.otpEnabled=document.getElementById('setOtp').checked;data.store.otpProvider=document.getElementById('setOtpProvider').value.trim()||'Not configured';const ok=await saveStoreSettingsToSupabase();if(!ok)return;render()}
 async function saveLocationSettings(){data.store.googleMapsApiKey=document.getElementById('setMaps').value.trim();data.store.googleReviewsUrl=document.getElementById('setGoogleReviews').value.trim();const ok=await saveStoreSettingsToSupabase();if(!ok)return;render()}
 async function saveContactSettings(){data.store.whatsapp=document.getElementById('setWhatsApp').value.trim();data.store.instagram=document.getElementById('setInstagram').value.trim();const ok=await saveStoreSettingsToSupabase();if(!ok)return;render()}

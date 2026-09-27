@@ -1,5 +1,6 @@
 /* =========================================================
-   Jayvi Foods — v34.0 storefront logic (V33 brand/content layer: see
+   Jayvi Foods — v34.3 storefront logic (v34.3: Razorpay online payment —
+   see 'Razorpay online payment' block; V33 brand/content layer: see
    the 'V33 — Site content' block below; V34 promotions + immersive hero:
    see 'V34 — Promotions' and heroShow())
    Data model and localStorage keys are unchanged from v27/28
@@ -2627,7 +2628,8 @@ async function openCheckout(){
     const {data} = await sb.from('customer_addresses').select('*').eq('customer_id', currentUser.id).order('is_default',{ascending:false}).limit(1);
     savedAddr = data?.[0] || null;
   }
-  const upi=CONFIG.store.upiEnabled!==false, cod=CONFIG.store.codEnabled!==false;
+  const upi=CONFIG.store.upiEnabled!==false, cod=CONFIG.store.codEnabled!==false, rzp=razorpayAvailable();
+  const defaultMethod = upi?'upi':rzp?'razorpay':cod?'cod':''; // Razorpay: first available option is pre-selected (UPI stays the default when enabled)
   $('checkoutContent').innerHTML=`<div class="checkoutGrid">
     <div>
       <div class="eyebrow">CHECKOUT</div><h2>Delivery details.</h2>
@@ -2645,8 +2647,9 @@ async function openCheckout(){
         <label>Country<select id="coCountry" disabled><option value="IN">India</option></select></label>
         <div class="paymentChooser"><h3>Payment method</h3>
           ${upi?`<label class="paymentOption active"><input type="radio" name="paymentMethod" value="upi" checked onchange="togglePaymentNote()"><span><b>Pay by UPI QR</b><small>Scan and pay the exact order amount</small></span></label>`:''}
-          ${cod?`<label class="paymentOption"><input type="radio" name="paymentMethod" value="cod" onchange="togglePaymentNote()"><span><b>Cash on Delivery</b><small>Pay when your order is delivered</small></span></label>`:''}
-          <div id="paymentNote" class="paymentNote">${escapeHtml(CONFIG.store.paymentNote||'')}</div>
+          ${rzp?`<label class="paymentOption${defaultMethod==='razorpay'?' active':''}"><input type="radio" name="paymentMethod" value="razorpay" ${defaultMethod==='razorpay'?'checked':''} onchange="togglePaymentNote()"><span><b>Pay online</b><small>UPI apps, cards, net banking &amp; wallets · secured by Razorpay</small></span></label>`:''}
+          ${cod?`<label class="paymentOption${defaultMethod==='cod'?' active':''}"><input type="radio" name="paymentMethod" value="cod" ${defaultMethod==='cod'?'checked':''} onchange="togglePaymentNote()"><span><b>Cash on Delivery</b><small>Pay when your order is delivered</small></span></label>`:''}
+          <div id="paymentNote" class="paymentNote">${escapeHtml(defaultMethod==='razorpay'?RZP_NOTE:defaultMethod==='cod'?'Pay the delivery partner when your order arrives.':(CONFIG.store.paymentNote||''))}</div>
         </div>
         <button class="btn gold full" type="submit">Continue checkout <i class="fa-solid fa-arrow-right"></i></button>
       </form>
@@ -2665,7 +2668,7 @@ function closeCheckout(){$('checkoutOverlay').classList.remove('open');document.
 function togglePaymentNote(){
   document.querySelectorAll('.paymentOption').forEach(x=>x.classList.toggle('active',x.querySelector('input')?.checked));
   const m=document.querySelector('input[name=paymentMethod]:checked')?.value;
-  const n=$('paymentNote'); if(n)n.textContent=m==='cod'?'Pay the delivery partner when your order arrives.':'Scan the QR, pay the exact total, then share the UTR/reference number so we can verify your payment.';
+  const n=$('paymentNote'); if(n)n.textContent=m==='cod'?'Pay the delivery partner when your order arrives.':m==='razorpay'?RZP_NOTE:'Scan the QR, pay the exact total, then share the UTR/reference number so we can verify your payment.';
 }
 const PIN_NOT_SERVICEABLE_MSG = 'Delivery is currently unavailable to this PIN code.';
 async function verifyPincode(){
@@ -2756,8 +2759,17 @@ function makeOrderNumber(){
   const suffix = Date.now().toString(36).slice(-4).toUpperCase() + Math.random().toString(36).slice(2,4).toUpperCase();
   return `JF-${y}${m}${day}-${suffix}`;
 }
+// v34.3: one order per submit. The lock is taken synchronously, BEFORE the
+// first await (live-config check), so a fast double click / double Enter can
+// no longer create two orders — for UPI, COD and Razorpay alike.
+let _placingOrder = false;
 async function placeOrder(e){
   e.preventDefault();
+  if(_placingOrder) return;
+  _placingOrder = true;
+  try{ await placeOrderSubmit(e); } finally { _placingOrder = false; }
+}
+async function placeOrderSubmit(e){
   // V32.12.1 (spec 6/16): re-check live config again right before
   // submitting — the checkout form can legitimately sit open for a
   // while (address entry, PIN verification, reading payment options),
@@ -2793,7 +2805,19 @@ async function placeOrder(e){
     };
   });
   const submitBtn = e.target.querySelector('button[type=submit]');
+  if(method==='razorpay' && !razorpayAvailable()){ showToast(RZP_CUSTOMER_ERROR); return; }
   if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Placing order…'; }
+  // Razorpay: make sure Razorpay Checkout can actually load BEFORE the
+  // order is created, so a blocked/offline script never leaves an unpaid
+  // order behind. (UPI/COD skip this entirely.)
+  if(method==='razorpay'){
+    try{ await loadRazorpayCheckout(); }
+    catch(err){
+      console.warn('Razorpay Checkout could not be loaded:', err?.message||err);
+      if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Continue checkout'; }
+      showToast(RZP_CUSTOMER_ERROR); return;
+    }
+  }
 
   let orderNumber = makeOrderNumber(), attempt = 0, result;
   while(attempt < 2){
@@ -2830,6 +2854,7 @@ async function placeOrder(e){
       renderCart(); updateCheckoutSummary();
       return;
     }
+    if(method==='razorpay'){ console.warn('place_order (razorpay) failed:', result.error.message); showToast(RZP_CUSTOMER_ERROR); return; }
     showToast('Could not place order: '+result.error.message); return;
   }
 
@@ -2840,8 +2865,10 @@ async function placeOrder(e){
   cart=[]; saveCart();
   appliedCoupon=null; saveCoupon(null);
   closeCheckout();
-  const orderStub = { order_number: orderNumber, total, status: method==='upi'?'Payment verification pending':'Order received — COD', customerName:name, phone, estimated_delivery:`${CONFIG.store.deliveryMinDays||4}–${CONFIG.store.deliveryMaxDays||8} days` };
-  if(method==='upi') showUpiPayment(orderStub); else showOrderSuccess(orderStub);
+  const orderStub = { order_number: orderNumber, total, status: method==='upi'?'Payment verification pending':method==='razorpay'?'Awaiting online payment':'Order received — COD', customerName:name, phone, estimated_delivery:`${CONFIG.store.deliveryMinDays||4}–${CONFIG.store.deliveryMaxDays||8} days` };
+  if(method==='upi') showUpiPayment(orderStub);
+  else if(method==='razorpay'){ rememberRazorpayOrder(orderStub); startRazorpayPayment(orderStub.order_number); }
+  else showOrderSuccess(orderStub);
   refreshProductViews(); renderCart();
 }
 // Resolves CONFIG.store.upiQrImage into something that actually loads
@@ -2935,6 +2962,198 @@ async function submitUpiProof(orderNumber, phone){
   showToast('Payment proof submitted. Jayvi will verify it.');
   showOrderSuccess({ order_number:orderNumber, phone, status:'Payment verification pending', total:null });
 }
+/* ---------- Razorpay online payment (v34.3) ----------
+   Flow: place_order() creates the Jayvi order exactly as for UPI/COD
+   (coupon, stock and delivery rules unchanged) → Edge Function
+   create-razorpay-order prices it from database data and creates the
+   Razorpay order → Razorpay Checkout → Edge Function
+   verify-razorpay-payment checks the signature with the secret key and
+   confirms the payment with Razorpay → order becomes paid.
+   Nothing in this browser can mark an order paid: closing the popup,
+   a failed payment or an edited amount only ever leaves the order
+   unpaid and retryable. The Razorpay Key Secret never reaches the
+   browser — only the public Key ID, returned by the server. */
+const RZP_CHECKOUT_SRC = 'https://checkout.razorpay.com/v1/checkout.js';
+const RZP_CUSTOMER_ERROR = 'Payment could not be completed. Please try again or choose another payment method.';
+const RZP_NOTE = 'Pay securely with UPI apps, cards, net banking or wallets. Your order is confirmed as soon as the payment is verified.';
+const RZP_PENDING_KEY = 'jayviRazorpayPendingV1';
+const RZP_KEY_ID_RE = /^rzp_(test|live)_[A-Za-z0-9]{6,}$/;
+let _rzpBusy = false, _rzpScriptPromise = null;
+
+// Shown at checkout only when Admin has enabled Razorpay AND entered a
+// valid public Key ID (Admin → Settings → Payment methods).
+function razorpayAvailable(){
+  return CONFIG.store.razorpayEnabled===true && RZP_KEY_ID_RE.test(String(CONFIG.store.razorpayKeyId||'').trim());
+}
+// Official Razorpay Checkout script, loaded on demand from Razorpay's CDN (unmodified).
+function loadRazorpayCheckout(){
+  if(window.Razorpay) return Promise.resolve();
+  if(_rzpScriptPromise) return _rzpScriptPromise;
+  _rzpScriptPromise = new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src=RZP_CHECKOUT_SRC; s.async=true;
+    const timer=setTimeout(()=>reject(new Error('Razorpay Checkout load timeout')),15000);
+    s.onload=()=>{ clearTimeout(timer); window.Razorpay ? resolve() : reject(new Error('Razorpay Checkout unavailable')); };
+    s.onerror=()=>{ clearTimeout(timer); reject(new Error('Razorpay Checkout failed to load')); };
+    document.head.appendChild(s);
+  }).catch(err=>{ _rzpScriptPromise=null; throw err; });
+  return _rzpScriptPromise;
+}
+// Calls a Razorpay Edge Function. Resolves with its JSON body (also for
+// 4xx answers, which carry a safe {code,message}); rejects only when the
+// server could not be reached/understood.
+async function razorpayServerCall(name, body){
+  const {data} = await sb.auth.getSession().catch(()=>({data:null}));
+  const token = data?.session?.access_token || SUPABASE_ANON_KEY;
+  const ctrl = new AbortController(); const t = setTimeout(()=>ctrl.abort(), 20000);
+  try{
+    const res = await fetch(EDGE_FUNCTIONS_URL + '/' + name, {
+      method:'POST', signal:ctrl.signal,
+      headers:{ 'Content-Type':'application/json', apikey:SUPABASE_ANON_KEY, Authorization:'Bearer '+token },
+      body: JSON.stringify(body)
+    });
+    const json = await res.json().catch(()=>null);
+    if(!json) throw new Error(name+' returned HTTP '+res.status);
+    return json;
+  } finally { clearTimeout(t); }
+}
+// Orders awaiting Razorpay payment on this device, so a refresh, a closed
+// tab or a dropped connection can be reconciled with the server later.
+function loadRzpPending(){ try{ return JSON.parse(localStorage.getItem(RZP_PENDING_KEY)||'{}')||{}; }catch{ return {}; } }
+function saveRzpPending(m){ try{ localStorage.setItem(RZP_PENDING_KEY, JSON.stringify(m)); }catch{} }
+function rememberRazorpayOrder(o){
+  const m=loadRzpPending(), prev=m[o.order_number]||{};
+  m[o.order_number]={ order_number:o.order_number, phone:o.phone||prev.phone, total:o.total??prev.total??null, customerName:o.customerName||prev.customerName||'', at:prev.at||Date.now() };
+  Object.keys(m).forEach(k=>{ if(Date.now()-(m[k].at||0) > 7*86400000) delete m[k]; });
+  saveRzpPending(m);
+}
+function getRazorpayOrder(n){ return loadRzpPending()[n]||null; }
+function forgetRazorpayOrder(n){ const m=loadRzpPending(); delete m[n]; saveRzpPending(m); }
+
+async function startRazorpayPayment(orderNumber){
+  const o = getRazorpayOrder(orderNumber);
+  if(!o || _rzpBusy) return;
+  _rzpBusy = true;
+  showRazorpayProcessing(orderNumber, 'Opening secure payment…');
+  let res;
+  try{
+    await loadRazorpayCheckout();
+    res = await razorpayServerCall('create-razorpay-order', { order_number:o.order_number, phone:o.phone });
+  }catch(err){
+    _rzpBusy = false; console.warn('Razorpay could not be started:', err?.message||err);
+    showRazorpayPending(orderNumber, RZP_CUSTOMER_ERROR); return;
+  }
+  if(res?.status==='already_paid'){ _rzpBusy=false; onRazorpayPaid(orderNumber); return; }
+  if(!res?.ok || res.status!=='ready'){
+    _rzpBusy = false; console.warn('create-razorpay-order:', res?.code||'unknown');
+    if(res?.code==='not_payable'){ forgetRazorpayOrder(orderNumber); showToast(res.message||RZP_CUSTOMER_ERROR); trackKnownOrder(o.order_number, o.phone); return; }
+    showRazorpayPending(orderNumber, res?.message||RZP_CUSTOMER_ERROR); return;
+  }
+  o.total = res.amount/100; rememberRazorpayOrder(o);
+  let settled=false, failed=false;
+  const brand = getComputedStyle(document.documentElement).getPropertyValue('--jayvi-maroon').trim() || '#7a1f2b';
+  try{
+    const checkout = new window.Razorpay({
+      key: res.key_id,                 // public Key ID from the server (pairs with the server-side secret)
+      order_id: res.razorpay_order_id, // amount is locked by this server-created order
+      amount: res.amount, currency: res.currency,
+      name: CONFIG.store.name || 'Jayvi Foods',
+      description: res.description || ('Order '+o.order_number),
+      prefill: { name: res.prefill?.name || o.customerName || '', contact: res.prefill?.contact || o.phone },
+      notes: { jayvi_order_number: o.order_number },
+      theme: { color: brand },
+      retry: { enabled: true },
+      handler: (resp)=>{ settled=true; _rzpBusy=false; verifyRazorpayPayment(orderNumber, resp); },
+      modal: { ondismiss: ()=>{
+        if(settled) return;
+        _rzpBusy=false;
+        showRazorpayPending(orderNumber, failed ? RZP_CUSTOMER_ERROR : 'Payment was not completed. Your order is saved — you can pay now, or later from Track order.');
+      } }
+    });
+    checkout.on('payment.failed', (r)=>{ failed=true; console.warn('Razorpay payment failed:', r?.error?.code||'', r?.error?.reason||''); track('razorpay_payment_failed',{transaction_id:o.order_number}); });
+    checkout.open();
+  }catch(err){
+    _rzpBusy=false; console.warn('Razorpay Checkout error:', err?.message||err);
+    showRazorpayPending(orderNumber, RZP_CUSTOMER_ERROR);
+  }
+}
+// Razorpay's success callback is only a CLAIM — the server verifies it.
+async function verifyRazorpayPayment(orderNumber, resp){
+  const o = getRazorpayOrder(orderNumber) || { order_number:orderNumber };
+  showRazorpayProcessing(orderNumber, 'Confirming your payment… please don’t close this page.');
+  let res=null;
+  for(let i=0; i<3 && !res; i++){
+    try{
+      res = await razorpayServerCall('verify-razorpay-payment', {
+        order_number:orderNumber, phone:o.phone,
+        razorpay_order_id:resp?.razorpay_order_id, razorpay_payment_id:resp?.razorpay_payment_id, razorpay_signature:resp?.razorpay_signature
+      });
+    }catch(err){ console.warn('Payment verification not reachable (attempt '+(i+1)+'):', err?.message||err); await new Promise(r=>setTimeout(r, 1500*(i+1))); }
+  }
+  handleRazorpayStatus(orderNumber, res, true);
+}
+async function checkRazorpayStatus(orderNumber){
+  const o = getRazorpayOrder(orderNumber); if(!o) return;
+  showRazorpayProcessing(orderNumber, 'Checking your payment…');
+  let res=null;
+  try{ res = await razorpayServerCall('verify-razorpay-payment', { order_number:orderNumber, phone:o.phone, mode:'reconcile' }); }
+  catch(err){ console.warn('Payment status check failed:', err?.message||err); }
+  handleRazorpayStatus(orderNumber, res, !res);
+}
+function handleRazorpayStatus(orderNumber, res, afterPayment){
+  if(res?.status==='paid') return onRazorpayPaid(orderNumber);
+  if(res?.status==='not_razorpay'){ const o=getRazorpayOrder(orderNumber); forgetRazorpayOrder(orderNumber); if(o) trackKnownOrder(o.order_number,o.phone); return; }
+  if(res?.status==='review'){
+    forgetRazorpayOrder(orderNumber);
+    $('accountContent').innerHTML=`<div class="paymentSuccess"><div class="eyebrow">PAYMENT</div><h2>We're reviewing your payment</h2><p class="muted">${escapeHtml(res.message||'')}</p><p class="tiny">Order ${escapeHtml(orderNumber)}</p><button class="btn gold full" onclick="closeAccount()">Close</button></div>`;
+    $('accountOverlay').classList.add('open');document.body.classList.add('modalOpen'); return;
+  }
+  if(!res || res.status==='processing' || (afterPayment && res.status==='pending')){
+    // Never assume failure after the customer may have paid — webhook/reconcile will settle it.
+    return showRazorpayPending(orderNumber, 'We are confirming your payment with Razorpay. This can take a minute — please check again shortly. You will not be charged twice.', {confirming:true});
+  }
+  if(res.status==='pending') return showRazorpayPending(orderNumber, res.message || 'We haven’t received a payment for this order yet.');
+  showRazorpayPending(orderNumber, RZP_CUSTOMER_ERROR); // failed / invalid_signature / other
+}
+function onRazorpayPaid(orderNumber){
+  const o = getRazorpayOrder(orderNumber) || { order_number:orderNumber };
+  forgetRazorpayOrder(orderNumber);
+  track('razorpay_payment_success',{transaction_id:orderNumber,currency:'INR',value:Number(o.total)||0});
+  showOrderSuccess({ order_number:orderNumber, phone:o.phone, total:o.total, status:'Order Confirmed' });
+}
+function showRazorpayProcessing(orderNumber, msg){
+  $('accountContent').innerHTML=`<div class="paymentSuccess"><div class="eyebrow">PAYMENT</div><h2>${escapeHtml(msg)}</h2><p class="tiny">Order ${escapeHtml(orderNumber)}</p></div>`;
+  $('accountOverlay').classList.add('open');document.body.classList.add('modalOpen');
+}
+function showRazorpayPending(orderNumber, msg, opts={}){
+  const o = getRazorpayOrder(orderNumber) || { order_number:orderNumber };
+  const n = escapeHtml(orderNumber);
+  const payBtn = `<button class="btn gold full" onclick="startRazorpayPayment('${n}')">Pay ${o.total!=null?money(o.total)+' ':''}securely →</button>`;
+  const checkBtn = (primary)=>`<button class="btn ${primary?'gold':'light'} full" style="margin-top:10px" onclick="checkRazorpayStatus('${n}')">${primary?'Check payment status':'I’ve already paid — check status'}</button>`;
+  $('accountContent').innerHTML=`<div class="paymentSuccess rzpPending"><div class="eyebrow">PAYMENT</div>
+    <h2>${opts.confirming?'Confirming your payment':'Complete your payment'}</h2>
+    <p class="muted">${escapeHtml(msg)}</p>
+    ${opts.confirming ? checkBtn(true) : payBtn + checkBtn(false)}
+    <p class="tiny">Order ${n} · ${opts.confirming?'Payment confirmation in progress':'Awaiting payment — the order is confirmed only after payment is received'}. You can also find it under Track order.</p></div>`;
+  $('accountOverlay').classList.add('open');document.body.classList.add('modalOpen');
+}
+// On every page load: settle any Razorpay payment this device started
+// (customer returned after paying, refreshed during payment, lost signal).
+async function resumeRazorpayPayments(){
+  const pending = Object.values(loadRzpPending());
+  let shown = false;
+  for(const o of pending){
+    let st=null;
+    try{ st = await razorpayServerCall('verify-razorpay-payment', { order_number:o.order_number, phone:o.phone, mode:'reconcile' }); }catch{ continue; }
+    if(st?.status==='paid'){ forgetRazorpayOrder(o.order_number); showToast(`Payment received for order ${o.order_number} — your order is confirmed.`); continue; }
+    if(st?.code==='order_not_found' || st?.status==='not_razorpay' || st?.status==='review' || st?.payable===false){ forgetRazorpayOrder(o.order_number); continue; }
+    if(!st?.ok) continue;
+    if(!shown && Date.now()-(o.at||0) < 2*3600000 && !document.querySelector('.overlay.open')){
+      shown = true;
+      showRazorpayPending(o.order_number, st.status==='processing' ? 'We are confirming your payment with Razorpay. Please check again shortly.' : 'Your order is saved, but the payment was not completed.', {confirming: st.status==='processing'});
+    }
+  }
+}
 function showOrderSuccess(o){
   markDeviceOrdered(); // V34: lets "new customer" offers/popup step aside on this device
   $('accountContent').innerHTML=`<div class="successIcon"><i class="fa-solid fa-check"></i></div><div class="eyebrow">ORDER RECEIVED</div><h2>${escapeHtml(o.order_number)}</h2>
@@ -3011,6 +3230,17 @@ async function retryPayment(orderNumber, phone){
     showToast(`This order is already "${o.status}" — no payment retry needed.`);
     trackKnownOrder(orderNumber, phone);
     return;
+  }
+  // Razorpay integration: an order placed with "Pay online" retries via
+  // Razorpay on the SAME order. track_guest_order may not expose
+  // payment_method, so the server is asked (it also settles a payment
+  // that actually went through, e.g. after a dropped connection).
+  if(o.payment_method==='razorpay' || (o.payment_method==null && CONFIG.store.razorpayEnabled)){
+    const rec = { order_number:o.order_number, phone, total:o.total, customerName:'' };
+    const st = await razorpayServerCall('verify-razorpay-payment', { order_number:o.order_number, phone, mode:'reconcile' }).catch(()=>null);
+    if(st?.status==='paid'){ rememberRazorpayOrder(rec); onRazorpayPaid(o.order_number); return; }
+    if(st && st.payment_method==='razorpay'){ rememberRazorpayOrder(rec); startRazorpayPayment(o.order_number); return; }
+    if(!st && o.payment_method==='razorpay'){ rememberRazorpayOrder(rec); showRazorpayPending(o.order_number, RZP_CUSTOMER_ERROR); return; }
   }
   showUpiPayment({ order_number:o.order_number, phone, total:o.total });
 }
@@ -4160,5 +4390,7 @@ async function init(){
     if(currentUser && currentProfile?.role==='admin') location.href='admin.html';
     else openAccount();
   }
+  // Razorpay: reconcile any online payment started on this device (non-blocking).
+  resumeRazorpayPayments().catch(err=>console.warn('Razorpay resume check failed:', err?.message||err));
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init,{once:true}); else init();
