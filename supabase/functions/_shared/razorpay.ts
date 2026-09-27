@@ -78,7 +78,17 @@ export class Razorpay {
   capturePayment(id: string, amountPaise: number) {
     return this.call<RzpPayment>("POST", `/payments/${encodeURIComponent(id)}/capture`, { amount: amountPaise, currency: "INR" });
   }
+  // V34.4 — refunds (used by razorpay-refund)
+  fetchPaymentRefunds(id: string) {
+    return this.call<{ items: RzpRefund[] }>("GET", `/payments/${encodeURIComponent(id)}/refunds`);
+  }
+  createRefund(paymentId: string, amountPaise: number, receipt: string, notes: Record<string, string>) {
+    return this.call<RzpRefund>("POST", `/payments/${encodeURIComponent(paymentId)}/refund`,
+      { amount: amountPaise, speed: "normal", receipt, notes });
+  }
 }
+
+export interface RzpRefund { id: string; payment_id: string; amount: number; currency?: string; status: "pending" | "processed" | "failed"; receipt?: string | null }
 
 // ---------------------------------------------------------------- crypto
 const enc = new TextEncoder();
