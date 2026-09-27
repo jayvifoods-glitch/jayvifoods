@@ -443,11 +443,17 @@ header h1{font:600 38px 'Fraunces',Georgia,serif;margin:6px 0}
 /* Page header: smaller title, less space before the content */
 header{margin-bottom:18px;align-items:center}
 header h1{font-size:clamp(24px,1.1vw + 15px,30px);margin:2px 0 0;line-height:1.15}
-/* Sidebar: every item reachable at laptop heights (was sticky + min-height, not scrollable) */
-aside{height:100vh;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px 12px;scrollbar-width:thin}
-.adminBrand{padding:4px 10px 12px}
-.adminBrand img{width:104px}
-.nav,.storeLink,.logout{padding:9px 12px}
+/* Sidebar: every item reachable at laptop heights (was sticky + min-height, not scrollable).
+   DESKTOP ONLY — at ≤760px admin.css turns the sidebar into a horizontal top bar
+   (see the max-width:760px block above); these rules must not override that.
+   V34.5.1 fix: they were unscoped, which made the phone "top bar" 100vh tall and
+   pushed the whole Admin workspace off-screen. */
+@media(min-width:761px){
+  aside{height:100vh;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px 12px;scrollbar-width:thin}
+  .adminBrand{padding:4px 10px 12px}
+  .adminBrand img{width:104px}
+  .nav,.storeLink,.logout{padding:9px 12px}
+}
 /* Form controls: same height, font, border and background everywhere */
 .settingCard textarea,.modal textarea,.scSecEditor textarea,.scRow textarea,#app .panel>.formSection textarea{font:inherit;font-size:13px;font-weight:500;line-height:1.5}
 .settingCard input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),.settingCard select,
@@ -459,7 +465,7 @@ aside{height:100vh;min-height:0;overflow-y:auto;overscroll-behavior:contain;padd
   box-sizing:border-box;min-height:var(--ctl-h);height:var(--ctl-h);padding:0 12px;font:inherit;font-size:13px;font-weight:500;
   border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink)
 }
-.ordersToolbar{align-items:flex-end;gap:10px}
+@media(min-width:761px){ .ordersToolbar{align-items:flex-end;gap:10px} } /* desktop only: ≤760px stacks the filters full-width */
 .ordersToolbar label.tiny{color:var(--ink-soft);font-weight:700}
 /* Checkboxes: one size, brand colour, never squeezed by long labels */
 #app input[type=checkbox],.modal input[type=checkbox]{width:18px;height:18px;min-height:0;padding:0;accent-color:var(--brand);flex:0 0 18px}
@@ -469,3 +475,14 @@ aside{height:100vh;min-height:0;overflow-y:auto;overscroll-behavior:contain;padd
   border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink)
 }
 .checkOnly input[type=checkbox]{width:18px!important;height:18px;vertical-align:-3px}
+/* Dashboard grids could not shrink below their content (plain `fr` columns), so the page
+   scrolled sideways at 360px (summary cards) and ~900px (latest-orders table).
+   Pre-existing; fixed with minmax(0,…). Media rules are re-declared AFTER the base rules
+   so the ≤760px layouts are never overridden. */
+.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+.kpis article{min-width:0;overflow-wrap:anywhere}
+.orderHead,.orderLine{grid-template-columns:minmax(0,1.2fr) minmax(0,1.4fr) minmax(0,.7fr) minmax(0,1fr) minmax(0,1.1fr)}
+.orderLine>*,.orderHead>*{min-width:0;overflow-wrap:anywhere}
+@media(min-width:900px){ .kpis{grid-template-columns:repeat(6,minmax(0,1fr))} }
+@media(max-width:760px){ .orderLine{grid-template-columns:minmax(0,1fr) auto} }
+@media(max-width:420px){ .kpis{grid-template-columns:repeat(2,minmax(0,1fr))} }
