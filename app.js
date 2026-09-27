@@ -1,5 +1,6 @@
 /* =========================================================
-   Jayvi Foods — v34.3 storefront logic (v34.3: Razorpay online payment —
+   Jayvi Foods — v34.4 storefront logic (v34.4: configurable default payment
+   method + Razorpay cancellation refunds; v34.3: Razorpay online payment —
    see 'Razorpay online payment' block; V33 brand/content layer: see
    the 'V33 — Site content' block below; V34 promotions + immersive hero:
    see 'V34 — Promotions' and heroShow())
@@ -626,7 +627,8 @@ const STORE_FIELD_MAP = {
   upiId:'upi_id', upiName:'upi_name', upiQrImage:'upi_qr_image', upiMc:'upi_mc',
   paymentNote:'payment_note', refundBusinessDays:'refund_business_days',
   announcementSpeed:'announcement_speed', homepageReviewCount:'homepage_review_count',
-  deliveryMode:'delivery_mode', paymentMode:'payment_mode', otpProvider:'otp_provider'
+  deliveryMode:'delivery_mode', paymentMode:'payment_mode', otpProvider:'otp_provider',
+  defaultPaymentMethod:'default_payment_method' // V34.4 (supabase_migration_v34_4_payment_default_refunds.sql)
 };
 async function loadSettingsAnnouncementsReviewsFromSupabase(){
   try{
@@ -2547,9 +2549,13 @@ let checkoutPinInfo = null; // set by verifyPincode() once a PIN is confirmed se
 // if this client-side check is skipped (offline, request failure, etc).
 async function fetchLiveCheckoutGate(){
   try{
-    const {data,error} = await sb.from('store_settings').select('vacation_mode,vacation_message,delivery_mode').eq('id','default').maybeSingle();
+    const {data,error} = await sb.from('store_settings').select('*').eq('id','default').maybeSingle();
     if(error || !data) return null;
-    return { vacationMode: !!data.vacation_mode, vacationMessage: data.vacation_message, deliveryMode: data.delivery_mode };
+    // V34.4: payment availability/default is refreshed together with the
+    // vacation/delivery gate, so a tab left open across an Admin change
+    // offers exactly the methods the server will accept.
+    return { vacationMode: !!data.vacation_mode, vacationMessage: data.vacation_message, deliveryMode: data.delivery_mode,
+      payment: { razorpayEnabled: data.razorpay_enabled, razorpayKeyId: data.razorpay_key_id, upiEnabled: data.upi_enabled, codEnabled: data.cod_enabled, defaultPaymentMethod: data.default_payment_method } };
   }catch(err){
     console.warn('Could not re-check live store configuration before checkout — proceeding with last-known settings (place_order() still enforces this server-side):', err?.message||err);
     return null;
@@ -2575,6 +2581,7 @@ async function checkoutIsBlockedByLiveConfig(){
   // Keep CONFIG in sync even when neither gate is tripped, so the rest
   // of the checkout UI (banners, disabled buttons) reflects reality too.
   CONFIG.store.vacationMode = false; CONFIG.store.deliveryMode = live.deliveryMode;
+  Object.entries(live.payment||{}).forEach(([k,v])=>{ if(v!==undefined) CONFIG.store[k]=v; });
   return false;
 }
 
@@ -2628,8 +2635,6 @@ async function openCheckout(){
     const {data} = await sb.from('customer_addresses').select('*').eq('customer_id', currentUser.id).order('is_default',{ascending:false}).limit(1);
     savedAddr = data?.[0] || null;
   }
-  const upi=CONFIG.store.upiEnabled!==false, cod=CONFIG.store.codEnabled!==false, rzp=razorpayAvailable();
-  const defaultMethod = upi?'upi':rzp?'razorpay':cod?'cod':''; // Razorpay: first available option is pre-selected (UPI stays the default when enabled)
   $('checkoutContent').innerHTML=`<div class="checkoutGrid">
     <div>
       <div class="eyebrow">CHECKOUT</div><h2>Delivery details.</h2>
@@ -2645,13 +2650,8 @@ async function openCheckout(){
         <div class="pinRow"><label>PIN code *<input id="coPin" required inputmode="numeric" pattern="[0-9]{6}" maxlength="6" value="${escapeHtml(savedAddr?.pincode||'')}"></label><button type="button" class="btn outline" onclick="verifyPincode()">Verify PIN</button></div>
         <div id="pinStatus" class="pinStatus"></div>
         <label>Country<select id="coCountry" disabled><option value="IN">India</option></select></label>
-        <div class="paymentChooser"><h3>Payment method</h3>
-          ${upi?`<label class="paymentOption active"><input type="radio" name="paymentMethod" value="upi" checked onchange="togglePaymentNote()"><span><b>Pay by UPI QR</b><small>Scan and pay the exact order amount</small></span></label>`:''}
-          ${rzp?`<label class="paymentOption${defaultMethod==='razorpay'?' active':''}"><input type="radio" name="paymentMethod" value="razorpay" ${defaultMethod==='razorpay'?'checked':''} onchange="togglePaymentNote()"><span><b>Pay online</b><small>UPI apps, cards, net banking &amp; wallets · secured by Razorpay</small></span></label>`:''}
-          ${cod?`<label class="paymentOption${defaultMethod==='cod'?' active':''}"><input type="radio" name="paymentMethod" value="cod" ${defaultMethod==='cod'?'checked':''} onchange="togglePaymentNote()"><span><b>Cash on Delivery</b><small>Pay when your order is delivered</small></span></label>`:''}
-          <div id="paymentNote" class="paymentNote">${escapeHtml(defaultMethod==='razorpay'?RZP_NOTE:defaultMethod==='cod'?'Pay the delivery partner when your order arrives.':(CONFIG.store.paymentNote||''))}</div>
-        </div>
-        <button class="btn gold full" type="submit">Continue checkout <i class="fa-solid fa-arrow-right"></i></button>
+        <div id="paymentChooserBox">${paymentChooserHtml()}</div>
+        <button class="btn gold full" type="submit" ${availablePaymentMethods().length?'':'disabled'}>Continue checkout <i class="fa-solid fa-arrow-right"></i></button>
       </form>
     </div>
     <aside class="summary"><h3>Your order</h3>
@@ -2668,7 +2668,51 @@ function closeCheckout(){$('checkoutOverlay').classList.remove('open');document.
 function togglePaymentNote(){
   document.querySelectorAll('.paymentOption').forEach(x=>x.classList.toggle('active',x.querySelector('input')?.checked));
   const m=document.querySelector('input[name=paymentMethod]:checked')?.value;
-  const n=$('paymentNote'); if(n)n.textContent=m==='cod'?'Pay the delivery partner when your order arrives.':m==='razorpay'?RZP_NOTE:'Scan the QR, pay the exact total, then share the UTR/reference number so we can verify your payment.';
+  const n=$('paymentNote'); if(n)n.textContent=paymentNoteFor(m,false);
+}
+/* ---------- Payment methods (V34.4) ----------
+   Availability and the preselected default come ONLY from store_settings
+   (Admin → Settings → Payment methods): upi_enabled, cod_enabled,
+   razorpay_enabled (+ a valid public Key ID), default_payment_method.
+   If the configured default is unavailable, the first available method
+   in PAYMENT_METHOD_ORDER is preselected instead. The server enforces
+   the same enabled flags when the order is created. */
+const PAYMENT_METHOD_ORDER = ['razorpay','upi','cod'];
+const PAYMENT_OPTION_COPY = {
+  razorpay:{ title:'Pay online', sub:'UPI apps, cards, net banking &amp; wallets · secured by Razorpay' },
+  upi:{ title:'Pay by UPI QR', sub:'Scan and pay the exact order amount' },
+  cod:{ title:'Cash on Delivery', sub:'Pay when your order is delivered' }
+};
+const PAYMENT_UNAVAILABLE_MSG = 'Payment is currently unavailable. Please try again a little later, or contact us on WhatsApp to place your order.';
+function availablePaymentMethods(){
+  const s=CONFIG.store||{};
+  return PAYMENT_METHOD_ORDER.filter(m=> m==='razorpay' ? razorpayAvailable() : m==='upi' ? s.upiEnabled!==false : s.codEnabled!==false);
+}
+function resolvePaymentMethods(){
+  const avail=availablePaymentMethods();
+  const configured=CONFIG.store?.defaultPaymentMethod;
+  const defaultMethod = avail.includes(configured) ? configured : (avail[0]||'');
+  return { defaultMethod, methods: defaultMethod ? [defaultMethod, ...avail.filter(m=>m!==defaultMethod)] : [] };
+}
+function paymentNoteFor(m, initial){
+  if(m==='cod') return 'Pay the delivery partner when your order arrives.';
+  if(m==='razorpay') return RZP_NOTE;
+  if(m==='upi') return initial ? (CONFIG.store.paymentNote||'') : 'Scan the QR, pay the exact total, then share the UTR/reference number so we can verify your payment.';
+  return '';
+}
+function paymentChooserHtml(){
+  const {methods, defaultMethod}=resolvePaymentMethods();
+  if(!methods.length){
+    return `<div class="paymentChooser"><h3>Payment method</h3><div class="pinStatus bad paymentUnavailable" role="alert"><b>Payment is currently unavailable.</b> Please try again a little later, or contact us on WhatsApp to place your order.</div></div>`;
+  }
+  return `<div class="paymentChooser"><h3>Payment method</h3>
+    ${methods.map(m=>`<label class="paymentOption${m===defaultMethod?' active':''}"><input type="radio" name="paymentMethod" value="${m}" ${m===defaultMethod?'checked':''} onchange="togglePaymentNote()"><span><b>${PAYMENT_OPTION_COPY[m].title}</b><small>${PAYMENT_OPTION_COPY[m].sub}</small></span></label>`).join('')}
+    <div id="paymentNote" class="paymentNote">${escapeHtml(paymentNoteFor(defaultMethod,true))}</div></div>`;
+}
+// Re-renders only the payment section (keeps the typed address/PIN).
+function refreshPaymentChooser(){
+  const box=$('paymentChooserBox'); if(box) box.innerHTML=paymentChooserHtml();
+  const btn=document.querySelector('#checkoutForm button[type=submit]'); if(btn) btn.disabled=!availablePaymentMethods().length;
 }
 const PIN_NOT_SERVICEABLE_MSG = 'Delivery is currently unavailable to this PIN code.';
 async function verifyPincode(){
@@ -2796,7 +2840,13 @@ async function placeOrderSubmit(e){
   const total = Math.max(0, t.sub - discount + ship);
   const min = checkoutPinInfo?.min ?? CONFIG.store.deliveryMinDays ?? 4;
   const max = checkoutPinInfo?.max ?? CONFIG.store.deliveryMaxDays ?? 8;
-  const method=document.querySelector('input[name=paymentMethod]:checked')?.value||'upi';
+  const method=document.querySelector('input[name=paymentMethod]:checked')?.value||'';
+  // V34.4: the live re-check above may have changed which methods Admin allows.
+  if(!availablePaymentMethods().includes(method)){
+    refreshPaymentChooser();
+    showToast(availablePaymentMethods().length ? 'Payment options have changed. Please review your payment method and try again.' : PAYMENT_UNAVAILABLE_MSG);
+    return;
+  }
   const items = cart.map(x=>{
     const d=cartItemDetails(x);
     return {
@@ -2852,6 +2902,12 @@ async function placeOrderSubmit(e){
       appliedCoupon=null; saveCoupon(null);
       showToast('This coupon is no longer available. Please select another offer.');
       renderCart(); updateCheckoutSummary();
+      return;
+    }
+    if(/payment method is currently unavailable/i.test(result.error.message||'')){
+      // Server-side authority (trg_enforce_payment_method_enabled): Admin disabled it meanwhile.
+      await checkoutIsBlockedByLiveConfig(); refreshPaymentChooser();
+      showToast(availablePaymentMethods().length ? 'This payment method is no longer available. Please choose another payment method.' : PAYMENT_UNAVAILABLE_MSG);
       return;
     }
     if(method==='razorpay'){ console.warn('place_order (razorpay) failed:', result.error.message); showToast(RZP_CUSTOMER_ERROR); return; }
@@ -3209,6 +3265,7 @@ async function trackKnownOrder(orderNumber, phone){
       ${o.reference_number?`Reference number: <b>${escapeHtml(o.reference_number)}</b><br>`:''}
       ${o.delivery_partner?`Delivery partner: ${escapeHtml(o.delivery_partner)}<br>`:''}
       ${formatDynamicEta(o)}
+      ${o.status==='Refund Pending'?`<br><b>Refund in progress.</b> Your refund should reach your original payment method within ${CONFIG.store.refundBusinessDays||4} business days.`:o.status==='Refunded'?`<br><b>Refund completed</b> to your original payment method.`:''}
     </div>
     ${canRetryPayment?`<button class="btn gold full" style="margin-top:14px" onclick="retryPayment('${escapeHtml(o.order_number)}','${escapeHtml(phone)}')">Retry Payment</button>`:''}
     ${canCancel?`<button class="btn light full" style="margin-top:14px" onclick="confirmCancelOrder('${escapeHtml(o.order_number)}','${escapeHtml(phone)}')">Cancel order</button>`
@@ -3259,7 +3316,15 @@ async function confirmCancelOrder(orderNumber, phone){
   if(!confirm(`Cancel order ${orderNumber}? This can't be undone.`)) return;
   const {error} = await sb.rpc('cancel_order', {p_order_number:orderNumber, p_phone:phone});
   if(error){ showToast('Could not cancel: '+error.message); return; }
-  showToast(`Order ${orderNumber} cancelled. If payment was made, your refund will be credited within ${CONFIG.store.refundBusinessDays||4} business days.`);
+  let msg = `Order ${orderNumber} cancelled. If payment was made, your refund will be credited within ${CONFIG.store.refundBusinessDays||4} business days.`;
+  // V34.4: a Razorpay-paid order is refunded automatically (server-side,
+  // idempotent — a retry never creates a second refund). For UPI/COD the
+  // server answers "not_applicable" and the message above is unchanged.
+  try{
+    const r = await razorpayServerCall('razorpay-refund', { action:'request', order_number:orderNumber, phone });
+    if(r?.ok && r.message && r.status!=='not_applicable' && r.status!=='not_cancelled') msg = `Order ${orderNumber} cancelled. ${r.message}`;
+  }catch(err){ console.warn('Refund request could not be sent (Admin will see the order as Cancelled + paid):', err?.message||err); }
+  showToast(msg);
   trackKnownOrder(orderNumber, phone);
 }
 function trackOrder(){

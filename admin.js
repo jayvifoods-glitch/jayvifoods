@@ -562,7 +562,8 @@ const STORE_FIELD_MAP = {
   upiId:'upi_id', upiName:'upi_name', upiQrImage:'upi_qr_image', upiMc:'upi_mc',
   paymentNote:'payment_note', refundBusinessDays:'refund_business_days',
   announcementSpeed:'announcement_speed', homepageReviewCount:'homepage_review_count',
-  deliveryMode:'delivery_mode', paymentMode:'payment_mode', otpProvider:'otp_provider'
+  deliveryMode:'delivery_mode', paymentMode:'payment_mode', otpProvider:'otp_provider',
+  defaultPaymentMethod:'default_payment_method' // V34.4 (supabase_migration_v34_4_payment_default_refunds.sql)
 };
 async function fetchStoreSettings(){
   const {data:row,error}=await sb.from('store_settings').select('*').eq('id','default').single();
@@ -581,7 +582,13 @@ async function saveStoreSettingsToSupabase(){
   const row={id:'default', hero_autoplay:!!data.homepage.heroAutoplay, hero_seconds:Number(data.homepage.heroSeconds)||5};
   Object.entries(STORE_FIELD_MAP).forEach(([jsKey,dbKey])=>{ row[dbKey]=data.store[jsKey]; });
   const {error}=await sb.from('store_settings').upsert(row);
-  if(error){ toast('Could not save settings: '+error.message); return false; }
+  if(error){
+    // V34.4: explain the two payment-configuration failures in plain words.
+    if(/default_payment_method/i.test(error.message||'') && /column|schema cache/i.test(error.message||'')) toast('Could not save: run supabase_migration_v34_4_payment_default_refunds.sql in Supabase first (adds the default payment method setting).');
+    else if(/store_settings_default_payment_enabled/i.test(error.message||'')) toast('Could not save: the default payment method must be one of the enabled payment methods.');
+    else toast('Could not save settings: '+error.message);
+    return false;
+  }
   return true;
 }
 async function fetchAnnouncements(){
@@ -853,7 +860,7 @@ async function render(){title.textContent=tab==='variants'?'Variants & sizes':ta
  if(tab==='sitecontent')h=await siteContentPage();
  if(tab==='leads')h=await leadsPage();
  app.innerHTML=h;
- if(tab==='settings') checkRazorpayServerConfig(); // Razorpay: async server-side configuration check (no secrets returned)
+ if(tab==='settings'){ checkRazorpayServerConfig(); syncDefaultPaymentSelect(); } // Razorpay config check (no secrets) + V34.4 default-method badges
 }
 // V32.6 (item 11): one single, documented definition of "counts as a
 // successful sale" — used everywhere revenue/sales/product-sales are
@@ -877,7 +884,7 @@ async function dashboard(){
   const delivered=os.filter(o=>String(o.status||'').toLowerCase().includes('delivered')).length;
   const top={};os.filter(isRevenueOrder).forEach(o=>(o.order_items||[]).forEach(i=>{const k=i.name||i.combo_id||'Combo';top[k]=(top[k]||0)+Number(i.qty||0)}));
   const topList=Object.entries(top).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  return `<section class="kpis"><article><small>ORDERS TODAY</small><b>${todayOrders.length}</b><span>${todaySales?money(todaySales):'No sales yet'}</span></article><article><small>TOTAL ORDERS</small><b>${os.length}</b><span>${delivered} delivered</span></article><article><small>SALES</small><b>${money(sales)}</b><span>Confirmed/fulfilled orders only — excludes pending payment, failed, cancelled, and refunded</span></article><article><small>REFUNDED</small><b>${money(refunded)}</b><span>Refund pending + refunded</span></article><article><small>REGISTERED CUSTOMERS</small><b>${cs.length}</b><span>Excludes guests</span></article><article><small>PENDING ORDERS</small><b>${pending}</b><span>Need attention</span></article></section><div class="dashboardGrid"><section class="panel wide"><div class="panelHead"><div><h2>Latest orders</h2><p>Your operational view: customer, amount, payment and current status.</p></div><button class="gold" onclick="setTab('orders')">View all orders →</button></div>${os.length?`<div class="orderTable"><div class="orderHead"><span>Order</span><span>Customer</span><span>Amount</span><span>Payment</span><span>Status</span></div>${os.slice(0,10).map(o=>`<button class="orderLine" onclick="orderView('${esc(o.order_number)}')"><span><b>${esc(o.order_number)}</b><small>${new Date(o.created_at).toLocaleDateString('en-IN')}</small></span><span><b>${esc(o.guest_name||'Guest')}</b><small>${esc(o.guest_phone||'')}</small></span><strong>${money(o.total)}</strong><span>${esc(o.payment_method||'')}</span><span class="statusTag">${esc(o.status||'')}</span></button>`).join('')}</div>`:'<div class="empty">No orders yet.</div>'}</section><section class="panel"><div class="panelHead"><div><h2>Top products</h2><p>Based on live Supabase orders (revenue-counted statuses only).</p></div></div>${topList.length?topList.map(x=>`<div class="metricRow"><span>${esc(x[0])}</span><b>${x[1]} sold</b></div>`).join(''):'<div class="empty smallEmpty">No sales data yet.</div>'}</section><section class="panel"><div class="panelHead"><div><h2>Store operations</h2><p>Quick controls that affect ordering.</p></div><button class="outline" onclick="setTab('settings')">Open settings</button></div><div class="operation"><span>Vacation mode</span><b class="${data.store.vacationMode?'danger':'good'}">${data.store.vacationMode?'ON — ordering paused':'OFF — ordering open'}</b></div><div class="operation"><span>UPI</span><b class="good">${data.store.upiEnabled===false?'OFF':'ON'}</b></div><div class="operation"><span>COD</span><b>${data.store.codEnabled===false?'OFF':'ON'}</b></div><div class="operation"><span>Razorpay</span><b>${data.store.razorpayEnabled?'ON':'OFF'}</b></div><div class="operation"><span>OTP login</span><b>${data.store.otpEnabled?'ON':'OFF — future'}</b></div></section></div>`;
+  return `<section class="kpis"><article><small>ORDERS TODAY</small><b>${todayOrders.length}</b><span>${todaySales?money(todaySales):'No sales yet'}</span></article><article><small>TOTAL ORDERS</small><b>${os.length}</b><span>${delivered} delivered</span></article><article><small>SALES</small><b>${money(sales)}</b><span>Confirmed/fulfilled orders only — excludes pending payment, failed, cancelled, and refunded</span></article><article><small>REFUNDED</small><b>${money(refunded)}</b><span>Refund pending + refunded</span></article><article><small>REGISTERED CUSTOMERS</small><b>${cs.length}</b><span>Excludes guests</span></article><article><small>PENDING ORDERS</small><b>${pending}</b><span>Need attention</span></article></section><div class="dashboardGrid"><section class="panel wide"><div class="panelHead"><div><h2>Latest orders</h2><p>Your operational view: customer, amount, payment and current status.</p></div><button class="gold" onclick="setTab('orders')">View all orders →</button></div>${os.length?`<div class="orderTable"><div class="orderHead"><span>Order</span><span>Customer</span><span>Amount</span><span>Payment</span><span>Status</span></div>${os.slice(0,10).map(o=>`<button class="orderLine" onclick="orderView('${esc(o.order_number)}')"><span><b>${esc(o.order_number)}</b><small>${new Date(o.created_at).toLocaleDateString('en-IN')}</small></span><span><b>${esc(o.guest_name||'Guest')}</b><small>${esc(o.guest_phone||'')}</small></span><strong>${money(o.total)}</strong><span>${esc(o.payment_method||'')}</span><span class="statusTag">${esc(o.status||'')}</span></button>`).join('')}</div>`:'<div class="empty">No orders yet.</div>'}</section><section class="panel"><div class="panelHead"><div><h2>Top products</h2><p>Based on live Supabase orders (revenue-counted statuses only).</p></div></div>${topList.length?topList.map(x=>`<div class="metricRow"><span>${esc(x[0])}</span><b>${x[1]} sold</b></div>`).join(''):'<div class="empty smallEmpty">No sales data yet.</div>'}</section><section class="panel"><div class="panelHead"><div><h2>Store operations</h2><p>Quick controls that affect ordering.</p></div><button class="outline" onclick="setTab('settings')">Open settings</button></div><div class="operation"><span>Vacation mode</span><b class="${data.store.vacationMode?'danger':'good'}">${data.store.vacationMode?'ON — ordering paused':'OFF — ordering open'}</b></div><div class="operation"><span>UPI</span><b class="good">${data.store.upiEnabled===false?'OFF':'ON'}</b></div><div class="operation"><span>COD</span><b>${data.store.codEnabled===false?'OFF':'ON'}</b></div><div class="operation"><span>Razorpay</span><b>${data.store.razorpayEnabled?'ON':'OFF'}</b></div><div class="operation"><span>Default payment</span><b>${[data.store.razorpayEnabled,data.store.upiEnabled!==false,data.store.codEnabled].some(Boolean)?esc(PAYMENT_METHOD_LABELS[effectiveDefaultPaymentMethod(data.store)]||''):'None enabled'}</b></div><div class="operation"><span>OTP login</span><b>${data.store.otpEnabled?'ON':'OFF — future'}</b></div></section></div>`;
 }
 // V32.12.1 (spec 11 — "Admin Orders — Search / Filter / Sort").
 // Deliberately client-side over the already-fetched fetchOrders()
@@ -963,13 +970,53 @@ function razorpayOrderPanel(o){
   const unverified = o.payment_status!=='verified' && o.payment_status!=='refunded' && o.payment_status!=='refund_pending';
   return `<div class="infoBox" style="margin:8px 0"><b>Razorpay</b>${rows.length?rows.map(r=>`<p style="margin:2px 0"><small>${esc(r[0])}:</small> <code>${esc(r[1])}</code></p>`).join(''):'<p>No payment received yet.</p>'}
     ${unverified?'<p class="tiny">Paid status is set automatically after server verification. Only mark it Verified manually after checking the payment in the Razorpay Dashboard.</p>':''}
-    ${o.razorpay_payment_id?`<p class="tiny">Refunds: Razorpay Dashboard → Payments → ${esc(o.razorpay_payment_id)} → Refund. The refund is recorded here automatically via webhook.</p>`:''}
+    ${razorpayRefundControls(o)}
     <div id="rzpAttempts" data-order="${esc(o.order_number)}"></div></div>`;
+}
+// V34.4: refunds for cancelled Razorpay-paid orders go through the
+// razorpay-refund Edge Function (idempotent; the Key Secret stays on the
+// server). Refund status arrives via the existing webhook.
+function razorpayRefundCandidate(o){
+  return o.payment_method==='razorpay' && !!o.razorpay_payment_id && ['Cancelled','Refund Pending'].includes(o.status) && o.payment_status!=='refunded';
+}
+function razorpayRefundControls(o){
+  if(!o.razorpay_payment_id) return '';
+  if(o.status==='Refunded' || o.payment_status==='refunded') return `<p class="tiny"><b>✅ Refunded</b> via Razorpay${Number(o.payment_amount_refunded)>0?' — '+money(o.payment_amount_refunded):''}.</p>`;
+  if(razorpayRefundCandidate(o)){
+    const due = Number(o.payment_amount_paid||o.total||0) - Number(o.payment_amount_refunded||0);
+    return `<p class="tiny">${o.status==='Refund Pending'?'Refund in progress — Razorpay confirms it via webhook (usually within a few days).':'Cancelled after payment — a refund is due.'}</p>
+      <button class="outline" id="rzpRefundBtn" onclick="adminRazorpayRefund('${esc(o.order_number)}')">${o.status==='Refund Pending'?'Check / retry Razorpay refund':'Refund '+money(due)+' via Razorpay'}</button>
+      <div id="rzpRefundMsg" class="tiny" style="margin-top:6px"></div>`;
+  }
+  return `<p class="tiny">To refund, cancel the order first (only possible while Order Confirmed / Preparing), or refund in the Razorpay Dashboard — it is recorded here automatically.</p>`;
+}
+async function adminRazorpayRefund(orderNumber){
+  const btn=document.getElementById('rzpRefundBtn'), msg=document.getElementById('rzpRefundMsg');
+  if(btn){ btn.disabled=true; btn.textContent='Contacting Razorpay…'; }
+  let r=null;
+  try{
+    const {data:session}=await sb.auth.getSession();
+    const res=await fetch(EDGE_FUNCTIONS_URL+'/razorpay-refund',{method:'POST',headers:{'Content-Type':'application/json',apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+(session?.session?.access_token||'')},body:JSON.stringify({action:'admin_refund',order_number:orderNumber})});
+    r=await res.json().catch(()=>null);
+  }catch{}
+  const text = r?.message || (r ? 'Refund request failed.' : 'The razorpay-refund Edge Function could not be reached — is it deployed?');
+  if(msg){ msg.textContent=text; msg.style.color=(r?.ok && r.status!=='refund_failed')?'#1a7a3d':'#a11'; }
+  toast(text);
+  if(btn){ btn.disabled=false; btn.textContent='Check / retry Razorpay refund'; }
+  if(r?.ok && ['refund_initiated','refund_pending','refunded'].includes(r.status)) setTimeout(()=>{ orderView(orderNumber); render(); }, 900);
 }
 async function loadRazorpayAttempts(orderNumber){
   const box=document.getElementById('rzpAttempts'); if(!box) return;
-  const {data:rows,error}=await sb.from('razorpay_payments').select('razorpay_order_id,razorpay_payment_id,amount_paise,status,verification_method,failure_reason,refunded_amount_paise,created_at').eq('order_number',orderNumber).order('created_at',{ascending:false});
+  const cols='razorpay_order_id,razorpay_payment_id,amount_paise,status,verification_method,failure_reason,refunded_amount_paise,created_at';
+  let {data:rows,error}=await sb.from('razorpay_payments').select(cols+',refunds,refund_last_error').eq('order_number',orderNumber).order('created_at',{ascending:false});
+  if(error) ({data:rows,error}=await sb.from('razorpay_payments').select(cols).eq('order_number',orderNumber).order('created_at',{ascending:false})); // before the V34.4 migration
   if(error||!rows?.length) return;
+  // V34.4: orders in razorpay_refund_exclusions (e.g. the Live test order) are never refunded from here.
+  const {data:excl}=await sb.from('razorpay_refund_exclusions').select('reason').eq('order_number',orderNumber).maybeSingle().then(r=>r,()=>({data:null}));
+  if(excl){ const b=document.getElementById('rzpRefundBtn'); if(b) b.outerHTML=`<p class="tiny" id="rzpRefundExcluded"><b>Excluded from automatic refunds</b> — ${esc(excl.reason||'')}. Refund manually in the Razorpay Dashboard only if intended; it is recorded here automatically.</p>`; else box.insertAdjacentHTML('beforebegin','<p class="tiny" id="rzpRefundExcluded"><b>Excluded from automatic refunds</b> — '+esc(excl.reason||'')+'.</p>'); }
+  const refundLines=rows.flatMap(r=>Object.entries(r.refunds||{}).map(([id,v])=>`<p class="tiny" style="margin:2px 0">Refund <code>${esc(id)}</code> · ${money(Number(v.amount||0)/100)} · <b>${esc(v.status||'')}</b></p>`)).join('');
+  const refundErr=rows.map(r=>r.refund_last_error).find(Boolean);
+  if(refundLines||refundErr) box.insertAdjacentHTML('beforebegin', `<div style="margin:6px 0">${refundLines}${refundErr?`<p class="tiny" style="color:#a11">Last refund problem: ${esc(refundErr)}</p>`:''}</div>`);
   const flag=rows.some(r=>r.status==='duplicate_paid'||r.status==='paid_after_cancel'||r.status==='amount_mismatch');
   box.innerHTML=`${flag?'<p style="color:#a11"><b>⚠ Needs attention:</b> a duplicate / after-cancellation / mismatched payment was received — refund it from the Razorpay Dashboard.</p>':''}<details><summary class="tiny">Payment attempts (${rows.length})</summary>${rows.map(r=>`<p class="tiny" style="margin:4px 0">${new Date(r.created_at).toLocaleString('en-IN')} · <code>${esc(r.razorpay_order_id)}</code> · ${money(r.amount_paise/100)} · <b>${esc(r.status)}</b>${r.razorpay_payment_id?' · '+esc(r.razorpay_payment_id):''}${r.failure_reason?' · '+esc(r.failure_reason):''}${r.refunded_amount_paise?' · refunded '+money(r.refunded_amount_paise/100):''}</p>`).join('')}</details>`;
 }
@@ -993,6 +1040,13 @@ async function updateOrder(orderNumber, orderId){
   if(error){ toast('Could not update order: '+error.message); return; }
   await sb.from('order_status_history').insert({ order_id: orderId, status: ns, actor: 'admin' });
   closeModal();toast('Order updated');render();
+  // V34.4: Admin cancelled a Razorpay-paid order → offer the refund straight away.
+  if(ns==='Cancelled' && rzpBox && ['verified','refund_pending'].includes(ps)){
+    const o=await fetchOrder(orderNumber);
+    if(o && razorpayRefundCandidate(o) && confirm(`Order ${orderNumber} was paid online via Razorpay.\n\nRefund ${money(Number(o.payment_amount_paid||o.total||0)-Number(o.payment_amount_refunded||0))} to the customer now?`)){
+      await orderView(orderNumber); adminRazorpayRefund(orderNumber);
+    }
+  }
 }
 const WHATSAPP_STATUS_TEMPLATES = {
   'Order Confirmed': (o)=>`Your Jayvi Foods order ${o.orderNumber} has been confirmed. We have received your order and will start preparing it shortly.`,
@@ -1995,9 +2049,11 @@ async function settingsPage(){
  <label>Homepage review count <small class="v22-admin-help">How many customer-submitted reviews show on the homepage before "View all."</small><input id="setReviewCount" type="number" min="1" max="12" value="${s.homepageReviewCount||6}"></label>
  <button class="gold full" onclick="saveStoreOperations()">Save operations</button></article>
  <article class="settingCard"><span class="typeTag">PAYMENT</span><h2>Payment methods</h2>
- <label class="toggleRow"><span>UPI QR<small>Primary payment method.</small></span><input id="setUpi" type="checkbox" ${s.upiEnabled!==false?'checked':''}></label>
- <label class="toggleRow"><span>Cash on Delivery<small>Show/hide COD at checkout.</small></span><input id="setCod" type="checkbox" ${s.codEnabled?'checked':''}></label>
- <label class="toggleRow"><span>Razorpay (pay online)<small>UPI apps, cards, net banking &amp; wallets. Orders are confirmed automatically once the payment is verified on the server.</small></span><input id="setRazor" type="checkbox" ${s.razorpayEnabled?'checked':''}></label>
+ <label class="toggleRow"><span>Razorpay (pay online) <b class="defaultPayBadge" data-method="razorpay"></b><small>UPI apps, cards, net banking &amp; wallets. Orders are confirmed automatically once the payment is verified on the server.</small></span><input id="setRazor" type="checkbox" ${s.razorpayEnabled?'checked':''} onchange="syncDefaultPaymentSelect()"></label>
+ <label class="toggleRow"><span>UPI Manual (QR + UTR) <b class="defaultPayBadge" data-method="upi"></b><small>Customer pays by QR and enters the UTR; Admin verifies the payment.</small></span><input id="setUpi" type="checkbox" ${s.upiEnabled!==false?'checked':''} onchange="syncDefaultPaymentSelect()"></label>
+ <label class="toggleRow"><span>Cash on Delivery <b class="defaultPayBadge" data-method="cod"></b><small>Show/hide COD at checkout.</small></span><input id="setCod" type="checkbox" ${s.codEnabled?'checked':''} onchange="syncDefaultPaymentSelect()"></label>
+ <label>Default payment method <small class="v22-admin-help">Preselected at checkout. Only enabled methods can be chosen — if you switch the default method off, another enabled method is selected automatically.</small><select id="setDefaultPay" onchange="syncDefaultPaymentSelect()">${['razorpay','upi','cod'].map(m=>`<option value="${m}" ${effectiveDefaultPaymentMethod(s)===m?'selected':''}>${PAYMENT_METHOD_LABELS[m]}</option>`).join('')}</select></label>
+ <div id="defaultPayNote" class="tiny"></div>
  <label>UPI ID<input id="setUpiId" value="${esc(s.upiId||'')}" placeholder="yourupi@bank"></label><label>UPI display name<input id="setUpiName" value="${esc(s.upiName||'Jayvi Foods')}"></label>
  <label>Merchant Category Code (MCC) <small class="v22-admin-help">Required for the "Pay with UPI app" deep link to work on this VPA — get it from ICICI/Eazypay onboarding (not something we can guess). Without it, some UPI apps reject the link with "receiver not accepting payments" / "not permitted by PSP" even though the same VPA works fine when paid to manually.</small><input id="setUpiMc" value="${esc(s.upiMc||'')}" placeholder="e.g. 5411" maxlength="4"></label>
  <label>UPI QR code <small class="v22-admin-help">Upload the QR image below — it's stored in Supabase Storage and works on the live site regardless of repo file paths. You can still paste a path/URL directly in the field instead if you prefer.</small></label>
@@ -2096,10 +2152,34 @@ async function checkRazorpayServerConfig(){
   if(!p.length){ box.className='infoBox'; box.innerHTML=`<b>✅ Razorpay server configuration OK</b><p>${r.key_mode==='live'?'Live mode':'Test mode'} · Key ${esc(r.key_id||'')} · Webhook secret set.</p>`; return; }
   box.className='catalogWarning'; box.innerHTML='<b>Razorpay needs attention</b>'+p.map(x=>`<p>${esc(x)}</p>`).join('');
 }
+/* ---------- Default payment method (V34.4) ---------- */
+const PAYMENT_METHOD_LABELS = { razorpay:'Razorpay (pay online)', upi:'UPI Manual (QR + UTR)', cod:'Cash on Delivery' };
+function enabledPaymentMethodsFromForm(){
+  return [['razorpay','setRazor'],['upi','setUpi'],['cod','setCod']].filter(([,id])=>document.getElementById(id)?.checked).map(([m])=>m);
+}
+// Stored default if it is enabled, else the first enabled method (same rule as checkout).
+function effectiveDefaultPaymentMethod(s){
+  const on=[['razorpay',!!s.razorpayEnabled],['upi',s.upiEnabled!==false],['cod',!!s.codEnabled]].filter(x=>x[1]).map(x=>x[0]);
+  return on.includes(s.defaultPaymentMethod) ? s.defaultPaymentMethod : (on[0] || s.defaultPaymentMethod || 'razorpay');
+}
+function syncDefaultPaymentSelect(){
+  const sel=document.getElementById('setDefaultPay'); if(!sel) return;
+  const on=enabledPaymentMethodsFromForm(), note=document.getElementById('defaultPayNote');
+  [...sel.options].forEach(o=>{ o.disabled=!on.includes(o.value); o.textContent=PAYMENT_METHOD_LABELS[o.value]+(o.disabled?' — disabled':''); });
+  let msg='';
+  if(on.length && !on.includes(sel.value)){ const prev=sel.value; sel.value=on[0]; msg=`${PAYMENT_METHOD_LABELS[prev]} is switched off, so the default is now ${PAYMENT_METHOD_LABELS[on[0]]}.`; }
+  if(!on.length) msg='⚠ No payment method is enabled — customers will see "Payment is currently unavailable" at checkout.';
+  if(note){ note.textContent=msg; note.style.color=on.length?'#6b5':'#a11'; }
+  document.querySelectorAll('.defaultPayBadge').forEach(b=>{ const isDef=on.length && b.dataset.method===sel.value; b.textContent=isDef?'DEFAULT':''; b.style.cssText=isDef?'font-size:10px;background:#1a7a3d;color:#fff;border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:middle':''; });
+}
 async function savePayments(){
   const rzpOn=document.getElementById('setRazor').checked, rzpKey=document.getElementById('setRzp').value.trim();
   if(rzpKey && !RZP_KEY_ID_RE.test(rzpKey)){ toast('Razorpay Key ID must start with rzp_test_ or rzp_live_ (never paste the Key Secret here).'); return; }
   if(rzpOn && !rzpKey){ toast('Enter the Razorpay Key ID before enabling Razorpay.'); return; }
+  const on=enabledPaymentMethodsFromForm(), def=document.getElementById('setDefaultPay')?.value;
+  if(on.length && !on.includes(def)){ toast('The default payment method must be one of the enabled payment methods.'); return; }
+  if(!on.length && !confirm('No payment method is enabled. Customers will not be able to place orders until one is enabled.\n\nSave anyway?')) return;
+  data.store.defaultPaymentMethod = on.length ? def : (data.store.defaultPaymentMethod || def);
   return savePaymentsCore();
 }
 async function savePaymentsCore(){data.store.upiEnabled=document.getElementById('setUpi').checked;data.store.codEnabled=document.getElementById('setCod').checked;data.store.razorpayEnabled=document.getElementById('setRazor').checked;data.store.upiId=document.getElementById('setUpiId').value.trim();data.store.upiName=document.getElementById('setUpiName').value.trim();data.store.upiMc=document.getElementById('setUpiMc').value.trim();data.store.upiQrImage=document.getElementById('setQr').value.trim();data.store.razorpayKeyId=document.getElementById('setRzp').value.trim();const ok=await saveStoreSettingsToSupabase();if(!ok)return;render()}
